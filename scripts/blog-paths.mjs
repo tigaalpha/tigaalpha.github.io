@@ -61,6 +61,7 @@ export function pickPost(rows, lang, hint) {
 
 // A path with no language keeps the original Chinese page (callers and tests compare it byte for byte).
 // A ja / ko / ru / hi / es / fr / ar (or th / en) path must not claim zh-Hans: the tag, title and first line are that language.
+// Arabic is right-to-left: its page says dir="rtl" (and the one fixed English line below is its own bidi island, so its full stop stays at the end of the sentence).
 const NOT_FOUND = {
   zh: { html: "zh-Hans", title: "找不到这篇文章", line: "这篇公开文章不存在，或还没有发布。" },
   th: { html: "th", title: "ไม่พบบทความนี้", line: "บทความนี้ยังไม่มี หรือยังไม่ได้เผยแพร่" },
@@ -84,7 +85,7 @@ export function notFoundHtml(lang) {
 <main style="max-width:640px;margin:40px auto;font:17px/1.6 system-ui,sans-serif">
 <h1>${L.title}</h1>
 <p>${L.line}</p>
-<p>This article is not published.</p>
+<p>${L.dir ? "<bdi>This article is not published.</bdi>" : "This article is not published."}</p>
 <p>${NOT_FOUND_LINKS}</p>
 </main>
 </body></html>

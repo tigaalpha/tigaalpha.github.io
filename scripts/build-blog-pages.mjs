@@ -87,8 +87,13 @@ const forLang = (css, lang) => (FONT_FULL[lang] || FONT_LANG[lang]) ? css.split(
 const CSS = `body{margin:0;background:#faf6f1;color:#2a211b;font:17px/1.75 ${FONT_STACK}}main{max-width:720px;margin:0 auto;padding:24px 18px 60px}header.top{border-bottom:1px solid #eadfd4;background:#fff}header.top div{max-width:720px;margin:0 auto;padding:12px 18px;display:flex;justify-content:space-between;align-items:center}header.top a{color:#d97757;font-weight:800;text-decoration:none;letter-spacing:.05em}h1{font-size:30px;line-height:1.3;margin:.3em 0}h2{font-size:23px;margin:1.6em 0 .4em}h3{font-size:19px;margin:1.4em 0 .3em}img{max-width:100%;border-radius:12px}a{color:#c2552d}.meta{color:#7a6a5e;font-size:14px}.card{display:block;background:#fff;border:1px solid #eadfd4;border-radius:14px;padding:14px 16px;margin:0 0 12px;text-decoration:none;color:inherit}.card b{font-size:18px}.card span{display:block;color:#6b5d52;font-size:15px;margin-top:4px}.cta{display:inline-block;background:#d97757;color:#fff!important;padding:12px 22px;border-radius:10px;font-weight:800;text-decoration:none;margin-top:28px}`;
 /* Right-to-left rules (only written into a page whose language is RTL; every other page is byte for byte what it was). The base CSS has no physical left/right property, so what is left is
    reading rhythm (Arabic needs a taller line), lists and quotes by logical property, and letter-spacing: it would break the joined Arabic letters, so only the Latin brand name keeps it. */
-const RTL_CSS = `[dir=rtl] body{line-height:1.85}[dir=rtl] h1{line-height:1.5}[dir=rtl] h2,[dir=rtl] h3{line-height:1.6}[dir=rtl] .card b,[dir=rtl] .card span{line-height:1.7}[dir=rtl] header.top a:not(:first-child){letter-spacing:0}[dir=rtl] ul,[dir=rtl] ol{padding-inline-start:1.6em;padding-inline-end:0}[dir=rtl] blockquote{margin-inline:0;padding-inline-start:14px;padding-inline-end:0;border-inline-start:3px solid #eadfd4;border-inline-end:0}[dir=rtl] .meta,[dir=rtl] .card,[dir=rtl] .rel,[dir=rtl] .pager{text-align:start}`;
+const RTL_CSS = `[dir=rtl] body{line-height:1.85}[dir=rtl] h1{line-height:1.5}[dir=rtl] h2,[dir=rtl] h3{line-height:1.6}[dir=rtl] .card b,[dir=rtl] .card span{line-height:1.7}[dir=rtl] header.top a:not(:first-child){letter-spacing:0}[dir=rtl] ul,[dir=rtl] ol{padding-inline-start:1.6em;padding-inline-end:0}[dir=rtl] blockquote{margin-inline:0;padding-inline-start:14px;padding-inline-end:0;border-inline-start:3px solid #eadfd4;border-inline-end:0}[dir=rtl] .meta,[dir=rtl] .card,[dir=rtl] .rel,[dir=rtl] .pager{text-align:start}[dir=rtl] time{direction:ltr;unicode-bidi:isolate}`;
+/* The date is an ISO string ("2026-11-17"): after Arabic text the bidi rules would turn its hyphens into right-to-left neutrals and show the three numbers in reverse order ("17-11-2026"),
+   so the date is its own left-to-right island (the reader counter does the same, see viewsCss). Hindi has no direction rule, but Devanagari carries marks above and below the line (head-stroke, matras)
+   and wants a taller line in the headings and cards than the Latin and CJK pages, and no letter-spacing on the blog name in the header (it pulls a letter from its matra). */
+const HI_CSS = `h1{line-height:1.5}h2,h3{line-height:1.55}.card b,.card span{line-height:1.7}header.top a:not(:first-child){letter-spacing:0}`;
 const rtlCss = (lang) => (dirOf(lang) === "rtl" ? RTL_CSS : "");
+const langCss = (lang) => rtlCss(lang) + (lang === "hi" ? HI_CSS : "");
 const dirAttr = (lang) => (dirOf(lang) === "rtl" ? ` dir="rtl"` : "");
 const arrowBack = (lang) => (dirOf(lang) === "rtl" ? "→" : "←");
 const head = (lang, title, desc, canon, extra, ld) => `<!doctype html>
@@ -97,7 +102,7 @@ const head = (lang, title, desc, canon, extra, ld) => `<!doctype html>
 ${extra}<meta property="og:title" content="${esc(title)}"><meta property="og:description" content="${esc(desc)}"><meta property="og:type" content="article"><meta property="og:url" content="${canon}"><meta property="og:image" content="${SITE}/og-card.png"><meta property="og:locale" content="${LG[lang].loc}">
 <meta name="twitter:card" content="summary_large_image"><link rel="icon" href="/icon.svg" type="image/svg+xml">
 <link rel="alternate" type="application/rss+xml" title="${esc(LG[lang].name)}" href="${SITE}/blog/${lang}/feed.xml">
-<script type="application/ld+json">${JSON.stringify(ld).replace(/</g, "\\u003c")}</script><style>${forLang(CSS, lang)}.rel{margin-top:28px}.rel a{display:block;margin:6px 0}.pager{display:flex;gap:16px;margin:18px 0}${rtlCss(lang)}</style><script src="/ga.js" defer></script></head>
+<script type="application/ld+json">${JSON.stringify(ld).replace(/</g, "\\u003c")}</script><style>${forLang(CSS, lang)}.rel{margin-top:28px}.rel a{display:block;margin:6px 0}.pager{display:flex;gap:16px;margin:18px 0}${langCss(lang)}</style><script src="/ga.js" defer></script></head>
 `;
 const topbar = (lang) => `<header class="top"><div><a href="${SITE}/">TIGA ALPHA</a><a href="${SITE}/blog/${lang}/" style="font-weight:600">${LG[lang].name}</a></div></header>`;
 const KW = { th: "สอนเปียโน, เรียนเปียโน, คอร์สเรียนเปียโน, เล่นเปียโน, เล่นดนตรี, สอนดนตรี, คอร์สเปียโน, เรียนเปียโนออนไลน์, เรียนดนตรี, แอปพลิเคชันสอนเปียโนออนไลน์, สอนเปียโนด้วยเอไอ, แอปสอนเปียโน, แอปสอนเปียโนออนไลน์, แอปสอนเปียโน AI, คอร์สเรียนเปียโนออนไลน์ AI", en: "piano teaching, learn piano, piano learning course, play piano, play music, music teaching, piano course, learn piano online, learn music, online piano teaching application, piano teaching with AI, piano teaching app, online piano lessons app, AI piano teaching app, AI online piano course", zh: "钢琴教学, 学钢琴, 钢琴学习课程, 弹钢琴, 演奏音乐, 音乐教学, 钢琴课程, 在线学钢琴, 学音乐, 在线钢琴教学应用, 用AI教钢琴, 钢琴教学App, 在线钢琴教学App, AI钢琴教学App, AI在线钢琴课程",
@@ -133,6 +138,8 @@ const CATN = { tips: { th: "เทคนิคการฝึก", en: "Practice
    way of telling a login wall from cloaking. The SEO cost of an uncloseable wall (Google's intrusive-interstitial rule) is the owner's accepted trade-off;
    the text is data-nosnippet so it never replaces the article's snippet. The test door: with
    localStorage.tg_test_hook = "1" the page reads ?gate_ms=<ms> instead of 5000. */
+// hi / es / fr / ar (owner 2026-11-13): hi "aap", es "tú", fr "vous", ar Modern Standard with masculine-singular imperatives; the button words follow the app's catalog ("Continue with Google", "Log in", "Sign up"). The product name "TIGA AI" (and, in es,
+// "Inicia sesión") carries a no-break space ( ), so a 320 px phone never splits the name over two lines or leaves one word of the log-in link alone.
 const GATE_T = {
   th: { title: "ล็อกอินเพื่ออ่านต่อ", sub: "ล็อกอินหรือสมัครสมาชิกฟรีเพื่ออ่านบทความนี้ต่อ แล้วเริ่มเรียนเปียโนฟรีผ่านแอป TIGA AI ได้ทันที", google: "ล็อกอินด้วย Google", signup: "สมัครสมาชิกฟรี", login: "มีบัญชีอยู่แล้ว? เข้าสู่ระบบ" },
   en: { title: "Log in to keep reading", sub: "Log in or sign up free to read the rest of this article, then start learning piano for free with the TIGA AI app.", google: "Continue with Google", signup: "Sign up free", login: "Already a member? Log in" },
@@ -140,10 +147,10 @@ const GATE_T = {
   ja: { title: "続きを読むにはログイン", sub: "無料でログインまたは会員登録すると、この記事の続きを読めます。そのままTIGA AIアプリで、ピアノを無料で学び始められます。", google: "Googleで続ける", signup: "無料で会員登録", login: "アカウントをお持ちの方はログイン" },
   ko: { title: "계속 읽으려면 로그인하세요", sub: "무료로 로그인하거나 가입하면 이 글의 나머지를 읽을 수 있고, 바로 TIGA AI 앱에서 피아노를 무료로 배우기 시작할 수 있어요.", google: "Google로 계속하기", signup: "무료로 가입하기", login: "이미 회원이신가요? 로그인" },
   ru: { title: "Войдите, чтобы читать дальше", sub: "Войдите или зарегистрируйтесь бесплатно, чтобы дочитать эту статью, а затем начните бесплатно учиться играть на фортепиано в приложении TIGA AI.", google: "Продолжить через Google", signup: "Зарегистрироваться бесплатно", login: "Уже есть аккаунт? Войти" },
-  hi: { title: "आगे पढ़ने के लिए लॉग इन करें", sub: "इस लेख का बाकी हिस्सा पढ़ने के लिए मुफ़्त में लॉग इन करें या साइन अप करें, फिर TIGA AI ऐप से मुफ़्त में पियानो सीखना शुरू करें।", google: "Google से जारी रखें", signup: "मुफ़्त में साइन अप करें", login: "पहले से सदस्य हैं? लॉग इन करें" },
-  es: { title: "Inicia sesión para seguir leyendo", sub: "Inicia sesión o regístrate gratis para leer el resto de este artículo y empieza a aprender piano gratis con la app TIGA AI.", google: "Continuar con Google", signup: "Regístrate gratis", login: "¿Ya eres miembro? Inicia sesión" },
-  fr: { title: "Connectez-vous pour continuer à lire", sub: "Connectez-vous ou inscrivez-vous gratuitement pour lire la suite de cet article, puis commencez à apprendre le piano gratuitement avec l'application TIGA AI.", google: "Continuer avec Google", signup: "S'inscrire gratuitement", login: "Déjà membre\u00a0? Se connecter" },
-  ar: { title: "سجّل الدخول لمواصلة القراءة", sub: "سجّل الدخول أو أنشئ حسابًا مجانًا لقراءة بقية هذا المقال، ثم ابدأ تعلّم البيانو مجانًا عبر تطبيق TIGA AI.", google: "المتابعة باستخدام Google", signup: "إنشاء حساب مجاني", login: "لديك حساب بالفعل؟ تسجيل الدخول" },
+  hi: { title: "आगे पढ़ने के लिए लॉग इन करें", sub: "इस लेख का बाकी हिस्सा पढ़ने के लिए मुफ़्त में लॉग इन करें या साइन अप करें, फिर TIGA AI ऐप से मुफ़्त में पियानो सीखना शुरू करें।", google: "Google से जारी रखें", signup: "मुफ़्त में साइन अप करें", login: "पहले से सदस्य हैं? लॉग इन करें" },
+  es: { title: "Inicia sesión para seguir leyendo", sub: "Inicia sesión o regístrate gratis para leer el resto de este artículo y empieza a aprender piano gratis con la app TIGA AI.", google: "Continuar con Google", signup: "Regístrate gratis", login: "¿Ya eres miembro? Inicia sesión" },
+  fr: { title: "Connectez-vous pour continuer à lire", sub: "Connectez-vous ou inscrivez-vous gratuitement pour lire la suite de cet article, puis commencez à apprendre le piano gratuitement avec l'application TIGA AI.", google: "Continuer avec Google", signup: "S'inscrire gratuitement", login: "Déjà membre\u00a0? Se connecter" },
+  ar: { title: "سجّل الدخول لمواصلة القراءة", sub: "سجّل الدخول أو أنشئ حسابًا مجانًا لقراءة بقية هذا المقال، ثم ابدأ تعلّم البيانو مجانًا عبر تطبيق TIGA AI.", google: "المتابعة باستخدام Google", signup: "إنشاء حساب مجاني", login: "لديك حساب بالفعل؟ تسجيل الدخول" },
 };
 const GATE_CSS = `#tg-gate{position:fixed;inset:0;z-index:2147483000;display:flex;align-items:center;justify-content:center;padding:16px;background:rgba(34,26,21,.95);-webkit-backdrop-filter:blur(16px);backdrop-filter:blur(16px);overscroll-behavior:contain;animation:tgGf .22s ease-out}#tg-gate[hidden]{display:none}
 .tg-g-card{position:relative;box-sizing:border-box;width:100%;max-width:400px;max-height:calc(100vh - 32px);overflow:auto;background:#fff;color:#2a211b;border:1px solid #eee3d8;border-radius:18px;padding:28px 22px 14px;text-align:center;box-shadow:0 18px 60px rgba(60,30,10,.35);font:16px/1.5 ${FONT_STACK};animation:tgGu .28s cubic-bezier(.2,.8,.2,1)}
@@ -155,10 +162,23 @@ const GATE_CSS = `#tg-gate{position:fixed;inset:0;z-index:2147483000;display:fle
 .tg-g-card a:focus-visible,.tg-g-card button:focus-visible{outline:3px solid #d9775799;outline-offset:2px}
 @keyframes tgGf{from{opacity:0}to{opacity:1}}@keyframes tgGu{from{opacity:0;transform:translateY(14px) scale(.98)}to{opacity:1;transform:none}}
 @media (prefers-reduced-motion:reduce){#tg-gate,.tg-g-card{animation:none}}`;
+// Taller lines in the wall for the scripts that need them (the card is centred in every language, so nothing here moves it): Devanagari marks above and below the line, Arabic stacked vowel marks.
+const GATE_LANG_CSS = {
+  hi: `.tg-g-card{line-height:1.7}.tg-g-card h2{line-height:1.5}.tg-g-card p{line-height:1.75}`,
+  ar: `[dir=rtl] .tg-g-card{line-height:1.7}[dir=rtl] .tg-g-card h2{line-height:1.6}[dir=rtl] .tg-g-card p{line-height:1.85}`,
+};
+const gateLangCss = (lang) => GATE_LANG_CSS[lang] || "";
 const GMARK = `<svg width="20" height="20" viewBox="0 0 48 48" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9.1 3.6l6.8-6.8C35.9 2.4 30.4 0 24 0 14.6 0 6.5 5.4 2.6 13.2l7.9 6.2C12.4 13.6 17.7 9.5 24 9.5z"/><path fill="#4285F4" d="M46.1 24.5c0-1.6-.1-3.1-.4-4.5H24v9h12.4c-.5 2.9-2.2 5.3-4.6 6.9l7.4 5.7c4.3-4 6.9-9.9 6.9-17.1z"/><path fill="#FBBC05" d="M10.5 28.6c-.5-1.4-.8-3-.8-4.6s.3-3.2.8-4.6l-7.9-6.2C.9 16.4 0 20.1 0 24s.9 7.6 2.6 10.8l7.9-6.2z"/><path fill="#34A853" d="M24 48c6.5 0 11.9-2.1 15.9-5.8l-7.4-5.7c-2.1 1.4-4.9 2.3-8.5 2.3-6.3 0-11.6-4.1-13.5-9.9l-7.9 6.2C6.5 42.6 14.6 48 24 48z"/></svg>`;
 const J = (v) => JSON.stringify(v).replace(/</g, "\\u003c");   // JSON inside an inline <script>: never let a slug close it
 const VIEWS_CSS = `.tg-views{color:#7a6a5e;white-space:nowrap}.tg-cv{display:block;margin-top:6px;color:#8a7a6e;font-size:13px}`;
-const VIEWS_LBL = { th: "ยอดวิว", en: "views", zh: "次浏览", ja: "回閲覧", ko: "회 조회", ru: "просмотров", hi: "बार देखा गया", es: "visualizaciones", fr: "vues", ar: "مشاهدة" };
+// In a right-to-left page the badge is its own bidi island: the number keeps its digits in order and the Arabic unit does not pull the "·" and the eye to the wrong side of the date.
+const viewsCss = (lang) => VIEWS_CSS + (dirOf(lang) === "rtl" ? `[dir=rtl] .tg-views,[dir=rtl] .tg-cv{unicode-bidi:isolate}` : "");
+// hi follows the app (BlogPage.tsx shows "व्यूज़" for the same count). th / zh / ja / ko / ru are the units the in-app blog already uses.
+const VIEWS_LBL = { th: "ยอดวิว", en: "views", zh: "次浏览", ja: "回閲覧", ko: "회 조회", ru: "просмотров", hi: "व्यूज़", es: "visualizaciones", fr: "vues", ar: "مشاهدة" };
+// The unit changes with the number in es / fr (one view is singular: "1 visualización", "1 vue") and in Arabic (1, 2, 3-10 and 11+ each take their own form). The count is always >= 1 when it is shown.
+// UNIT_JS is the JavaScript expression the page scripts append to the number (n is the number there); every other language keeps `LBL`, so those pages are byte for byte what they were.
+const VIEWS_ONE = { es: "visualización", fr: "vue" };
+const UNIT_JS = (lang) => lang === "ar" ? `(n===1?LBL:n===2?${J("مشاهدتان")}:n<=10?${J("مشاهدات")}:LBL)` : VIEWS_ONE[lang] ? `(n===1?${J(VIEWS_ONE[lang])}:LBL)` : "LBL";
 // (Arabic asks for Latin digits through the -u-nu-latn extension: a bare "ar" prints Arabic-Indic digits in some engines.) The number sits straight against the unit in Japanese ("1,234回閲覧") and Korean ("1,234회 조회"); the others have a space. LOC_JS is the locale expression the page scripts format the number with (th / en / zh keep their old text).
 const VIEWS_SEP = (lang) => lang === "ja" || lang === "ko" ? "" : " ";
 const LOC_JS = (lang) => ["th", "en", "zh"].includes(lang) ? `LANG==="th"?"th-TH":LANG==="zh"?"zh-CN":"en-US"` : J(({ ja: "ja-JP", ko: "ko-KR", ru: "ru-RU", hi: "hi-IN", es: "es-ES", fr: "fr-FR", ar: "ar-u-nu-latn" })[lang] || "en-US");
@@ -190,7 +210,7 @@ function ev(n,p){try{if(W.gtag)W.gtag("event",n,p)}catch(e){}}
 function rpc(name,body,cb,ka){if(BOT||OFF)return;var o={method:"POST",headers:{apikey:KEY,Authorization:"Bearer "+KEY,"Content-Type":"application/json"},body:JSON.stringify(body)};if(ka)o.keepalive=true;try{W.fetch(API+"/rest/v1/rpc/"+name,o).then(function(r){if(r.status===404){OFF=true;try{SS&&SS.setItem("tg_blog_rpc_off","1")}catch(e){}}return r.ok?r.json():null}).then(function(j){if(cb)cb(j)},function(){})}catch(e){}}
 function hit(kind,cb,ka){rpc("blog_hit",{p_lang:LANG,p_slug:SLUG,p_vid:VID,p_kind:kind},cb,ka)}
 function badgeEl(){if(badge)return badge;var t=D.querySelector("article time");if(!t||!t.parentNode)return null;badge=D.createElement("span");badge.className="tg-views";badge.setAttribute("data-nosnippet","");badge.hidden=true;t.parentNode.appendChild(badge);return badge}
-function show(n){if(typeof n!=="number"||!(n>=1))return;var b=badgeEl();if(!b)return;var s;try{s=n.toLocaleString(${LOC_JS(lang)})}catch(e){s=String(n)}b.textContent=" \\u00b7 \\ud83d\\udc41 "+s+${J(VIEWS_SEP(lang))}+LBL;b.hidden=false}
+function show(n){if(typeof n!=="number"||!(n>=1))return;var b=badgeEl();if(!b)return;var s;try{s=n.toLocaleString(${LOC_JS(lang)})}catch(e){s=String(n)}b.textContent=" \\u00b7 \\ud83d\\udc41 "+s+${J(VIEWS_SEP(lang))}+${UNIT_JS(lang)};b.hidden=false}
 /* the view is counted once the page is really in front of the reader: not while it is only prerendered, not in a tab that was opened in the background and never looked at */
 var VIEWED=0;function view(){if(VIEWED)return;if(D.prerendering||D.hidden)return;VIEWED=1;hit("view",show)}
 if(D.prerendering)D.addEventListener("prerenderingchange",view);D.addEventListener("visibilitychange",function(){last=Date.now();view()});view();
@@ -205,20 +225,33 @@ W.addEventListener("pageshow",function(e){last=Date.now();if(e&&e.persisted&&OPE
 if(!el)return;
 el.addEventListener("click",function(e){var t=e.target;while(t&&t!==el){if(t.getAttribute&&t.getAttribute("data-gate")){ev("blog_gate_click",{method:t.getAttribute("data-gate"),slug:SLUG});hit("click",null,true);try{if(LS){var p=JSON.parse(LS.getItem("tg_guest_profile")||"{}")||{};p.lang=LANG;LS.setItem("tg_guest_profile",JSON.stringify(p))}}catch(e){}return}t=t.parentNode}});
 if(W.__tgGate===undefined)W.__tgGate={open:function(){if(!OPEN&&!isAuth())openIt()},state:function(){return{open:OPEN,read:READ,auth:isAuth()}}};})();`;
-  return `${GATE_MARK}<style>${forLang(GATE_CSS, lang)}${VIEWS_CSS}</style><div id="tg-gate" role="dialog" aria-modal="true" aria-labelledby="tg-gate-t" data-nosnippet hidden><div class="tg-g-card"><div class="tg-g-badge">TIGA ALPHA</div><h2 id="tg-gate-t">${esc(T.title)}</h2><p>${esc(T.sub)}</p><a class="tg-g-btn tg-g-google" data-gate="google" rel="nofollow" href="${L("go=google")}">${GMARK}${esc(T.google)}</a><a class="tg-g-btn tg-g-signup" data-gate="signup" rel="nofollow" href="${L("wall=signup")}">${esc(T.signup)}</a><a class="tg-g-login" data-gate="login" rel="nofollow" href="${L("wall=login")}">${esc(T.login)}</a></div></div><script>${js}</script>${GATE_END}`;
+  return `${GATE_MARK}<style>${forLang(GATE_CSS, lang)}${gateLangCss(lang)}${viewsCss(lang)}</style><div id="tg-gate" role="dialog" aria-modal="true" aria-labelledby="tg-gate-t" data-nosnippet hidden><div class="tg-g-card"><div class="tg-g-badge">TIGA ALPHA</div><h2 id="tg-gate-t">${esc(T.title)}</h2><p>${esc(T.sub)}</p><a class="tg-g-btn tg-g-google" data-gate="google" rel="nofollow" href="${L("go=google")}">${GMARK}${esc(T.google)}</a><a class="tg-g-btn tg-g-signup" data-gate="signup" rel="nofollow" href="${L("wall=signup")}">${esc(T.signup)}</a><a class="tg-g-login" data-gate="login" rel="nofollow" href="${L("wall=login")}">${esc(T.login)}</a></div></div><script>${js}</script>${GATE_END}`;
 }
 /* The article lists show the same number on every card (one call per list). Patched into kept pages like the gate. */
 const IDX_MARK = "<!--tg-idx:v1-->", IDX_END = "<!--/tg-idx-->";
 function idxHtml(lang) {
   const js = `(function(){var W=window,D=document,API=${J(URL_)},KEY=${J(KEY)},LANG=${J(lang)},LBL=${J(VIEWS_LBL[lang] || VIEWS_LBL.en)};try{if(/googlebot|bingbot|baiduspider|yandex|duckduckbot|applebot|slurp|crawler|spider|lighthouse|headlesschrome|prerender|facebookexternalhit|ahrefsbot|semrushbot|gptbot|claudebot|petalbot|bytespider/i.test(navigator.userAgent||""))return}catch(e){}
 var cards=D.querySelectorAll("a.card");if(!cards.length)return;
-try{W.fetch(API+"/rest/v1/rpc/blog_view_counts",{method:"POST",headers:{apikey:KEY,Authorization:"Bearer "+KEY,"Content-Type":"application/json"},body:JSON.stringify({p_lang:LANG})}).then(function(r){return r.ok?r.json():null}).then(function(rows){if(!rows||!rows.length)return;var m={},i;for(i=0;i<rows.length;i++)m[rows[i].slug]=rows[i].views;for(i=0;i<cards.length;i++){var h=cards[i].getAttribute("href")||"",s;try{s=decodeURIComponent(h.replace(/^.*\\/blog\\/[a-z]+\\//,"").replace(/\\.html$/,""))}catch(e){continue}var n=m[s];if(typeof n==="number"&&n>=1){var sp=D.createElement("span");sp.className="tg-cv";sp.setAttribute("data-nosnippet","");var t;try{t=n.toLocaleString(${LOC_JS(lang)})}catch(e){t=String(n)}sp.textContent="\\ud83d\\udc41 "+t+${J(VIEWS_SEP(lang))}+LBL;cards[i].appendChild(sp)}}},function(){})}catch(e){}})();`;
-  return `${IDX_MARK}<style>${VIEWS_CSS}</style><script>${js}</script>${IDX_END}`;
+try{W.fetch(API+"/rest/v1/rpc/blog_view_counts",{method:"POST",headers:{apikey:KEY,Authorization:"Bearer "+KEY,"Content-Type":"application/json"},body:JSON.stringify({p_lang:LANG})}).then(function(r){return r.ok?r.json():null}).then(function(rows){if(!rows||!rows.length)return;var m={},i;for(i=0;i<rows.length;i++)m[rows[i].slug]=rows[i].views;for(i=0;i<cards.length;i++){var h=cards[i].getAttribute("href")||"",s;try{s=decodeURIComponent(h.replace(/^.*\\/blog\\/[a-z]+\\//,"").replace(/\\.html$/,""))}catch(e){continue}var n=m[s];if(typeof n==="number"&&n>=1){var sp=D.createElement("span");sp.className="tg-cv";sp.setAttribute("data-nosnippet","");var t;try{t=n.toLocaleString(${LOC_JS(lang)})}catch(e){t=String(n)}sp.textContent="\\ud83d\\udc41 "+t+${J(VIEWS_SEP(lang))}+${UNIT_JS(lang)};cards[i].appendChild(sp)}}},function(){})}catch(e){}})();`;
+  return `${IDX_MARK}<style>${viewsCss(lang)}</style><script>${js}</script>${IDX_END}`;
 }
 // strip a gate / list-script block written by any earlier version of this generator (v1 pages carry no markers)
 const OLD_GATE = /<!--tg-gate:v\d+-->[\s\S]*?<!--\/tg-gate-->|<style>#tg-gate\{[\s\S]*?<\/style><div id="tg-gate"[\s\S]*?<\/div><\/div><script>[\s\S]*?<\/script>/g;
 const OLD_IDX = /<!--tg-idx:v\d+-->[\s\S]*?<!--\/tg-idx-->/g;
 const lastBody = /<\/body>(?![\s\S]*<\/body>)/;
+// A page kept from an earlier build (th / en / zh while the database is not reachable) cannot be rendered again, so it does not know about a translation written after it: its hreflang cluster
+// gets the missing alternates, in the order of LG and in front of x-default (where a rendered page would have them), or Google ignores the new pages' links back (hreflang must be reciprocal).
+// Nothing already in the cluster is changed or removed (the x-default of a kept page stays), a page with no cluster is left alone, and a second run adds nothing.
+const ALT_RUN = /(?:<link rel="alternate" hreflang="[^"]*" href="[^"]*">)+\n/;
+export function addAlternates(html, slug, set) {
+  const m = set && ALT_RUN.exec(html);
+  if (!m) return html;
+  const have = new Set([...m[0].matchAll(/hreflang="([^"]*)"/g)].map(x => x[1]));
+  const add = Object.keys(LG).filter(l => set[l] && !have.has(LG[l].html)).map(l => `<link rel="alternate" hreflang="${LG[l].html}" href="${SITE}/blog/${l}/${encodeURIComponent(slug)}.html">`).join("");
+  if (!add) return html;
+  const run = m[0].includes('<link rel="alternate" hreflang="x-default"') ? m[0].replace('<link rel="alternate" hreflang="x-default"', () => add + '<link rel="alternate" hreflang="x-default"') : m[0].replace(/\n$/, () => add + "\n");
+  return html.slice(0, m.index) + run + html.slice(m.index + m[0].length);
+}
 // One article page. `set` is the same slug in every language that exists ({ th, en, zh }). Used by the static build and by the on-demand page, so both emit the same raw HTML.
 function plainText(md) {
   return String(md || "").replace(/```[\s\S]*?```/g, " ").replace(/[#>*_\[\]()!`-]/g, " ").replace(/\s+/g, " ").trim();
@@ -370,6 +403,7 @@ if (!fetched) {
       if (h0.includes("</body>")) {
         let h1 = h0.replace(OLD_GATE, "").replace(lastBody, () => gateHtml(lang, f.slice(0, -5)) + "</body>");
         if (!h1.includes('"isAccessibleForFree"')) h1 = h1.replace('"@type":"BlogPosting","@id"', '"@type":"BlogPosting","isAccessibleForFree":false,"hasPart":{"@type":"WebPageElement","isAccessibleForFree":false,"cssSelector":"article"},"@id"');
+        h1 = addAlternates(h1, f.slice(0, -5), bySlug[f.slice(0, -5)]);   // a translation added after this page was rendered: link to it (and it links back, see the pages written from blog-src)
         if (h1 !== h0) fs.writeFileSync(fp, h1);
       }
     }
