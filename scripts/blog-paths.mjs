@@ -1,19 +1,22 @@
 // Path rules for a public blog URL. Pure: no network, no files, no article text.
 // The stable address the static build already publishes is /blog/<lang>/<slug>.html.
 // A one-segment /blog/<slug> is the short address some links use; the slug is kept whole (a trailing -zh is only a language hint).
-export const BLOG_LANGS = ["th", "en", "zh", "ja", "ko", "ru"];
+export const BLOG_LANGS = ["th", "en", "zh", "ja", "ko", "ru", "hi", "es", "fr", "ar"];
 const LANGS = new Set(BLOG_LANGS);
-// ja / ko / ru ship as committed source files (blog-src/) and get a REAL index.html, page/N/index.html and feed.xml from the build, so they never depend on the database being filled in.
-export const STATIC_BLOG_LANGS = ["ja", "ko", "ru"];
+// These languages get a real index.html / feed.xml when they have posts (blog-src/ or the database) and a 404 + noindex
+// from the live function while they have none, so a language with zero posts never publishes an empty 200 list.
+// ja / ko / ru shipped with committed articles. hi / es / fr / ar start empty; the admin adds them from 17 Nov 2026.
+export const STATIC_BLOG_LANGS = ["ja", "ko", "ru", "hi", "es", "fr", "ar"];
 const SLUG = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+const LANG_ALT = BLOG_LANGS.join("|");
 
 export function parseBlogPath(raw) {
   let path = String(raw || "").split("?")[0];
   try { path = decodeURIComponent(path); } catch { return { kind: "bad" }; }
   if (path.length > 1 && path.endsWith("/")) path = path.slice(0, -1);
-  const feed = path.match(/^\/blog\/(th|en|zh|ja|ko|ru)\/feed\.xml$/);
+  const feed = path.match(new RegExp("^/blog/(" + LANG_ALT + ")/feed\\.xml$"));
   if (feed) return { kind: "feed", lang: feed[1] };
-  const paged = path.match(/^\/blog\/(th|en|zh|ja|ko|ru)\/page\/(\d+)$/);
+  const paged = path.match(new RegExp("^/blog/(" + LANG_ALT + ")/page/(\\d+)$"));
   if (paged) return { kind: "index", lang: paged[1], page: Math.max(1, Number(paged[2]) || 1) };
   const two = path.match(/^\/blog\/([^/]+)\/([^/]+)$/);
   if (two) {
@@ -29,7 +32,7 @@ export function parseBlogPath(raw) {
     const slug = one[1];
     if (LANGS.has(slug)) return { kind: "index", lang: slug };
     if (!SLUG.test(slug)) return { kind: "bad" };
-    const suf = slug.match(/-(zh|en|th|ja|ko|ru)$/);
+    const suf = slug.match(new RegExp("-(" + LANG_ALT + ")$"));
     return { kind: "article", lang: suf ? suf[1] : null, slug, hint: true, html: false };
   }
   return { kind: "ignore" };
@@ -65,12 +68,17 @@ const NOT_FOUND = {
   ja: { html: "ja", title: "この記事は見つかりません", line: "この記事は公開されていないか、まだありません。" },
   ko: { html: "ko", title: "이 글을 찾을 수 없습니다", line: "공개되지 않았거나 없는 글입니다." },
   ru: { html: "ru", title: "Статья не найдена", line: "Этой статьи нет или она ещё не опубликована." },
+  hi: { html: "hi", title: "यह लेख नहीं मिला", line: "यह लेख प्रकाशित नहीं है, या अभी मौजूद नहीं है।" },
+  es: { html: "es", title: "No se encontró este artículo", line: "Este artículo no está publicado, o todavía no existe." },
+  fr: { html: "fr", title: "Article introuvable", line: "Cet article n'est pas publié, ou il n'existe pas encore." },
+  ar: { html: "ar", dir: "rtl", title: "لم يُعثر على هذا المقال", line: "هذا المقال غير منشور، أو غير موجود بعد." },
 };
-const NOT_FOUND_LINKS = `<a href="https://www.tigaalpha.com/blog/zh/">中文博客</a> · <a href="https://www.tigaalpha.com/blog/en/">English</a> · <a href="https://www.tigaalpha.com/blog/th/">ไทย</a> · <a href="https://www.tigaalpha.com/blog/ja/">日本語</a> · <a href="https://www.tigaalpha.com/blog/ko/">한국어</a> · <a href="https://www.tigaalpha.com/blog/ru/">Русский</a>`;
+const NOT_FOUND_LINKS = `<a href="https://www.tigaalpha.com/blog/zh/">中文博客</a> · <a href="https://www.tigaalpha.com/blog/en/">English</a> · <a href="https://www.tigaalpha.com/blog/th/">ไทย</a> · <a href="https://www.tigaalpha.com/blog/ja/">日本語</a> · <a href="https://www.tigaalpha.com/blog/ko/">한국어</a> · <a href="https://www.tigaalpha.com/blog/ru/">Русский</a> · <a href="https://www.tigaalpha.com/blog/hi/">हिन्दी</a> · <a href="https://www.tigaalpha.com/blog/es/">Español</a> · <a href="https://www.tigaalpha.com/blog/fr/">Français</a> · <a href="https://www.tigaalpha.com/blog/ar/">العربية</a>`;
 export function notFoundHtml(lang) {
   const L = NOT_FOUND[lang] || NOT_FOUND.zh;
+  const dir = L.dir ? ` dir="${L.dir}"` : "";
   return `<!doctype html>
-<html lang="${L.html}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<html lang="${L.html}"${dir}><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>${L.title} | TIGA ALPHA</title>
 <meta name="robots" content="noindex">
 </head><body>
@@ -84,7 +92,7 @@ export function notFoundHtml(lang) {
 `;
 }
 
-const HTML_LANG = { th: "th", en: "en", zh: "zh-Hans", ja: "ja", ko: "ko", ru: "ru" };
+const HTML_LANG = { th: "th", en: "en", zh: "zh-Hans", ja: "ja", ko: "ko", ru: "ru", hi: "hi", es: "es", fr: "fr", ar: "ar" };
 
 export function sitemapBlogXml(posts, site) {
   const list = (posts || []).filter(p => p && p.published !== false && SLUG.test(p.slug || "") && LANGS.has(p.lang));

@@ -2,22 +2,22 @@ import { useState, useEffect } from "react";
 import { sb } from "./supabase-client";
 
 import { pickT, xl, ALL_LANGS, LANG_META, localeOf, dateLocale, isExtraLang } from "./lang-extra";
-/* Blog (owner 2026-10-31): articles in Thai, English and Mandarin (and, since 2026-11-11, Japanese, Korean and Russian), written only by the top admin (AdminBlog.tsx) and stored in public.blog_posts.
+/* Blog (owner 2026-10-31): articles in Thai, English and Mandarin (and, since 2026-11-11, Japanese, Korean and Russian; since 2026-11-16, Hindi, Spanish, French and Arabic), written only by the top admin (AdminBlog.tsx) and stored in public.blog_posts. Lang codes are hi, es, fr, ar.
    The body is plain text with a tiny markup: "# " / "## " headings, "- " bullets, **bold**, [text](https://link) and ![alt](https://image) — rendered as React elements, never as HTML. */
-type Cat = { id: string; icon: string; th: string; en: string; zh: string; ja?: string; ko?: string; ru?: string };
+type Cat = { id: string; icon: string; th: string; en: string; zh: string; ja?: string; ko?: string; ru?: string; hi?: string; es?: string; fr?: string; ar?: string };
 export const BLOG_CATS: Cat[] = [
-  { id: "tips", icon: "💡", th: "เทคนิคการฝึก", en: "Practice tips", zh: "练习技巧", ja: "練習のコツ", ko: "연습 팁", ru: "Советы по занятиям" },
-  { id: "theory", icon: "🎼", th: "ทฤษฎีดนตรี", en: "Music theory", zh: "乐理", ja: "音楽理論", ko: "음악 이론", ru: "Теория музыки" },
-  { id: "songs", icon: "🎵", th: "เพลงและเพลงฝึก", en: "Songs", zh: "曲目", ja: "曲と練習曲", ko: "곡과 연습곡", ru: "Песни и пьесы" },
-  { id: "news", icon: "📣", th: "ข่าวและประกาศ", en: "News", zh: "新闻公告", ja: "お知らせ", ko: "소식과 공지", ru: "Новости" },
-  { id: "story", icon: "✨", th: "เรื่องราว", en: "Stories", zh: "故事", ja: "ストーリー", ko: "이야기", ru: "Истории" },
+  { id: "tips", icon: "💡", th: "เทคนิคการฝึก", en: "Practice tips", zh: "练习技巧", ja: "練習のコツ", ko: "연습 팁", ru: "Советы по занятиям", hi: "अभ्यास के सुझाव", es: "Consejos de práctica", fr: "Conseils de pratique", ar: "نصائح التمرين" },
+  { id: "theory", icon: "🎼", th: "ทฤษฎีดนตรี", en: "Music theory", zh: "乐理", ja: "音楽理論", ko: "음악 이론", ru: "Теория музыки", hi: "संगीत सिद्धांत", es: "Teoría musical", fr: "Théorie musicale", ar: "نظرية الموسيقى" },
+  { id: "songs", icon: "🎵", th: "เพลงและเพลงฝึก", en: "Songs", zh: "曲目", ja: "曲と練習曲", ko: "곡과 연습곡", ru: "Песни и пьесы", hi: "गाने और अभ्यास", es: "Canciones", fr: "Morceaux", ar: "مقطوعات" },
+  { id: "news", icon: "📣", th: "ข่าวและประกาศ", en: "News", zh: "新闻公告", ja: "お知らせ", ko: "소식과 공지", ru: "Новости", hi: "समाचार", es: "Noticias", fr: "Actualités", ar: "أخبار" },
+  { id: "story", icon: "✨", th: "เรื่องราว", en: "Stories", zh: "故事", ja: "ストーリー", ko: "이야기", ru: "Истории", hi: "कहानियाँ", es: "Historias", fr: "Histoires", ar: "قصص" },
 ];
 // a category's name in any of the six languages (the names above are the same words the static blog pages use)
 export const catLabel = (c: Cat, lang: string): string => lang === "th" ? c.th : lang === "zh" ? c.zh : (isExtraLang(lang) && (c as any)[lang]) || xl(lang, c.en);
 export const catName = (id: string, lang: string) => { const c = BLOG_CATS.find(x => x.id === id) || BLOG_CATS[0]; return c.icon + " " + catLabel(c, lang); };
 export const readMins = (t: string) => Math.max(1, Math.round(((t || "").length) / (/[\u0E00-\u0E7F\u3040-\u30FF\u3400-\u9FFF\uAC00-\uD7AF]/.test(t || "") ? 450 : 1100)));
 // "3 min" in the language of the article; `long` is the form beside the date in an open article
-const MIN_TXT: Record<string, [string, string]> = { th: ["นาที", "นาที"], zh: ["分钟", "分钟"], ja: ["分", "分で読めます"], ko: ["분", "분이면 읽어요"], ru: ["мин", "мин чтения"] };
+const MIN_TXT: Record<string, [string, string]> = { th: ["นาที", "นาที"], zh: ["分钟", "分钟"], ja: ["分", "分で読めます"], ko: ["분", "분이면 읽어요"], ru: ["мин", "мин чтения"], hi: ["मिनट", "मिनट पढ़ने में"], es: ["min", "min de lectura"], fr: ["min", "min de lecture"], ar: ["د", "د للقراءة"] };
 export const minsText = (n: number, lang: string, long = false) => { const u = MIN_TXT[lang]; return u ? (lang === "ja" || lang === "ko" ? "" + n : n + " ") + u[long ? 1 : 0] : n + " " + (long ? xl(lang, "min read") : "min"); };
 export type BlogPost = { id: string; lang: string; slug: string; category?: string; title: string; excerpt: string; body: string; cover_url: string | null; cover_alt?: string | null; published: boolean; created_at: string; updated_at: string };
 const safeUrl = (u: string) => /^https:\/\/[^\s"'<>]+$/i.test(u) ? u : "";
@@ -59,7 +59,7 @@ const blogVid = () => {
   catch (e) { if (!okId(memVid)) memVid = mk(); return memVid; }   // no storage: one id for this tab, so a reader is one device, not one per article
 };
 // the same words the static pages use: "1,234回閲覧" and "1,234회 조회" sit straight against the number, the others have a space
-const VIEWS_UNIT: Record<string, string> = { th: "ยอดวิว", zh: "次浏览", ja: "回閲覧", ko: "회 조회", ru: "просмотров" };
+const VIEWS_UNIT: Record<string, string> = { th: "ยอดวิว", zh: "次浏览", ja: "回閲覧", ko: "회 조회", ru: "просмотров", hi: "बार देखा गया", es: "visitas", fr: "vues", ar: "مشاهدة" };
 export const viewsText = (n: number, lang: string) => "👁 " + n.toLocaleString(localeOf(lang)) + (lang === "ja" || lang === "ko" ? "" : " ") + (VIEWS_UNIT[lang] || xl(lang, "views"));
 export function BlogPage({ lang, onBack }: { lang: string; onBack?: () => void }) {
   const T = (th, en, zh) => pickT(lang, th, en, zh);
@@ -132,7 +132,7 @@ export function BlogPage({ lang, onBack }: { lang: string; onBack?: () => void }
         )}
         {!open && inLang.length > 0 && (
           <div data-blog-cats style={{ display: "flex", gap: 8, overflowX: "auto", paddingBottom: 6, margin: "0 0 14px", scrollbarWidth: "none" }}>
-            {[{ id: "all", icon: "📚", th: "ทั้งหมด", en: "All", zh: "全部", ja: "すべて", ko: "전체", ru: "Все" } as Cat, ...BLOG_CATS.filter(c => inLang.some(p => (p.category || "tips") === c.id))].map(c => (
+            {[{ id: "all", icon: "📚", th: "ทั้งหมด", en: "All", zh: "全部", ja: "すべて", ko: "전체", ru: "Все", hi: "सभी", es: "Todo", fr: "Tout", ar: "الكل" } as Cat, ...BLOG_CATS.filter(c => inLang.some(p => (p.category || "tips") === c.id))].map(c => (
               <button key={c.id} type="button" data-blog-cat={c.id} onClick={() => setCat(c.id)} style={{ flex: "0 0 auto", padding: "8px 14px", borderRadius: 999, border: "1.5px solid " + (cat === c.id ? "var(--clay, #d97757)" : "var(--bd, #e2d8cf)"), background: cat === c.id ? "var(--clay, #d97757)" : "var(--card, #fff)", color: cat === c.id ? "#fff" : "var(--text)", fontSize: 13.5, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", whiteSpace: "nowrap" }}>{c.icon} {catLabel(c, tab)}</button>
             ))}
           </div>
@@ -148,7 +148,7 @@ export function BlogPage({ lang, onBack }: { lang: string; onBack?: () => void }
         ) : posts === null ? (
           <div style={{ textAlign: "center", color: "var(--muted)", padding: 30 }}>…</div>
         ) : shown.length === 0 ? (
-          <div style={{ textAlign: "center", color: "var(--muted)", padding: 30 }}>{err ? T("โหลดบทความไม่สำเร็จ ลองใหม่อีกครั้ง", "Couldn't load articles — please try again", "文章加载失败，请重试") : tab === "th" ? "ยังไม่มีบทความภาษาไทย โปรดรอติดตาม" : tab === "zh" ? "暂无中文文章，敬请期待" : tab === "en" ? "No English articles yet — check back soon" : xl(tab, "No articles in this language yet — check back soon")}</div>
+          <div style={{ textAlign: "center", color: "var(--muted)", padding: 30 }}>{err ? T("โหลดบทความไม่สำเร็จ ลองใหม่อีกครั้ง", "Couldn't load articles — please try again", "文章加载失败，请重试") : tab === "th" ? "ยังไม่มีบทความภาษาไทย โปรดรอติดตาม" : tab === "zh" ? "暂无中文文章，敬请期待" : tab === "en" ? "No English articles yet — check back soon" : tab === "hi" ? "इस भाषा में अभी कोई लेख नहीं — जल्द फिर देखें" : tab === "es" ? "Aún no hay artículos en este idioma — vuelve pronto" : tab === "fr" ? "Pas encore d'articles dans cette langue — revenez bientôt" : tab === "ar" ? "لا توجد مقالات بهذه اللغة بعد — عُد قريبًا" : xl(tab, "No articles in this language yet — check back soon")}</div>
         ) : shown.map(p => (
           <button key={p.id} data-blog-card onClick={() => setOpen(p)} style={{ display: "block", width: "100%", textAlign: "left", background: "var(--card)", border: "1px solid var(--bd, #eadfd4)", borderRadius: 16, padding: 14, margin: "0 0 12px", cursor: "pointer", color: "var(--text)", fontFamily: "inherit" }}>
             {p.cover_url && safeUrl(p.cover_url) && <img src={safeUrl(p.cover_url)} alt={p.cover_alt || ""} loading="lazy" style={{ width: "100%", borderRadius: 10, marginBottom: 10 }} />}

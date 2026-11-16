@@ -34,7 +34,14 @@ W(path.join(S, "ja", "bad-date.json"), src("ja", "bad-date", { created_at: "yest
 W(path.join(S, "ja", "name-mismatch.json"), src("ja", "other-name"));
 W(path.join(S, "ko", "Bad_Slug.json"), src("ko", "Bad_Slug"));
 W(path.join(S, "ja", "draft.json"), src("ja", "draft", { published: false }));
-W(path.join(S, "th", "ignored.json"), src("th", "ignored"));   // blog-src only holds ja / ko / ru: th / en / zh stay in the database
+W(path.join(S, "th", "ignored.json"), src("th", "ignored"));   // blog-src only holds the static languages: th / en / zh stay in the database
+const NEWL = {
+  hi: { title: "पियानो की बैठक", aum: "शिक्षक Aum", kw: "पियानो टीचिंग ऐप", loc: "hi_IN", back: "सभी लेख", cta: "TIGA ALPHA पर मुफ़्त सीखना शुरू करें", cat: "अभ्यास के सुझाव", views: "बार देखा गया", trial: ["7 दिन", "क्रेडिट कार्ड"], wall: "आगे पढ़ने के लिए लॉग इन करें", font: "Noto Sans Devanagari" },
+  es: { title: "Cómo sentarse al piano", aum: "el profesor Aum", kw: "app de enseñanza de piano", loc: "es_ES", back: "Todos los artículos", cta: "Empieza a aprender gratis en TIGA ALPHA", cat: "Consejos de práctica", views: "visitas", trial: ["7 días gratis", "sin tarjeta de crédito"], wall: "Inicia sesión para seguir leyendo", font: "" },
+  fr: { title: "Comment s'asseoir au piano", aum: "le professeur Aum", kw: "application d'enseignement du piano", loc: "fr_FR", back: "Tous les articles", cta: "Commencez à apprendre gratuitement sur TIGA ALPHA", cat: "Conseils de pratique", views: "vues", trial: ["7 jours gratuitement", "sans carte bancaire"], wall: "Connectez-vous pour continuer la lecture", font: "" },
+  ar: { title: "كيف تجلس إلى البيانو", aum: "المعلم Aum", kw: "تطبيق تعليم البيانو", loc: "ar_AR", back: "كل المقالات", cta: "ابدأ التعلّم مجانًا على TIGA ALPHA", cat: "نصائح التمرين", views: "مشاهدة", trial: ["7 أيام مجانًا", "دون بطاقة ائتمان"], wall: "سجّل الدخول لمتابعة القراءة", font: "Noto Sans Arabic" },
+};
+for (const l of ["hi", "es", "fr", "ar"]) W(path.join(S, l, "new-lang-post.json"), src(l, "new-lang-post", { title: NEWL[l].title, category: "tips", created_at: "2026-11-16" }));
 const dbPosts = [
   ...["th", "en", "zh"].map(lang => ({ id: "p-" + lang, lang, slug: "piano-posture", category: "tips", title: { th: "ท่านั่งเล่นเปียโน", en: "Piano posture", zh: "钢琴坐姿" }[lang], excerpt: "x", body: "# H\n" + "para ".repeat(200) + "\n\n" + "more ".repeat(400), cover_url: null, published: true, created_at: "2026-10-01T00:00:00Z", updated_at: "2026-10-01T00:00:00Z" })),
   { id: "p-dbwins", lang: "ja", slug: "db-wins", category: "tips", title: "DB TITLE (wins)", excerpt: "db excerpt", body: "From the database.\n", cover_url: null, published: true, created_at: "2026-11-05T00:00:00Z", updated_at: "2026-11-05T00:00:00Z" },
@@ -93,6 +100,23 @@ for (const lang of ["ja", "ko", "ru"]) {
   ok(/"keywords":"ピアノ指導/.test(ja) && /"keywords":"피아노 교육/.test(ko) && /"keywords":"обучение игре на фортепиано/.test(ru), "keywords in each language");
   ok(en.includes('hreflang="ja"') && en.includes('hreflang="ko"') && en.includes('hreflang="ru"'), "the English page of the same article now lists ja / ko / ru as alternates (reciprocal links)");
   ok(rd(path.join(OUT, "th", "piano-posture.html")).includes(`hreflang="ru" href="${SITE}/blog/ru/piano-posture.html"`), "...and so does the Thai one");
+  ok(!en.includes('dir="rtl"') && !en.includes("Noto Sans Devanagari") && !en.includes("Noto Sans Arabic") && !ja.includes('dir="rtl"'), "existing languages are not switched to rtl and do not load the Devanagari or Arabic faces");
+}
+
+console.log("article pages in hi / es / fr / ar");
+for (const lang of ["hi", "es", "fr", "ar"]) {
+  const L = NEWL[lang];
+  const h = rd(path.join(OUT, lang, "new-lang-post.html"));
+  ok(h.startsWith("<!doctype html>"), lang + ": a page is written from blog-src");
+  ok(lang === "ar" ? h.includes('<html lang="ar" dir="rtl">') : h.includes(`<html lang="${lang}">`) && !h.includes("dir="), lang + ": html lang" + (lang === "ar" ? " and dir=rtl" : " stays ltr"));
+  ok(h.includes(`property="og:locale" content="${L.loc}"`), lang + ": og:locale " + L.loc);
+  ok(h.includes(`"name":"${L.aum}"`) && h.includes(L.kw) && h.includes(L.back) && h.includes(L.cta) && h.includes(L.cat), lang + ": teacher name, keywords, back, cta and category");
+  ok(L.trial.every(w => h.includes(w)) && h.includes(L.wall) && h.includes("TIGA AI"), lang + ": the login wall names the 7-day trial and no card");
+  ok(h.includes(`LBL="${L.views}"`) && h.includes(`LANG="${lang}"`), lang + ": the reader script uses that language");
+  if (L.font) ok(h.includes(L.font) && h.includes("fonts.googleapis.com"), lang + ": loads " + L.font);
+  else ok(!h.includes("fonts.googleapis.com") && !h.includes("Noto Sans Devanagari") && !h.includes("Noto Sans Arabic"), lang + ": keeps the existing Latin font stack");
+  if (lang === "ar") ok(h.includes("text-align:right") && h.includes(".tg-g-card,html[dir=rtl] .tg-g-card h2,html[dir=rtl] .tg-g-card p{text-align:center}") && h.includes("→ " + L.back) && h.includes("padding-inline-start"), "Arabic: body and lists align right, the gate stays centred, the back arrow points to the start");
+  ok(fs.existsSync(path.join(OUT, lang, "index.html")) && fs.existsSync(path.join(OUT, lang, "feed.xml")) && rd(path.join(OUT, lang, "feed.xml")).includes(`<language>${lang}</language>`), lang + ": index and feed exist when the language has a post");
 }
 
 console.log("database wins");
@@ -200,12 +224,13 @@ console.log("pagination of the static index");
 console.log("sitemap index gets one more entry (what build-song-pages.mjs writes), once");
 {
   const root = path.join(tmp, "root"); fs.mkdirSync(path.join(root, "scripts"), { recursive: true });
-  fs.copyFileSync(GEN, path.join(root, "scripts/build-blog-pages.mjs")); fs.copyFileSync(path.join(ROOT, "supabase-client.ts"), path.join(root, "supabase-client.ts")); fs.cpSync(S, path.join(root, "blog-src"), { recursive: true });
+  fs.copyFileSync(GEN, path.join(root, "scripts/build-blog-pages.mjs")); fs.copyFileSync(path.join(ROOT, "scripts/blog-paths.mjs"), path.join(root, "scripts/blog-paths.mjs")); fs.copyFileSync(path.join(ROOT, "supabase-client.ts"), path.join(root, "supabase-client.ts")); fs.cpSync(S, path.join(root, "blog-src"), { recursive: true });
   const idx = `<?xml version="1.0" encoding="UTF-8"?>\n<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n<sitemap><loc>${SITE}/sitemap-pages.xml</loc><lastmod>2026-11-10</lastmod></sitemap>\n<sitemap><loc>${SITE}/sitemap-blog.xml</loc><lastmod>2026-11-10</lastmod></sitemap>\n</sitemapindex>\n`;
   W(path.join(root, "sitemap.xml"), idx);
   const run = () => gen({ __script: path.join(root, "scripts/build-blog-pages.mjs"), BLOG_FIXTURE: path.join(tmp, "posts.json") }, { cwd: root });
   const a = run(); const s1 = rd(path.join(root, "sitemap.xml")); run(); const s2 = rd(path.join(root, "sitemap.xml"));
-  ok(a.code === 0 && s1.includes(`<sitemap><loc>${SITE}/blog/sitemap-static.xml</loc><lastmod>2026-11-12</lastmod></sitemap>`), "the index lists blog/sitemap-static.xml with the newest date");
+  const got = (s1.match(/blog\/sitemap-static\.xml<\/loc><lastmod>[^<]+/) || ["(no static sitemap entry)"])[0];
+  ok(a.code === 0 && got.endsWith("2026-11-16"), "the index lists blog/sitemap-static.xml with the newest date (" + got + ")");
   ok(s1 === s2 && (s2.match(/sitemap-static\.xml/g) || []).length === 1, "...once, also after a second run");
   ok(s2.includes("sitemap-pages.xml") && s2.includes("sitemap-blog.xml") && s2.trim().endsWith("</sitemapindex>"), "...and the other entries and a closed file are kept");
   ok(fs.existsSync(path.join(root, "blog", "sitemap-static.xml")) && fs.existsSync(path.join(root, "blog", "ja", "index.html")), "(the files were written under the root's blog/)");
@@ -221,19 +246,24 @@ console.log("blog-paths.mjs and blog-live.mjs");
     const a = P.parseBlogPath(`/blog/${l}/practice-15-minutes-5-methods.html`);
     ok(a.kind === "article" && a.lang === l && a.hint === false, l + ": an article address is recognised");
   }
-  ok(P.parseBlogPath("/blog/xx/foo.html").kind === "bad" && P.parseBlogPath("/blog/fr/").kind !== "index", "an unknown language is still refused");
+  ok(P.parseBlogPath("/blog/xx/foo.html").kind === "bad" && P.parseBlogPath("/blog/de/").kind !== "index", "an unknown language is still refused");
+  for (const l of ["hi", "es", "fr", "ar"]) {
+    ok(P.parseBlogPath(`/blog/${l}/`).kind === "index" && P.parseBlogPath(`/blog/${l}/feed.xml`).kind === "feed" && P.parseBlogPath(`/blog/${l}/page/2`).page === 2, l + ": index, feed and page/N are recognised");
+  }
   const h = P.parseBlogPath("/blog/piano-posture-ja"); ok(h.kind === "article" && h.lang === "ja" && h.hint === true && h.slug === "piano-posture-ja", "the short address with a -ja hint keeps the whole slug and hints Japanese");
   ok(P.parseBlogPath("/blog/piano-posture-ru").lang === "ru" && P.parseBlogPath("/blog/piano-posture-ko").lang === "ko" && P.parseBlogPath("/blog/piano-posture-zh").lang === "zh", "-ru / -ko / -zh hints");
   ok(P.fromQuery({ lang: "ko", rest: "feed.xml" }).kind === "feed" && P.fromQuery({ lang: "ru", rest: "page/2" }).page === 2 && P.fromQuery({ slug: "ja" }).lang === "ja", "fromQuery handles the new languages (what the Vercel rewrite hands over)");
   ok(P.pickPost([{ lang: "ja", slug: "a-b", published: true }], "ja", false).lang === "ja" && P.pickPost([{ lang: "ru", slug: "a-b" }], "ko", false) === null, "pickPost accepts and separates the new languages");
-  const nf = P.notFoundHtml(); ok(nf.includes("/blog/ja/") && nf.includes("/blog/ko/") && nf.includes("/blog/ru/") && nf.includes("/blog/th/") && !nf.includes('id="root"'), "the 404 page links to all six blogs");
+  const nf = P.notFoundHtml(); ok(nf.includes("/blog/ja/") && nf.includes("/blog/ko/") && nf.includes("/blog/ru/") && nf.includes("/blog/th/") && nf.includes("/blog/hi/") && nf.includes("/blog/es/") && nf.includes("/blog/fr/") && nf.includes("/blog/ar/") && !nf.includes('id="root"'), "the 404 page links to every blog language");
+  const nfAr = P.notFoundHtml("ar"); ok(nfAr.includes('<html lang="ar" dir="rtl">') && nfAr.includes("لم يُعثر على هذا المقال"), "the Arabic 404 is lang=ar and dir=rtl");
+  ok(!P.notFoundHtml("ja").includes("dir="), "a Japanese 404 stays without a dir attribute");
   const rows = [{ slug: "p", lang: "en", published: true, created_at: "2026-10-01" }, { slug: "p", lang: "ja", published: true, created_at: "2026-11-11" }, { slug: "p", lang: "ru", published: true, created_at: "2026-11-11" }];
   const xml = P.sitemapBlogXml(rows, SITE);
   ok(xml.includes(`<loc>${SITE}/blog/ja/p.html</loc>`) && xml.includes('hreflang="ja"') && xml.includes('hreflang="ru"') && xml.includes(`hreflang="x-default" href="${SITE}/blog/en/p.html"`), "the live sitemap lists ja / ru articles with their alternates");
   ok(xml.includes(`<loc>${SITE}/blog/ja/</loc>`) && xml.includes(`<loc>${SITE}/blog/ru/</loc>`) && !xml.includes(`<loc>${SITE}/blog/ko/</loc>`), "...and an index line only for a language that has an article");
   // the function: it never replaces a good static index with an empty list
   const mk = (data) => async () => ({ ok: true, json: async () => data });
-  for (const l of ["ja", "ko", "ru"]) {
+  for (const l of ["ja", "ko", "ru", "hi", "es", "fr", "ar"]) {
     const idx = await L.serveBlog({ lang: l }, mk([])), feed = await L.serveBlog({ lang: l, rest: "feed.xml" }, mk([]));
     ok(idx.status === 404 && idx.headers["x-robots-tag"] === "noindex" && !idx.body.includes('class="card"'), l + ": asked for an index with no database rows the function answers 404 + noindex, not an empty 200 list");
     ok(feed.status === 404, l + ": ...and the same for the feed");
@@ -251,7 +281,8 @@ console.log("vercel.json and the redirect rules");
   const v = JSON.parse(rd(path.join(ROOT, "vercel.json")));
   ok(v.rewrites.some(r => r.source === "/blog/:lang/" && r.destination.includes("api/blog-page")) && v.rewrites.some(r => r.source === "/blog/:lang/:rest*"), "the generic /blog/:lang rewrites (any language, after the filesystem) are still there");
   ok(v.redirects.some(r => r.source === "/blog/" && r.destination === "/blog/th/") && v.redirects.some(r => r.source === "/th"), "old redirects unchanged");
-  ok(v.headers.some(h => h.source === "/blog/(ja|ko|ru)/feed.xml" && /application\/rss\+xml/.test(JSON.stringify(h.headers))), "the static ja / ko / ru feeds are served as RSS");
+  ok(v.headers.some(h => h.source === "/blog/(ja|ko|ru|hi|es|fr|ar)/feed.xml" && /application\/rss\+xml/.test(JSON.stringify(h.headers))), "the static ja / ko / ru / hi / es / fr / ar feeds are served as RSS");
+  ok(!v.redirects.some(r => r.source === "/hi" || r.source === "/es" || r.source === "/fr" || r.source === "/ar"), "no landing redirect was added for hi / es / fr / ar");
   ok(v.functions["api/blog-page.js"].includeFiles === "{supabase-client.ts,api/blog-live-catalog.json}" && v.functions["api/blog-sitemap.js"].includeFiles === v.functions["api/blog-page.js"].includeFiles, "the function bundle includes the title catalog, not blog-src");
   const E = await import(pathToFileURL(path.join(ROOT, "scripts/edge-redirect.mjs")).href);
   ok(E.redirectTarget("https://www.tigaalpha.com/blog/ja/", "www.tigaalpha.com", "https") === null && E.redirectTarget("https://www.tigaalpha.com/blog/ru/x.html", "www.tigaalpha.com", "https") === null, "edge redirects leave /blog/ja|ru/ alone");
@@ -286,7 +317,9 @@ console.log("SQL");
   W(path.join(S3, "ja", "added.json"), src("ja", "added"));
   ok(spawnSync("node", [path.join(ROOT, "scripts/gen-blog-seed-sql.mjs"), "--check"], { env, encoding: "utf8" }).status === 1, "--check fails again once an article is added (stale)");
   const views = rd(path.join(ROOT, "supabase-blog-views-migration.sql"));
-  ok(!/in \('th','en','zh'\)/.test(views) && (views.match(/'th','en','zh','ja','ko','ru'/g) || []).length >= 6, "the reader-count migration allows six languages everywhere (no three-language check left)");
+  ok(!/in \('th','en','zh'\)/.test(views) && (views.match(/'th','en','zh','ja','ko','ru','hi','es','fr','ar'/g) || []).length >= 6, "the reader-count migration allows all ten languages (no three-language check left)");
+  const mig4 = rd(path.join(ROOT, "supabase-blog-hi-es-fr-ar-migration.sql"));
+  ok(mig4.includes("NOT APPLIED") && mig4.includes("blog_posts_lang_check") && mig4.includes("blog_hits_lang_check") && mig4.includes("blog_view_counts") && mig4.includes("'th','en','zh','ja','ko','ru','hi','es','fr','ar'") && !/insert into public\.blog_posts/i.test(mig4), "the hi/es/fr/ar migration widens the post, hit and count checks and inserts no articles");
   ok(/create or replace function public\.blog_hit/.test(views) && /create or replace function public\.blog_view_counts/.test(views) && /create or replace function public\.blog_stats/.test(views) && /blog_purge/.test(views), "...and is otherwise intact (four functions)");
 }
 
@@ -332,6 +365,16 @@ for (const lang of ["ja", "ko", "ru"]) {
   const gl = await page.evaluate(() => { try { return JSON.parse(localStorage.getItem("tg_guest_profile") || "{}").lang; } catch (e) { return null; } });
   ok(gl === lang, lang + ": the app is told to open in " + lang + " (guest profile lang = " + gl + ")");
   ok(calls.some(c => c.p_kind === "click"), lang + ": a tap on a log-in button is recorded");
+  await ctx.close();
+}
+{
+  const { ctx, page } = await open("ar", { ms: 60000, url: `${ORIGIN}/blog/ar/new-lang-post.html?gate_ms=60000` });
+  const info = await page.evaluate(() => {
+    const h1 = document.querySelector("h1");
+    const card = document.querySelector(".tg-g-card");
+    return { lang: document.documentElement.lang, dir: document.documentElement.getAttribute("dir"), align: h1 ? getComputedStyle(h1).textAlign : "", gate: card ? getComputedStyle(card).textAlign : "", name: document.querySelector("h1") && document.querySelector("h1").textContent };
+  });
+  ok(info.lang === "ar" && info.dir === "rtl" && info.align === "right" && info.gate === "center" && info.name === NEWL.ar.title, "Arabic page renders dir=rtl, the title is right-aligned and the login card stays centred (" + JSON.stringify(info) + ")");
   await ctx.close();
 }
 {
