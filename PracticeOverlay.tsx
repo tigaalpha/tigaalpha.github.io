@@ -8,7 +8,7 @@ import { tigaStrategyLabel } from "./tiga-strategy-labels";   // light static mo
 import { newStudentFeedback, rerunLoopWithSelfReport, tigaNow } from "./tiga-gateway";   // model fns via the lazy gateway (SELF_REPORT_CHOICES was an unused import — dropped). Never import tigamodel/web directly here: a static import drags the whole engine into the main chunk (bench bar engine-out-of-main).
 import { tomorrowPromise, warmReturnBlocks, pickLang } from "./retention";
 import { readMemory } from "./ai-chat-context";
-import { sttSupported, getSR } from "./speech";
+import { sttSupported, getSR, TTS_LOCALES } from "./speech";
 import { selfReportFromTranscript } from "./tiga-gateway";   // via the lazy gateway
 import { usePracticeCoach } from "./use-practice-coach";
 import { SPOT_CAP_NOTES } from "./practice-spot";
@@ -560,7 +560,7 @@ function SelfReportPoll({ lang, practiceResult, onTipUpdate }) {
       if (!SR) return;
       setListening(true);
       const rec = new SR();
-      rec.lang = localeOf(lang);
+      rec.lang = TTS_LOCALES[lang] || localeOf(lang);   // speech-recognition tag: ar-SA for Arabic, otherwise the same tag localeOf gives
       rec.maxAlternatives = 1;
       rec.onresult = (ev) => {
         try {

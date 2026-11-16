@@ -2,7 +2,7 @@
 //   node scripts/verify-i18n-batch.mjs <in.json> <out.json> [langs=ja,ko,ru]
 // in.json  : [{ k, en, file }]
 // out.json : { "<k>": { "<lang>": "..." }, ... }   (one language per file is fine: pass only that language in the third argument)
-// Languages: ja ko ru hi (own script) and es fr (Latin script: told apart from English by function words, see LATIN below).
+// Languages: ja ko ru hi ar (own script) and es fr (Latin script: told apart from English by function words, see LATIN below).
 // A string passes when it keeps the English text's structure: the same {0} {1} holes, the same line breaks, the same **bold** pairs,
 // the same emoji and the same digits and Latin brand words, and it is written in the target script.
 // Exit code 0 only when nothing fails.
@@ -19,6 +19,7 @@ const SCRIPT = {
   ko: /[가-힯]/,
   ru: /[Ѐ-ӿ]/,
   hi: /[ऀ-ॿ]/,
+  ar: /[\u0600-\u06FF]/,
 };
 // es / fr share the Latin script with English, so "written in the language" is judged by function words: a sentence of five or more words
 // must have at least as many Spanish (French) function words as English ones, and at least one.
@@ -63,6 +64,9 @@ for (const row of src) {
     if (letters && LATIN[lg] && !latinLooksRight(lg, t)) bad(row.k, lg, "does not read as " + lg + " (looks English)");
     if (/[\u0900-\u097F]/.test(t) && lg !== "hi") bad(row.k, lg, "Devanagari in a non-Hindi string");
     if (/[०-९]/.test(t)) wrn(row.k, lg, "Devanagari digits (the app writes digits 0-9)");
+    if (/[\u0600-\u06FF]/.test(t) && lg !== "ar") bad(row.k, lg, "Arabic script in a non-Arabic string");
+    if (/[\u0660-\u0669\u06F0-\u06F9]/.test(t)) bad(row.k, lg, "Arabic-Indic digits (the app writes digits 0-9)");
+    if (lg === "ar" && /[\u0900-\u097F]/.test(t)) bad(row.k, lg, "Devanagari in an Arabic string");
     if (letters && SCRIPT[lg] && !SCRIPT[lg].test(t)) {
       const bare = row.en.replace(/[^\p{L}\d ]/gu, "").trim().toLowerCase();
       const allKeep = KEEP.some(w => bare === w.toLowerCase()) || /^[\W\d_A-Z]{1,6}$/.test(row.en.trim());   // a product name (with or without an emoji) stays Latin

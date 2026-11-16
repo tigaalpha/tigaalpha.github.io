@@ -57,6 +57,7 @@ const DARK_CSS = `
   --r-common:#8e98a9;--r-rare:#39d8ff;--r-epic:#8f6dff;--r-legendary:#d8c79f;--r-mythic:#eef2ff;
 }
 html[lang="th"] .x3,html[lang="th"] .setcard.shop-full,html[lang="th"] .charcard,html[lang="th"] .stgpage,html[lang="th"] .ob3{--tk1:0;--tk2:0;--tk3:0}
+html:is([lang="hi"],[lang="ar"]) :is(.x3,.setcard.shop-full,.charcard,.stgpage,.ob3){--tk1:0;--tk2:0;--tk3:0}   /* hi / ar (2026-11-13): tracking pulls Devanagari matras and Arabic joins apart, as it does Thai */
 /* the app's own theme tokens, re-pointed at glass so every existing rule in
    these rooms that says var(--card) or var(--text) lands on the new material */
 .x3,.petpage.x3,.ob3{

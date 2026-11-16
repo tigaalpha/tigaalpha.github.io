@@ -1,4 +1,4 @@
-// Builds the English-keyed catalogs of the extra app languages (i18n-ja/ko/ru/hi/es/fr.ts) from i18n-src/catalog.json.
+// Builds the English-keyed catalogs of the extra app languages (i18n-ja/ko/ru/hi/es/fr/ar.ts) from i18n-src/catalog.json.
 //   node scripts/build-i18n-catalogs.mjs                       write the .ts files
 //   node scripts/build-i18n-catalogs.mjs --check               exit 1 when a .ts file is stale
 //   node scripts/build-i18n-catalogs.mjs --merge=DIR [--langs=hi,es,fr]
@@ -12,7 +12,7 @@ import { execFileSync } from "node:child_process";
 
 const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname), "..");
 const CAT = path.join(ROOT, "i18n-src", "catalog.json");
-const LANGS = ["ja", "ko", "ru", "hi", "es", "fr"];
+const LANGS = ["ja", "ko", "ru", "hi", "es", "fr", "ar"];
 const arg = n => (process.argv.find(a => a.startsWith("--" + n + "=")) || "").slice(n.length + 3);
 const flag = n => process.argv.includes("--" + n);
 

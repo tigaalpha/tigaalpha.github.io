@@ -8,14 +8,14 @@
    - Catalogs are lazy chunks (the React hook that reloads a root lives in use-catalog.ts), loaded when the language is chosen, so Thai, English and Chinese users download none of it.
    - This file imports nothing from the app (i18n.ts and every screen import it), so it can never take part in an import cycle. ── */
 
-export type ExtraLang = "ja" | "ko" | "ru" | "hi" | "es" | "fr";
-export const EXTRA_LANGS: ExtraLang[] = ["ja", "ko", "ru", "hi", "es", "fr"];
-export const ALL_LANGS = ["th", "en", "zh", "ja", "ko", "ru", "hi", "es", "fr"];
-export const isExtraLang = (l: any): l is ExtraLang => l === "ja" || l === "ko" || l === "ru" || l === "hi" || l === "es" || l === "fr";
+export type ExtraLang = "ja" | "ko" | "ru" | "hi" | "es" | "fr" | "ar";
+export const EXTRA_LANGS: ExtraLang[] = ["ja", "ko", "ru", "hi", "es", "fr", "ar"];
+export const ALL_LANGS = ["th", "en", "zh", "ja", "ko", "ru", "hi", "es", "fr", "ar"];
+export const isExtraLang = (l: any): l is ExtraLang => l === "ja" || l === "ko" || l === "ru" || l === "hi" || l === "es" || l === "fr" || l === "ar";
 
 /* one row per language: the flag and native name for pickers, the BCP-47 tag speech engines and date formatters want,
    the <html lang>, and the name the AI tutor is told to answer in */
-export const LANG_META: Record<string, { flag: string; name: string; locale: string; html: string; ai: string }> = {
+export const LANG_META: Record<string, { flag: string; name: string; locale: string; html: string; ai: string; rtl?: boolean }> = {
   th: { flag: "🇹🇭", name: "ไทย", locale: "th-TH", html: "th", ai: "Thai" },
   en: { flag: "🇬🇧", name: "English", locale: "en-US", html: "en", ai: "English" },
   zh: { flag: "🇨🇳", name: "中文", locale: "zh-CN", html: "zh-CN", ai: "Chinese" },
@@ -25,7 +25,11 @@ export const LANG_META: Record<string, { flag: string; name: string; locale: str
   hi: { flag: "🇮🇳", name: "हिन्दी", locale: "hi-IN", html: "hi", ai: "Hindi" },
   es: { flag: "🇪🇸", name: "Español", locale: "es-ES", html: "es", ai: "Spanish" },
   fr: { flag: "🇫🇷", name: "Français", locale: "fr-FR", html: "fr", ai: "French" },
+  ar: { flag: "🇸🇦", name: "العربية", locale: "ar", html: "ar", ai: "Arabic", rtl: true },   // locale "ar" (not ar-SA): Western digits 0-9 in Intl and a neutral Modern Standard Arabic voice
 };
+/* right-to-left languages: the page gets dir="rtl"; pianos, staffs, game canvases and anything drawn with fixed left/right geometry stay direction:ltr (see the RTL block in app-css.ts) */
+export const isRtl = (lang: string) => !!(LANG_META[lang] && LANG_META[lang].rtl);
+export const dirOf = (lang: string): "rtl" | "ltr" => (isRtl(lang) ? "rtl" : "ltr");
 export const localeOf = (lang: string) => (LANG_META[lang] || LANG_META.en).locale;
 /* day-month-year order for dates in English is the British one the app already used */
 export const dateLocale = (lang: string) => (lang === "en" ? "en-GB" : localeOf(lang));
@@ -73,6 +77,7 @@ function holeText(lang: string, v: string): string {
     if (lang === "ja") return m[1] + "番目";
     if (lang === "ko") return m[1] + "번째";
     if (lang === "hi") return n === 1 ? "पहला" : n === 2 ? "दूसरा" : n === 3 ? "तीसरा" : n === 4 ? "चौथा" : m[1] + "वाँ";
+    if (lang === "ar") return n === 1 ? "الأول" : n === 2 ? "الثاني" : n === 3 ? "الثالث" : n === 4 ? "الرابع" : m[1];
     if (lang === "es") return m[1] + ".º";
     if (lang === "fr") return n === 1 ? "1er" : m[1] + "e";
     return m[1] + "-й";
@@ -149,6 +154,7 @@ const loaders: Record<string, () => Promise<{ default: Cat }>> = {
   hi: () => import("./i18n-hi"),
   es: () => import("./i18n-es"),
   fr: () => import("./i18n-fr"),
+  ar: () => import("./i18n-ar"),
 };
 export function loadCatalog(lang: string): Promise<void> {
   if (!isExtraLang(lang) || cats[lang]) return Promise.resolve();

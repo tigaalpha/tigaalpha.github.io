@@ -1267,7 +1267,7 @@ const TodayPage = memo(function TodayPage({ lang, exp, homework, onLearn, onRead
       {onBack && (
         <button onClick={() => { playUi("click"); onBack(); }}
           className="pageback">
-          ← {L[lang].navStudio}
+          <span className="rtlflip">←</span> {L[lang].navStudio}
         </button>
       )}
       <div className="v12hero">
@@ -1811,7 +1811,7 @@ const EarGymPage = memo(function EarGymPage({ lang, onReward, onBack, initialTab
       {onBack && !ladderOn && (
         <button onClick={() => { playUi("click"); onBack(); }}
           className="pageback">
-          ← {L[lang].navStudio}
+          <span className="rtlflip">←</span> {L[lang].navStudio}
         </button>
       )}
       <div className="v12hero">
@@ -2146,7 +2146,7 @@ const ReadingPage = memo(function ReadingPage({ lang, onReward, onBack, onPlaySo
         {onBack && (
           <button onClick={() => { playUi("click"); onBack(); }}
             className="pageback">
-            ← {L[lang].navStudio}
+            <span className="rtlflip">←</span> {L[lang].navStudio}
           </button>
         )}
         <div className="v12hero"><div className="v12title">🎼 {T.title}</div><div className="v12sub">{T.sub}</div></div>
@@ -2324,7 +2324,7 @@ const InsightsPage = memo(function InsightsPage({ lang, profile, onSong, onBack 
       {onBack && (
         <button onClick={() => { playUi("click"); onBack(); }}
           className="pageback">
-          ← {L[lang].navProfile}
+          <span className="rtlflip">←</span> {L[lang].navProfile}
         </button>
       )}
       <div className="v12hero"><div className="v12title">📊 {T.title}</div><div className="v12sub">{T.sub}</div></div>
@@ -2459,7 +2459,7 @@ const ReportPage = memo(function ReportPage({ lang, profile, onBack, premium = f
       {onBack && (
         <button onClick={() => { playUi("click"); onBack(); }}
           className="pageback">
-          ← {L[lang].navProfile}
+          <span className="rtlflip">←</span> {L[lang].navProfile}
         </button>
       )}
       <div className="v12hero"><div className="v12title">🏅 {T.title}</div><div className="v12sub">{T.sub}</div></div>
@@ -2595,7 +2595,7 @@ const StudioPage = memo(function StudioPage({ lang, onVoice, onSongs, onSight, o
     if (!lesson) return;
     setCommuteIdx(idx);
     const utt = new SpeechSynthesisUtterance(lesson.title + ". " + lesson.text);
-    utt.lang = localeOf(lang);
+    utt.lang = TTS_LOCALES[lang] || localeOf(lang);   // the speech tag (ar-SA for Arabic; the same tag localeOf gives every other language)
     utt.rate = 0.9;
     utt.onend = () => setCommutePlaying(false);
     utt.onerror = () => setCommutePlaying(false);
@@ -3718,7 +3718,7 @@ function VideoSlide({ s, active, lang, onAsk, likeN, likedByMe, onToggleLike }) 
   );
 }
 import { CLIPS, ConceptClipFeed, CLIP_CSS } from "./concept-clips";
-import { pickT, xl, ALL_LANGS, LANG_META, localeOf, dateLocale, by, isExtraLang, loadCatalog } from "./lang-extra";
+import { pickT, xl, ALL_LANGS, LANG_META, localeOf, dateLocale, by, isExtraLang, loadCatalog, dirOf } from "./lang-extra";
 import { useCatalog } from "./use-catalog";
 const VideoLessonsPage = memo(function VideoLessonsPage({ lang, onAsk, onWatched, onLang }) {
   const lc = L[lang];
@@ -7636,7 +7636,7 @@ const ProfilePage = memo(function ProfilePage({ lang, session, profile, onSignOu
               <div className="atdash-last">
                 <div className="atdash-last-w">{safeStr(last.weakness)}</div>
                 <div className="atdash-last-t">{safeStr(last.tip)}</div>
-                <div className="atdash-last-d">{new Date(last.t).toLocaleString(TTS_LOCALES[lang] || "en-US")}</div>
+                <div className="atdash-last-d">{new Date(last.t).toLocaleString(localeOf(lang))}</div>
               </div>
             ) : (
               <div className="atdash-empty">{lang === "th" ? "ยังไม่มีคำแนะนำ — ไปฝึกที่หน้าไหนก็ได้ในแอป แล้วครู TiGA จะแนะนำแบบเรียลไทม์ให้เอง" : lang === "zh" ? "暂无建议——在应用里练习任意内容，TiGA老师会实时给你建议" : xl(lang, "No tips yet — practice anywhere in the app and Coach TiGA will chime in with real-time tips")}</div>
@@ -11107,13 +11107,16 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
      choice persists — profiles.lang for an account, the local guest profile
      otherwise — so this only decides what someone sees before they choose. */
   const [lang, setLangState] = useState(profile.lang || "th");
-  useCatalog(lang);   // ja / ko / ru: loads the catalog of the chosen language and re-renders this tree when it arrives
+  useCatalog(lang);   // ja / ko / ru / hi / es / fr / ar: loads the catalog of the chosen language and re-renders this tree when it arrives
   /* The document says which language it is in. Screen readers pick their
      voice from it, the browser picks Thai- or CJK-appropriate fallback fonts
      from it, and the game rooms use it (:lang) to keep letter-spacing off
      Thai, where spacing out the letters pulls vowels and tone marks away
      from the consonants they sit on. */
-  useEffect(() => { try { document.documentElement.lang = (LANG_META[lang] || LANG_META.en).html; } catch (e) {} }, [lang]);
+  useEffect(() => {
+    /* dir follows the language on every change (Arabic is right-to-left). Pianos, staffs and game canvases stay left-to-right by the html[dir="rtl"] block in app-css.ts. */
+    try { const el = document.documentElement; el.lang = (LANG_META[lang] || LANG_META.en).html; el.dir = dirOf(lang); } catch (e) {}
+  }, [lang]);
   // First-time language picker: SUSPENDED (owner request 2026-09) - the popup
   // felt like a wall between a new user and the piano. The state/JSX are kept
   // intact for a future re-enable: flip LANG_PICKER_ENABLED back to true and
@@ -11124,7 +11127,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   const [langPickerOpen, setLangPickerOpen] = useState(LANG_PICKER_ENABLED && !profile.lang);
   useEffect(() => { try { localStorage.setItem("tg_lang_hint", lang); } catch (e) {} }, [lang]);
   function setLang(lg) {
-    // a Japanese / Korean / Russian catalog is a lazy chunk: the language switches once it is here, so nothing is drawn from English first
+    // a ja / ko / ru / hi / es / fr / ar catalog is a lazy chunk: the language switches once it is here, so nothing is drawn from English first
     const apply = () => {
       setLangState(lg);
       if (session && session.user && session.user.id) {
@@ -14829,8 +14832,8 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
             <img className="apkpop-icon" src="./icon.svg" alt="" />
             <b className="apkpop-title" style={{ fontSize: 18 }}>{lang === "th" ? "เลือกภาษา" : lang === "zh" ? "选择语言" : xl(lang, "Choose your language")}</b>
             <span className="apkpop-sub" style={{ marginBottom: 14, display: "block" }}>{lang === "th" ? "จะใช้ภาษานี้ทุกครั้งที่เข้ามา เปลี่ยนได้ทีหลังในตั้งค่า" : lang === "zh" ? "将使用此语言，可在设置中更改" : xl(lang, "This will be used every time you come back — change later in Settings")}</span>
-            <div style={{ display: "flex", flexDirection: "column", gap: 10, width: "100%" }}>
-              {[{ code: "th", flag: "🇹🇭", label: "ไทย" }, { code: "en", flag: "🇬🇧", label: "English" }, { code: "zh", flag: "🇨🇳", label: "中文" }].map(o => (
+            <div style={{ display: "flex", flexDirection: "column", gap: 10, width: "100%", maxHeight: "min(52vh, 420px)", overflowY: "auto" }}>
+              {ALL_LANGS.map(c => ({ code: c, flag: LANG_META[c].flag, label: LANG_META[c].name })).map(o => (
                 <button key={o.code} className="lockbtn" style={{ width: "100%" }} onClick={() => {
                   setLang(o.code);
                   setLangPickerOpen(false);

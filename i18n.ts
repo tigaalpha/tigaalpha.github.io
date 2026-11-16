@@ -1086,7 +1086,7 @@ export const STAGES_BY_GROUP = PATHWAY.reduce((acc, s) => {
 export function tr(field, lang) {
   if (field == null) return "";
   if (typeof field === "string") return field;
-  // ja / ko / ru: the object's own entry when it has one, else the catalog's translation of its English
+  // ja / ko / ru / hi / es / fr / ar: the object's own entry when it has one, else the catalog's translation of its English
   if (isExtraLang(lang)) return by(field, lang) || (field.en ? xlate(lang, field.en) : "") || field.th || Object.values(field)[0] || "";
   return by(field, lang) || field.en || field.th || Object.values(field)[0] || "";
 }
@@ -1616,7 +1616,7 @@ const _L_RAW = {
 /* L[lang] must NEVER be undefined: a bad/persisted lang value used to make
    const lc = L[lang] undefined and crash every overlay at render. The Proxy
    below falls back to th then en for any unknown key instead. */
-/* Japanese, Korean and Russian are built from the English dictionary through their catalog (lang-extra.ts), once per catalog version.
+/* Japanese, Korean, Russian, Hindi, Spanish, French and Arabic are built from the English dictionary through their catalog (lang-extra.ts), once per catalog version.
    The two long AI prompts stay English plus a line telling the model which language to answer in. */
 const _extraL: Record<string, { v: number; o: any }> = {};
 function extraL(lang) {
