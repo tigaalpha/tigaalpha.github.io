@@ -26,7 +26,7 @@ import { INTERVAL_FEEL, TRIAD_FEEL, SEVENTH_FEEL, progressionChordLabels } from 
    AI as the fallback, never the only option. */
 export function degreeLabel(i, lang) {
   const TH = ["ราก (Root)", "3rd", "5th", "7th"], EN = ["Root", "3rd", "5th", "7th"], ZH = ["根音 (Root)", "三音", "五音", "七音"];
-  const arr = lang === "th" ? TH : lang === "zh" ? ZH : xl(lang, EN);
+  const arr = lang === "th" ? TH : lang === "zh" ? ZH : EN.map(x => xl(lang, x));   // xl on the array itself is inert: each label goes through the catalog on its own
   return arr[i] || `#${i + 1}`;
 }
 // stage/key/type → ready-made lesson text, or null (→ caller falls through to the live AI)

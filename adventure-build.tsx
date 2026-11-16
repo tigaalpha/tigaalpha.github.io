@@ -68,7 +68,8 @@ function makeAsk(lang: string, used: Set<string>): Ask {
   if (Math.random() < 0.5) { try { const r = nextQuestion(lang as any, { level: 1 }); if (r && r.q && r.q.kind === "choice" && r.q.opts && r.q.opts.length >= 2 && !used.has(r.q.id + r.q.q)) { used.add(r.q.id + r.q.q); return { q: r.q.q, opts: r.q.opts.map(o => ({ label: o.label, ok: o.ok })), why: r.q.teach.why, tier: r.q.tier }; } } catch (e) {} }
   const pool = BANK.filter((_, i) => !used.has("b" + i)); const list = pool.length ? pool : BANK; const q = rngPick(list); used.add("b" + BANK.indexOf(q));
   const li = lang === "th" ? 0 : lang === "zh" ? 2 : xl(lang, 1);
-  return { q: q.q[li], opts: shuffle(q.o.map((o, i) => ({ label: o[li], ok: i === 0 }))), why: q.why[li], tier: 1 };
+  const pk = (a: L3) => (li === 1 ? xl(lang, a[1]) : a[li as number]);   // xl(lang, 1) above never translated anything: the English entry goes through the catalog for ja ko ru hi es fr ar (en returns it unchanged), th / zh read their own entry as before
+  return { q: pk(q.q), opts: shuffle(q.o.map((o, i) => ({ label: pk(o), ok: i === 0 }))), why: pk(q.why), tier: 1 };
 }
 
 export default function AdventureBuild({ P, lang, onWin, onExit, onRetry }: any) {

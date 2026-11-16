@@ -1,0 +1,19 @@
+[
+ "A recurring problem — practiced {0} times and still at {1}%",
+ "Latest result {0}% — below the {1}% needed to move on",
+ "Getting worse than the last round — often from practicing faster than you can handle",
+ "Improving since the last round — keep repeating until it holds steady",
+ "No change yet — the old method is not hitting the spot, try a different angle",
+ "Practice slowly at {0} BPM — cut out only the part that breaks, do not play through the whole song",
+ "Hands separately first, {0} minutes each, then together",
+ "Goal this round: {0} correct plays in a row at the same speed",
+ "🎵 One star or more on today's song (🎵 {0}) completes the quest",
+ "Today's quest: win one run containing \"{0}\"",
+ "Today's quest: win one run containing \"{0}\" (toward {1})",
+ "Today's quest: practice \"{0}\"",
+ "Today's quest: finish 3 practice rounds",
+ "{0}% average accuracy over {1} rounds",
+ "{0}% average accuracy over {1} rounds · weak spot: {2}",
+ "too_easy",
+ "too_hard"
+]

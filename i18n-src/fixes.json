@@ -1,0 +1,42 @@
+[
+ [
+  "Novice",
+  "ja",
+  "入門者"
+ ],
+ [
+  "Novice",
+  "es",
+  "Novato"
+ ],
+ [
+  "Novice",
+  "ar",
+  "مستجد"
+ ],
+ [
+  "Beginner",
+  "ru",
+  "Начинающий"
+ ],
+ [
+  "Apprentice",
+  "ru",
+  "Подмастерье"
+ ],
+ [
+  "Password (at least 6 characters)",
+  "ru",
+  "Пароль (от 6 символов)"
+ ],
+ [
+  "Password (at least 6 characters)",
+  "fr",
+  "Mot de passe (min. 6 car.)"
+ ],
+ [
+  "Password (at least 6 characters)",
+  "es",
+  "Contraseña (mínimo 6)"
+ ]
+]

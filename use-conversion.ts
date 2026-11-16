@@ -29,7 +29,7 @@
 
 import { trialLenDays, isTrialPlan, canonicalPlan, PLAN_PRICE, yearPrice } from "./payment";
 
-import { by } from "./lang-extra";
+import { by, isExtraLang, xl } from "./lang-extra";
 /* ══ WHICH COPY A TRIAL GETS ══════════════════════════════════════════════
    There is one answer now. The funnel used to split on the promotion cohort —
    first 10,000 signups were quoted Max at ฿3,999, everyone after the cap was
@@ -335,7 +335,8 @@ export function personalizedBody(popupKind, lang, proof, generic, plan) {
   const tier = trialTierName(plan);
   const hasProof = proof && proof.improvedCount >= 1 && proof.bestDelta != null;
   if (popupKind === "closing" && hasProof) {
-    const sess = proof.sessions ? `${proof.sessions}${L === "th" ? " เซสชัน" : L === "zh" ? " 次练习" : " sessions"}, ` : "";
+    // the word sits inside a {0} hole of the catalog's sentence, so an extra language must get it already translated (L is "en" for them)
+    const sess = proof.sessions ? `${proof.sessions}${L === "th" ? " เซสชัน" : L === "zh" ? " 次练习" : " " + (isExtraLang(lang) ? xl(lang, "sessions") : "sessions")}, ` : "";
     return {
       th: `วันนี้เป็นวันสุดท้ายของการใช้งานฟรี 7 วัน — ของคุณที่จะหายไป: ${sess}ความจำ ${proof.improvedCount} จุดของครู (ดีขึ้น +${proof.bestDelta}%) และทุกสถิติที่สะสมมา\n\nหากต้องการใช้ต่อ แพ็กเกจ ${tier} ค่าใช้จ่ายจะอยู่ที่ ${price} บาทต่อเดือน หรือ ${year} บาทต่อปี`,
       en: `Today is the last day of your 7-day free trial — what you'd lose: ${sess}a teacher who improved ${proof.improvedCount} of your weak spots (+${proof.bestDelta}%), and every stat you built.\n\nTo keep the ${tier} plan, it costs ${price} baht per month, or ${year} baht per year.`,

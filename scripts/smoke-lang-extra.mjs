@@ -83,6 +83,10 @@ M.setCatalog("ja", { "Start": "スタート" });
 eq(M.xlate("ja", "Start"), "スタート", "a replaced catalog is used"); eq(M.by(tags, "ja").a, "スタート", "by is rebuilt after a catalog change");
 let heard = 0; const off = M.subscribeCatalog(() => heard++); M.setCatalog("ko", { "Start": "시작" }); off(); M.setCatalog("ko", { "Start": "시작" });
 eq(heard, 1, "subscribers hear a catalog arrive, and stop after unsubscribing"); eq(M.xlate("ko", "Start"), "시작", "ko catalog");
+// the most specific pattern wins = the one with the most FIXED text, not the one with the most holes (scripts/extract-i18n.mjs writes a conditional inside a sentence as a hole AND as its variants;
+// the hole version used to outrank the variants because every hole adds regex source, so " or ", "Major" and "team goal ✓" stayed English inside a translated sentence)
+M.setCatalog("es", { "Clear episode {0}{1} first{2}": "HOLES", "Clear episode {0} or {1} first": "{0} o {1}", "Clear episode {0} first ({1})": "{0} ({1})", "{0}{1} · {2} Chords": "HOLES2", "{0} Major · {1} Chords": "{0} mayor · {1}" });
+eq([M.xlate("es", "Clear episode 4 or 5 first"), M.xlate("es", "Clear episode 4 first (Ark)"), M.xlate("es", "C Major · 4 Chords"), M.xlate("es", "Clear episode 4 first")], ["4 o 5", "4 (Ark)", "C mayor · 4", "HOLES"], "a variant with more fixed text beats the sentence with an extra hole where its conditional was, which stays the fallback for a string no variant fits");
 
 // ordinals in a hole: every extra language has its own form of 1st / 2nd / 3rd ...
 M.setCatalog("ko", { "The {0} note": "{0} 음" }); M.setCatalog("ru", { "The {0} note": "{0} нота" });

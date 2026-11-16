@@ -362,6 +362,14 @@ export const LEVELS = [
    players); 11+ continue on a gently accelerating curve. Level 99 = Legend X,
    the true end of the road — prestige stars only start past THAT point now. */
 const ROMAN = ["", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X"];
+/* The extra languages (ja ko ru hi es fr ar) read tier[lang] first (by() / tr()) and only then the catalog's translation of tier.en; "Novice II" is not a
+   catalog key (the base name is, the roman numeral is not text), so every rung that carries a numeral answers for those languages with the translated
+   base name + the same numeral. The getter runs when the name is READ, after the catalog chunk has loaded. Non-enumerable: copies, JSON and
+   Object.keys see exactly the { min, icon, c, th, en, zh } object they always saw. */
+const withExtraRankNames = (o, baseEn, suf) => {
+  for (const code of EXTRA_LANGS) Object.defineProperty(o, code, { get: () => xl(code, baseEn) + suf, enumerable: false, configurable: true });
+  return o;
+};
 export const ALL_LEVELS = (() => {
   const arr = LEVELS.map(l => ({ ...l }));
   let min = LEVELS[LEVELS.length - 1].min; // 5200
@@ -373,7 +381,7 @@ export const ALL_LEVELS = (() => {
     const baseIdx = cyc === 10 ? ((n - 91) < 5 ? (n - 91) : (n - 91) + 1) : (n - 1) % 10;
     const base = LEVELS[baseIdx];
     const suf = " " + ROMAN[cyc - 1];
-    arr.push({ min, icon: base.icon, c: base.c, th: base.th + suf, en: base.en + suf, zh: base.zh + suf });
+    arr.push(withExtraRankNames({ min, icon: base.icon, c: base.c, th: base.th + suf, en: base.en + suf, zh: base.zh + suf }, base.en, suf));
   }
   return arr;
 })();
@@ -923,7 +931,7 @@ const PathwayPage = memo(function PathwayPage({ lang, onLearn, onRead, onBoss, o
               )}
               {gi === 0 && onUpgrade && (
                 <button type="button" className="pgupgrade" onClick={onUpgrade}>
-                  <span className="pgupgrade-crown" aria-hidden="true">👑</span> <span>Upgrade Premium</span>
+                  <span className="pgupgrade-crown" aria-hidden="true">👑</span> <span>{xl(lang, "Upgrade Premium")}</span>
                 </button>
               )}
               {!(gi === 0 && onMentor) && <span className="pgstep">{lc.stepLabel.replace("{n}", String(gi + 1))}</span>}
@@ -1236,6 +1244,25 @@ const TODAY_TAGS = {
   zh: { title: "今日练习", sub: "你的专属计划 — 每天根据真实进度重新生成，逐项完成即可。", warm: "手指热身", hw: "老师的作业", review: "复习", learn: "学点新的", song: "结尾曲", start: "开始 ▶", done: "完成 ✓", hwBtn: "已完成 ✓", progress: "今日进度", allDone: "全部完成，太棒了！🎉", bonus: "领取每日奖励 +40 EXP · +20 🪙", claimed: "今日奖励已领取 ✓", today: "今天", stepsLeft: "步骤", allDoneShort: "全部完成 🎉" },
 };
 
+/* tigamodel/coach/diagnosis.js writes the "why" and "how" lines of the coach diagnosis in Thai only (it takes no language), so every language reads Thai there today
+   (th, en and zh keep exactly that). A learner of an extra language must not read Thai: the eight sentences the builder can produce are recognised by their shape
+   (every number becomes #) and said again in English from the same numbers, through the catalog. A line that is not one of the eight and has Thai in it is left out. */
+const DX_EN = {
+  "เป็นปัญหาซ้ำ — กลับมาฝึกแล้ว # ครั้ง ยังอยู่ที่ #%": (a, b) => `A recurring problem — practiced ${a} times and still at ${b}%`,
+  "ผลล่าสุด #% — ต่ำกว่าเกณฑ์เล่นต่อได้ (#%)": (a, b) => `Latest result ${a}% — below the ${b}% needed to move on`,
+  "แนวโน้มแย่ลงเมื่อเทียบรอบก่อน — มักจากการซ้อมเร็วเกินตัว": () => "Getting worse than the last round — often from practicing faster than you can handle",
+  "กำลังดีขึ้นเมื่อเทียบรอบก่อน — ต้องซ้ำให้ถึงจุดคงตัว": () => "Improving since the last round — keep repeating until it holds steady",
+  "ผลยังไม่ขยับ — วิธีเดิมยังไม่โดนจุด ควรเปลี่ยนมุมการฝึก": () => "No change yet — the old method is not hitting the spot, try a different angle",
+  "ซ้อมช้าที่ # BPM — ตัดเฉพาะช่วงที่พัง ไม่เล่นผ่านทั้งเพลง": (a) => `Practice slowly at ${a} BPM — cut out only the part that breaks, do not play through the whole song`,
+  "มือแยกก่อน ข้างละ # นาที แล้วค่อยรวม": (a) => `Hands separately first, ${a} minutes each, then together`,
+  "เป้าหมายรอบนี้: เล่นถูก # ครั้งติดกันในความเร็วเดียวกัน": (a) => `Goal this round: ${a} correct plays in a row at the same speed`,
+};
+function dxLine(s, lang) {
+  if (!isExtraLang(lang) || typeof s !== "string" || !/[\u0E00-\u0E7F]/.test(s)) return s;
+  const f = DX_EN[s.replace(/\d+/g, "#")];
+  return f ? xl(lang, f(...(s.match(/\d+/g) || []))) : "";
+}
+
 const TodayPage = memo(function TodayPage({ lang, exp, homework, onLearn, onRead, onSong, onReward, onBack, onNavigate, onReviewStage }) {
   const T = by(TODAY_TAGS, lang);
   const [, setTick] = useState(0);
@@ -1251,15 +1278,15 @@ const TodayPage = memo(function TodayPage({ lang, exp, homework, onLearn, onRead
   // simply doesn't render, and the plan above is 100% unchanged.
   const dx = useTiga(m => m.getCoachDiagnosis());
   const dxT = by({
-    th: { tag: "AI วินิจฉัย", why: "ทำไม", how: "วิธีฝึก" },
-    en: { tag: "AI diagnosis", why: "Why", how: "How to fix" },
-    zh: { tag: "AI 诊断", why: "为什么", how: "怎么练" },
+    th: { head: "AI วินิจฉัย", why: "ทำไม", how: "วิธีฝึก" },
+    en: { head: "AI diagnosis", why: "Why", how: "How to fix" },
+    zh: { head: "AI 诊断", why: "为什么", how: "怎么练" },
   }, lang);
   const budget = dx ? (tigaNow() ? (tigaNow().getPracticeTimeBudget(20) || null) : null) : null;
   const budT = by({
-    th: { tag: "แผน 20 นาที (ปรับตามจุดอ่อน)", warmup: "วอร์มอัพ", problem: "จุดพัง", review: "ทบทวน", reading: "อ่านโน้ต", performance: "เล่นโชว์", focus: "โฟกัส" },
-    en: { tag: "20-min plan (adapts to your weak spot)", warmup: "Warm-up", problem: "Problem", review: "Review", reading: "Reading", performance: "Perform", focus: "Focus" },
-    zh: { tag: "20分钟计划（按弱点调整）", warmup: "热身", problem: "难点", review: "复习", reading: "读谱", performance: "展示", focus: "重点" },
+    th: { head: "แผน 20 นาที (ปรับตามจุดอ่อน)", warmup: "วอร์มอัพ", problem: "จุดพัง", review: "ทบทวน", reading: "อ่านโน้ต", performance: "เล่นโชว์", focus: "โฟกัส" },
+    en: { head: "20-min plan (adapts to your weak spot)", warmup: "Warm-up", problem: "Problem", review: "Review", reading: "Reading", performance: "Perform", focus: "Focus" },
+    zh: { head: "20分钟计划（按弱点调整）", warmup: "热身", problem: "难点", review: "复习", reading: "读谱", performance: "展示", focus: "重点" },
   }, lang);
 
   return (
@@ -1283,19 +1310,19 @@ const TodayPage = memo(function TodayPage({ lang, exp, homework, onLearn, onRead
       </div>
       {dx && (
         <div className="v12card" style={{ borderColor: "#d9775744" }}>
-          <div style={{ fontSize: "11px", color: "var(--clay-ink)", fontFamily: "var(--f-num, monospace)", marginBottom: "6px" }}>🩺 {dxT.tag}</div>
+          <div style={{ fontSize: "11px", color: "var(--clay-ink)", fontFamily: "var(--f-num, monospace)", marginBottom: "6px" }}>🩺 {dxT.head}</div>
           <div style={{ fontSize: "13.5px", color: "var(--text)", fontWeight: 700, marginBottom: "5px" }}>
             {dx.what.label} · {dx.what.acc}%
             <span style={{ fontSize: "11px", color: "var(--muted)", fontWeight: 400 }}>
               {" "}({dx.what.count}x · {dx.what.trend === "improving" ? "↑" : dx.what.trend === "worsening" ? "↓" : "→"})
             </span>
           </div>
-          <div style={{ fontSize: "12px", color: "var(--text2)", marginBottom: "3px" }}><b style={{ color: "var(--clay-ink)" }}>{dxT.why}:</b> {dx.why[0]}</div>
-          {dx.why[1] && <div style={{ fontSize: "12px", color: "var(--text2)", marginBottom: "3px" }}>· {dx.why[1]}</div>}
-          {dx.how.map((h, i) => <div key={i} style={{ fontSize: "12px", color: "var(--text2)" }}><b style={{ color: "var(--clay-ink)" }}>{i === 0 ? dxT.how + ":" : ""}</b> {h}</div>)}
+          <div style={{ fontSize: "12px", color: "var(--text2)", marginBottom: "3px" }}><b style={{ color: "var(--clay-ink)" }}>{dxT.why}:</b> {dxLine(dx.why[0], lang)}</div>
+          {dx.why[1] && dxLine(dx.why[1], lang) && <div style={{ fontSize: "12px", color: "var(--text2)", marginBottom: "3px" }}>· {dxLine(dx.why[1], lang)}</div>}
+          {dx.how.map((h, i) => dxLine(h, lang) && <div key={i} style={{ fontSize: "12px", color: "var(--text2)" }}><b style={{ color: "var(--clay-ink)" }}>{i === 0 ? dxT.how + ":" : ""}</b> {dxLine(h, lang)}</div>)}
           {budget && (
             <div style={{ marginTop: "8px", paddingTop: "8px", borderTop: "1px solid var(--bd1)" }}>
-              <div style={{ fontSize: "11px", color: "var(--muted)", fontFamily: "var(--f-num, monospace)", marginBottom: "4px" }}>⏱ {budT.tag}{budget.focus ? ` · ${budT.focus}: ${budget.focus}` : ""}</div>
+              <div style={{ fontSize: "11px", color: "var(--muted)", fontFamily: "var(--f-num, monospace)", marginBottom: "4px" }}>⏱ {budT.head}{budget.focus ? ` · ${budT.focus}: ${budget.focus}` : ""}</div>
               <div style={{ display: "flex", gap: "4px", flexWrap: "wrap" }}>
                 {budget.parts.map(p => (
                   <span key={p.key} style={{ fontSize: "11px", background: "rgba(217,119,87,.12)", color: "var(--clay-ink)", borderRadius: "6px", padding: "3px 7px", fontFamily: "var(--f-app, sans-serif)", fontWeight: 700 }}>
@@ -1399,11 +1426,11 @@ const MyClassPage = memo(function MyClassPage({ lang, exp, streak, homework, onL
             <div data-dx="1" style={{ marginTop: 8, paddingTop: 7, borderTop: "1px dashed #d9775755" }}>
               <div style={{ fontSize: 10.5, color: "var(--clay-ink)", marginBottom: 3 }}>🩺 {T("ปัญหาที่ครูเจอ และวิธีแก้", "What I found, and how to fix it", "老师发现的问题与解决办法")}</div>
               <div style={{ fontSize: 13, fontWeight: 700, color: "var(--text)", marginBottom: 2, lineHeight: 1.35 }}>{dx.what.label} · {dx.what.acc}%</div>
-              <div style={{ fontSize: 11.5, color: "var(--text2)", lineHeight: 1.45 }}><b style={{ color: "var(--clay-ink)" }}>{T("ทำไม", "Why", "为什么")}:</b> {dx.why[0]}</div>
-              {dx.how[0] && <div style={{ fontSize: 11.5, color: "var(--text2)", marginTop: 2, lineHeight: 1.45 }}><b style={{ color: "var(--clay-ink)" }}>{T("วิธีฝึก", "How to fix", "怎么练")}:</b> {dx.how[0]}</div>}
+              <div style={{ fontSize: 11.5, color: "var(--text2)", lineHeight: 1.45 }}><b style={{ color: "var(--clay-ink)" }}>{T("ทำไม", "Why", "为什么")}:</b> {dxLine(dx.why[0], lang)}</div>
+              {dx.how[0] && dxLine(dx.how[0], lang) && <div style={{ fontSize: 11.5, color: "var(--text2)", marginTop: 2, lineHeight: 1.45 }}><b style={{ color: "var(--clay-ink)" }}>{T("วิธีฝึก", "How to fix", "怎么练")}:</b> {dxLine(dx.how[0], lang)}</div>}
             </div>
           )}
-          <button className="songbtn go" style={{ width: "100%", marginTop: 10, padding: "10px 16px", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, fontWeight: 800 }} data-start="1" onClick={start}>▶ Play</button>
+          <button className="songbtn go" style={{ width: "100%", marginTop: 10, padding: "10px 16px", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, fontWeight: 800 }} data-start="1" onClick={start}>{"▶ " + xl(lang, "Play")}</button>
         </div>
       )}
       <div className="v12card" data-plan="1" style={{ padding: "10px 12px", marginBottom: 8 }}>
@@ -1845,7 +1872,7 @@ const EarGymPage = memo(function EarGymPage({ lang, onReward, onBack, initialTab
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "10px" }}>
                 <span style={{ fontSize: "15px", letterSpacing: "1px" }}>{"❤️".repeat(ladderLives)}{"🖤".repeat(Math.max(0, LADDER_LIVES_START - ladderLives))}</span>
                 <span style={{ fontFamily: "var(--f-app, sans-serif)", fontSize: "13px", fontWeight: 900, color: "var(--vio-ink)" }}>🪜 {T.ladderStreakLbl} {ladderStreak}</span>
-                <button onClick={() => { playUi("click"); finishLadder(); }} aria-label="quit" title={T.title}
+                <button onClick={() => { playUi("click"); finishLadder(); }} aria-label={xl(lang, "quit")} title={T.title}
                   style={{ background: "none", border: "1px solid var(--bd4)", borderRadius: "50%", width: "22px", height: "22px", color: "#a88b9b", fontSize: "12px", cursor: "pointer", lineHeight: 1, padding: 0 }}>✕</button>
               </div>
               <div style={{ display: "none", height: "5px", borderRadius: "3px", background: "var(--card3)", overflow: "hidden", marginBottom: "14px" }}>
@@ -2360,7 +2387,7 @@ const InsightsPage = memo(function InsightsPage({ lang, profile, onSong, onBack 
             <div key={i} style={{ display: "flex", alignItems: "center", gap: "10px", padding: "9px 0", borderTop: i ? "1px solid #ffffff0c" : "none" }}>
               <div style={{ flex: 1 }}>
                 <div style={{ fontSize: "13px", color: "var(--text)", fontFamily: "var(--f-app, sans-serif)", fontWeight: 700 }}>{actTopicLabel(w.e, lang)}</div>
-                <div style={{ fontSize: "10px", color: "#ff5252", fontFamily: "var(--f-num, monospace)" }}>{Math.round(w.rate * 100)}% miss · {w.ok + w.miss} n</div>
+                <div style={{ fontSize: "10px", color: "#ff5252", fontFamily: "var(--f-num, monospace)" }}>{isExtraLang(lang) ? xl(lang, `${Math.round(w.rate * 100)}% miss · ${w.ok + w.miss} tries`) : <>{Math.round(w.rate * 100)}% miss · {w.ok + w.miss} n</>}</div>
               </div>
               {song && <button className="tdgo" onClick={() => { playUi("click"); onSong(song); }}>{T.weakGo}</button>}
             </div>
@@ -2580,13 +2607,13 @@ const StudioPage = memo(function StudioPage({ lang, onVoice, onSongs, onSight, o
     { title: "什么是八度", text: "八度是两个同名音之间的距离，比如低C和高C。相距12个半音。相差一个八度的音听起来相似，只是高低不同。这是音乐中最基础的音程。" },
     { title: "五度圈", text: "五度圈将12个调按五度顺序排列成圆形：C、G、D、A、E、B。相邻的调共享很多音符和和弦，听起来很和谐，转调时也很流畅。" },
     { title: "拍号", text: "四四拍是流行音乐中最常见的拍号。每小节数一二三四。四分音符占一拍，二分音符占两拍，全音符占四拍。试着跟着喜欢的歌曲打拍子。" },
-  ] : xl(lang, [
-    { title: "What is a Major Chord?", text: "A major chord has three notes: the root, the major third, and the perfect fifth. Take C major: C, E, G. The sound is bright and positive. You can build it in any key by going up 4 half-steps, then 3 more." },
-    { title: "Minor vs Major", text: "A minor chord sounds sadder because the third is lowered by one half step. C minor is C, E-flat, G instead of C, E, G. Just one half step changes the whole mood. Happy songs use major; emotional songs use minor." },
-    { title: "What is an Octave?", text: "An octave is the distance between two notes with the same letter name, like low C and high C. It spans 12 half steps. Notes an octave apart sound similar but at different pitches. This is the most fundamental interval in music." },
-    { title: "The Circle of Fifths", text: "The circle of fifths maps all 12 keys in a circle, each step being a fifth apart: C, G, D, A, E, B. Keys next to each other share many notes and chords, so they sound great together. Modulating between neighbors always sounds smooth." },
-    { title: "Time Signatures", text: "Four-four time is the most common in popular music. Count one, two, three, four per measure. A quarter note gets one beat, a half note gets two, and a whole note fills all four beats. Try counting along to any song you like." },
-  ]);
+  ] : [
+    { title: xl(lang, "What is a Major Chord?"), text: xl(lang, "A major chord has three notes: the root, the major third, and the perfect fifth. Take C major: C, E, G. The sound is bright and positive. You can build it in any key by going up 4 half-steps, then 3 more.") },
+    { title: xl(lang, "Minor vs Major"), text: xl(lang, "A minor chord sounds sadder because the third is lowered by one half step. C minor is C, E-flat, G instead of C, E, G. Just one half step changes the whole mood. Happy songs use major; emotional songs use minor.") },
+    { title: xl(lang, "What is an Octave?"), text: xl(lang, "An octave is the distance between two notes with the same letter name, like low C and high C. It spans 12 half steps. Notes an octave apart sound similar but at different pitches. This is the most fundamental interval in music.") },
+    { title: xl(lang, "The Circle of Fifths"), text: xl(lang, "The circle of fifths maps all 12 keys in a circle, each step being a fifth apart: C, G, D, A, E, B. Keys next to each other share many notes and chords, so they sound great together. Modulating between neighbors always sounds smooth.") },
+    { title: xl(lang, "Time Signatures"), text: xl(lang, "Four-four time is the most common in popular music. Count one, two, three, four per measure. A quarter note gets one beat, a half note gets two, and a whole note fills all four beats. Try counting along to any song you like.") },
+  ];
 
   function speakLesson(idx: number) {
     if (!window.speechSynthesis) return;
@@ -3671,7 +3698,7 @@ function VideoSlide({ s, active, lang, onAsk, likeN, likedByMe, onToggleLike }) 
   // playlist directly via YouTube's videoseries player. A plain YouTube embed,
   // no API call, no key, works from any origin.
   const spkBtn = (
-    <button className="vidspk" aria-label="Sound" onClick={(e) => { e.stopPropagation(); const nxt = !spkOff; setSpkOff(nxt); playUi("click"); try { frameRef.current && frameRef.current.contentWindow && frameRef.current.contentWindow.postMessage(JSON.stringify({ event: "command", func: nxt ? "mute" : "unMute", args: [] }), "*"); } catch (err) { /* player not ready */ } }}>{spkOff ? "🔇" : "🔊"}</button>
+    <button className="vidspk" aria-label={xl(lang, "Sound")} onClick={(e) => { e.stopPropagation(); const nxt = !spkOff; setSpkOff(nxt); playUi("click"); try { frameRef.current && frameRef.current.contentWindow && frameRef.current.contentWindow.postMessage(JSON.stringify({ event: "command", func: nxt ? "mute" : "unMute", args: [] }), "*"); } catch (err) { /* player not ready */ } }}>{spkOff ? "🔇" : "🔊"}</button>
   );
   if (s.playlistId) {
     return (
@@ -3718,7 +3745,7 @@ function VideoSlide({ s, active, lang, onAsk, likeN, likedByMe, onToggleLike }) 
   );
 }
 import { CLIPS, ConceptClipFeed, CLIP_CSS } from "./concept-clips";
-import { pickT, xl, ALL_LANGS, LANG_META, localeOf, dateLocale, by, isExtraLang, loadCatalog, dirOf, applyDigitRule } from "./lang-extra";
+import { pickT, xl, ALL_LANGS, EXTRA_LANGS, LANG_META, localeOf, dateLocale, by, isExtraLang, loadCatalog, dirOf, applyDigitRule } from "./lang-extra";
 import { useCatalog } from "./use-catalog";
 const VideoLessonsPage = memo(function VideoLessonsPage({ lang, onAsk, onWatched, onLang }) {
   const lc = L[lang];
@@ -3879,7 +3906,7 @@ const VideoLessonsPage = memo(function VideoLessonsPage({ lang, onAsk, onWatched
       {vtab !== "th" && <ConceptClipFeed key={vtab} inline clips={CLIPS[vtab]} start={0} lang={vtab} onClose={() => setVtab("th")} />}
       {onLang && (
         <div className="vidflag">
-          <button className="vidflag-b" aria-label="Language" onClick={() => { playUi("click"); setFlagOpen(o => !o); }}>{lang === "th" ? "🇹🇭" : lang === "zh" ? "🇨🇳" : xl(lang, "🇬🇧")}</button>
+          <button className="vidflag-b" aria-label={xl(lang, "Language")} onClick={() => { playUi("click"); setFlagOpen(o => !o); }}>{lang === "th" ? "🇹🇭" : lang === "zh" ? "🇨🇳" : xl(lang, "🇬🇧")}</button>
           {flagOpen && (
             <div className="vidflag-m">
               {[["th", "🇹🇭", "ไทย"], ["en", "🇬🇧", "English"], ["zh", "🇨🇳", "中文"]].map(([c, f, n]) => (
@@ -4235,8 +4262,8 @@ const SongListPage = memo(function SongListPage({ lang, onPlay, onBack, level = 
         </div>
         <span className="songcard-go">{loading ? "⏳" : locked ? <Ico e="🔒" size={17} /> : maxLocked ? <Ico e="👑" size={17} /> : <Chev />}</span>
         {s.custom
-          ? <span className="favbtn del" role="button" tabIndex={0} aria-label="Delete" onClick={(e) => { e.stopPropagation(); haptic(); delSong(s.id); }}>🗑</span>
-          : !locked && !maxLocked && <span className={`favbtn${isFav ? " on" : ""}`} role="button" tabIndex={0} aria-label="Favorite" aria-pressed={isFav}
+          ? <span className="favbtn del" role="button" tabIndex={0} aria-label={xl(lang, "Delete")} onClick={(e) => { e.stopPropagation(); haptic(); delSong(s.id); }}>🗑</span>
+          : !locked && !maxLocked && <span className={`favbtn${isFav ? " on" : ""}`} role="button" tabIndex={0} aria-label={xl(lang, "Favorite")} aria-pressed={isFav}
             onClick={(e) => { e.stopPropagation(); haptic(); toggleFav(s.id); }}>{isFav ? "★" : "☆"}</span>}
       </button>
     );
@@ -5453,12 +5480,12 @@ function buildFallbackTip(lang, struggle, strat, noteMisses) {
       : (nm ? [`先单独练 ${nm} 各 3 次，再合回整段`, "慢速弹清楚再提速"] : ["直接去学习路径的下一课吧"]),
   };
   const en = {
-    weakness: struggle ? `"${struggle.label}" is still shaky (${struggle.acc}% accuracy)` : (nm ? `Notes ${nm} keep slipping lately` : "No clear weak spot right now — onward to the next step"),
+    weakness: struggle ? xl(lang, `"${struggle.label}" is still shaky (${struggle.acc}% accuracy)`) : (nm ? xl(lang, `Notes ${nm} keep slipping lately`) : xl(lang, "No clear weak spot right now — onward to the next step")),
     steps: struggle
-      ? [`Practice "${struggle.label}" slowly in 2 tiny chunks, then speed up bit by bit`, nm ? `Watch ${nm} especially — play just that note 3 times before joining the phrase` : "Once you pass 80% accuracy, nudge the tempo up slightly"]
-      : (nm ? [`Isolate ${nm} — 3 clean reps each, then rejoin the phrase`, "Slow and clear first, speed later"] : ["Head straight to the next step on your Pathway"]),
+      ? [xl(lang, `Practice "${struggle.label}" slowly in 2 tiny chunks, then speed up bit by bit`), nm ? xl(lang, `Watch ${nm} especially — play just that note 3 times before joining the phrase`) : xl(lang, "Once you pass 80% accuracy, nudge the tempo up slightly")]
+      : (nm ? [xl(lang, `Isolate ${nm} — 3 clean reps each, then rejoin the phrase`), xl(lang, "Slow and clear first, speed later")] : [xl(lang, "Head straight to the next step on your Pathway")]),
   };
-  const c = lang === "th" ? th : lang === "zh" ? zh : xl(lang, en);
+  const c = lang === "th" ? th : lang === "zh" ? zh : en;
   return { weakness: c.weakness, steps: c.steps.slice(0, 2), feature: struggle ? "pathway" : "pathway", topic: struggle ? struggle.label : null, strategyId: strat ? strat.name : null, fallback: true };
 }
 
@@ -6588,6 +6615,18 @@ function setEquipLS(k, v) { try { localStorage.setItem("tg_" + k, v); } catch (e
    Next-round roadmap plan). Reads the same per-day tg_practice log
    ProgressDashboard already does; no new data collection. ── */
 const HEATMAP_WEEKS = 14; // ~3.5 months — a real pattern is visible, still fits a narrow mobile viewport without scrolling
+/* the weekday column of the grid (Sun-Sat rows; only Mon, Wed and Fri are labelled). Thai and Chinese keep their own labels in the component;
+   the extra languages have their own short weekday names here (a catalog cannot translate a bare "M" or "W" and xl() only takes a string) */
+const HEAT_DOW = {
+  en: ["", "M", "", "W", "", "F", ""],
+  ja: ["", "月", "", "水", "", "金", ""],
+  ko: ["", "월", "", "수", "", "금", ""],
+  ru: ["", "Пн", "", "Ср", "", "Пт", ""],
+  hi: ["", "सो", "", "बु", "", "शु", ""],
+  es: ["", "L", "", "X", "", "V", ""],
+  fr: ["", "L", "", "M", "", "V", ""],
+  ar: ["", "إث", "", "أر", "", "جم", ""],
+};
 const HeatmapActivity = memo(function HeatmapActivity({ lang }) {
   const lc = L[lang];
   const [sel, setSel] = useState(null);
@@ -6612,7 +6651,7 @@ const HeatmapActivity = memo(function HeatmapActivity({ lang }) {
   for (let i = 0; i < padded.length; i += 7) weeks.push(padded.slice(i, i + 7));
   const maxN = Math.max(1, ...weeks.flat().filter(Boolean).map(d => d.n));
   const level = (n) => n === 0 ? 0 : n / maxN <= 0.25 ? 1 : n / maxN <= 0.5 ? 2 : n / maxN <= 0.75 ? 3 : 4;
-  const dowLabels = lang === "th" ? ["", "จ", "", "พ", "", "ศ", ""] : lang === "zh" ? ["", "一", "", "三", "", "五", ""] : xl(lang, ["", "M", "", "W", "", "F", ""]);
+  const dowLabels = lang === "th" ? ["", "จ", "", "พ", "", "ศ", ""] : lang === "zh" ? ["", "一", "", "三", "", "五", ""] : by(HEAT_DOW, lang);
   const fmtD = (d) => `${d.getMonth() + 1}/${d.getDate()}`;
   return (
     <div className="profsec">
@@ -7042,7 +7081,7 @@ const PetDetailModal = memo(function PetDetailModal({ lang, item, have, here, co
     <div className="setov setov-ob" onClick={onClose}>
       <div className="setcard mdv pdv ob3" onClick={e => e.stopPropagation()}>
         <div className="mdv-hdr">
-          <button className="stgback" onClick={onClose} aria-label="back">←</button>
+          <button className="stgback" onClick={onClose} aria-label={xl(lang, "back")}>←</button>
           <span className="mdv-ttl"><b>{sp.code}</b>{tr(item, lang)}</span>
           <span className="mdv-cls" style={{ "--cc": ty.c }}>{tr(ty, lang)}</span>
         </div>
@@ -7102,7 +7141,7 @@ const GearDetailModal = memo(function GearDetailModal({ lang, item, kind, model,
     <div className="setov setov-ob" onClick={onClose}>
       <div className="setcard mdv gdv ob3" onClick={e => e.stopPropagation()}>
         <div className="mdv-hdr">
-          <button className="stgback" onClick={onClose} aria-label="back">←</button>
+          <button className="stgback" onClick={onClose} aria-label={xl(lang, "back")}>←</button>
           <span className="mdv-ttl"><b className={`gdv-r r-${item.rarity}`}>{rarityLabel}</b>{tr(item, lang)}</span>
           {item.art && <span className="gdv-ic"><ItemArt art={item.art} sw={item.sw} /></span>}
         </div>
@@ -7297,7 +7336,7 @@ const PvpArenaMount = memo(function PvpArenaMount({ lang, charModel, gear, onBac
         if (!error) { playUi("reward"); load(); }
       }}
       onShare={(res) => shareCard({
-        title: res.win ? "Victory!" : "Defeat",
+        title: res.win ? xl(lang, "Victory!") : xl(lang, "Defeat"),
         big: Math.round(res.score).toLocaleString(),
         sub: res.tier ? (lang === "th" ? res.tier.th : lang === "zh" ? res.tier.zh : xl(lang, res.tier.en)) : "",
         lines: [
@@ -7631,7 +7670,7 @@ const ProfilePage = memo(function ProfilePage({ lang, session, profile, onSignOu
         const struggles = (readMemory().struggles || []).slice(0, 5);
         return (
           <div className="profsec">
-            <div className="profsec-h">🎯 Auto Teaching</div>
+            <div className="profsec-h">{"🎯 " + xl(lang, "Auto Teaching")}</div>
             {struggles.length > 0 && (
               <div className="pd-tags">{struggles.map((s, i) => <button key={i} className="pd-tag focus" onClick={() => onAskStruggle(s)}>💬 {s.label}</button>)}</div>
             )}
@@ -7896,7 +7935,7 @@ const ProfilePage = memo(function ProfilePage({ lang, session, profile, onSignOu
         {contactEdit ? (
           <div className="contactcard" style={{ display: "flex", flexDirection: "column", gap: 8, padding: 12 }}>
             <input className="memberinput" placeholder="LINE ID" value={cLine} onChange={e => setCLine(e.target.value)} />
-            <input className="memberinput" placeholder="เบอร์โทรศัพท์ (Phone)" value={cPhone} onChange={e => setCPhone(e.target.value)} inputMode="tel" />
+            <input className="memberinput" placeholder={isExtraLang(lang) ? xl(lang, "Phone number (optional)") : "เบอร์โทรศัพท์ (Phone)"} value={cPhone} onChange={e => setCPhone(e.target.value)} inputMode="tel" />
             <input className="memberinput" placeholder="Instagram" value={cIg} onChange={e => setCIg(e.target.value)} />
             <div style={{ display: "flex", gap: 8 }}>
               <button className="lockbtn" style={{ flex: 1 }} disabled={cSaving} onClick={saveContact}>{cSaving ? "…" : lc.profContactSave}</button>
@@ -10541,7 +10580,7 @@ const GamesPage = memo(function GamesPage({ lang, earnCoins, gainExp }) {
         <div className="profavwrap">
           <div style={{ fontSize: 36 }}>🎮</div>
         </div>
-        <div className="profname">Music Games</div>
+        <div className="profname">{xl(lang, "Music Games")}</div>
         <div className="profxp-lbl" style={{ color: "var(--muted)", fontSize: 13 }}>
           {T(`เกมดนตรีจากทั่วโลก — เล่นเกมไหนก็ได้ 🪙 +${EARN.game} (เกมละครั้งต่อวัน)`,
               `Music games from around the world — every game pays 🪙 +${EARN.game}, once each per day`,
@@ -11017,7 +11056,7 @@ export default function App() {
 
   if (!authReady) return <Splash />;
   if (!profileReady) return <Splash />;
-  if (profile && profile.banned && !profile.is_admin) return <BannedScreen onSignOut={signOut} />;
+  if (profile && profile.banned && !profile.is_admin) return <BannedScreen onSignOut={signOut} profile={profile} />;
   if (!profile || !profile.onboarded) {
     // Someone who signed up on /landing/ already answered the "name" ask there
     // (and the OAuth providers supply an email) — re-asking them here, before
@@ -13405,7 +13444,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
       {/* HEADER — hidden on the video feed so it plays truly full-screen (a floating ☰ replaces it there) */}
       {page !== "videos" && page !== "pvp" && <div className="hdr">
         <div className="logo">
-          <button className="hamb" onClick={() => { playUi("click"); setNavOpen(true); }} aria-label="Menu">
+          <button className="hamb" onClick={() => { playUi("click"); setNavOpen(true); }} aria-label={xl(lang, "Menu")}>
             <span /><span /><span />
           </button>
           <div className="lbox lmark" onClick={handleLogoTap}
@@ -13430,7 +13469,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
         </div>
         <div className="hdr-r">
           {isGuest && (
-            <button className="guestloginpill" onClick={() => setLoginModalOpen(true)} title="Login or sign up">
+            <button className="guestloginpill" onClick={() => setLoginModalOpen(true)} title={xl(lang, "Login or sign up")}>
               <span className="oauthico">G</span> {T("ล็อกอิน", "Login", "登录")}
             </button>
           )}
@@ -13447,13 +13486,13 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
               <RobotGlyph size={23} />
             </button>
           )}
-          {page === "pathway" ? <span className="gpbar-hdrp"><GamePowerBar lang={lang} onOpen={() => setHdrGp(true)} /></span> : !isGuest && <button className="shopbtn" onClick={() => setShopOpen(true)} title={lc.shopTitle} aria-label="Shop"><span className="shopbtn-ic">🛍️</span><span className="shopbtn-coins">🪙 {coins}</span></button>}
+          {page === "pathway" ? <span className="gpbar-hdrp"><GamePowerBar lang={lang} onOpen={() => setHdrGp(true)} /></span> : !isGuest && <button className="shopbtn" onClick={() => setShopOpen(true)} title={lc.shopTitle} aria-label={xl(lang, "Shop")}><span className="shopbtn-ic">🛍️</span><span className="shopbtn-coins">🪙 {coins}</span></button>}
           {/* Daily-reward chest button removed from the header per feedback (decluttering) —
               still fully reachable from ProfilePage's own dailyhub chest button, same openChestNow(). */}
-          {metroOn && <button className="metropill" onClick={() => setMetroOn(false)} title="Metronome" aria-label="Metronome on">🥁 {metroBpm}</button>}
+          {metroOn && <button className="metropill" onClick={() => setMetroOn(false)} title={xl(lang, "Metronome")} aria-label={xl(lang, "Metronome on")}>🥁 {metroBpm}</button>}
           <div className="flagwrap" onClick={e => e.stopPropagation()}>
             <button className="flagbtn" onClick={() => setFlagOpen(o => !o)}
-              aria-label="Language" aria-expanded={flagOpen}>
+              aria-label={xl(lang, "Language")} aria-expanded={flagOpen}>
               <span>{FLAGS[lang]}</span>
               <span className="caret">{flagOpen ? "▲" : "▼"}</span>
             </button>
@@ -13545,7 +13584,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
 
       {/* ─── PAGE: VIDEO LESSONS ─── */}
       {page === "videos" && (
-        <button className="vidfab" aria-label="Menu" onClick={() => { playUi("click"); setNavOpen(true); }}>
+        <button className="vidfab" aria-label={xl(lang, "Menu")} onClick={() => { playUi("click"); setNavOpen(true); }}>
           <span /><span /><span />
         </button>
       )}
@@ -13720,7 +13759,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
           // stays the page underneath; its back/close returns to SenseiView.
           { p: "sensei", chat: true, ic: "◈", c: "#d97757", t: lc.navSensei },
           // free preview inside; the Max-only AI report/plan is upsold there, not walled off at the nav
-          { p: "coach", ic: "🎯", c: "#d97757", t: "AI Daily Mentor" },
+          { p: "coach", ic: "🎯", c: "#d97757", t: xl(lang, "AI Daily Mentor") },
           // the profile row is where your character lives, so it wears a
           // humanoid android rather than the rank emoji it used to borrow.
           // It sits high in the list because the character — and the pet pod
@@ -13778,7 +13817,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
             <button className="vmback" onClick={() => setModal(false)} aria-label={lc.back} title={lc.back}>←</button>
             <div className="mlbl"><div className="dot" />⤢ {lc.aiLabel}</div>
           </div>
-          <button type="button" className={"chhbtn" + (chatPiano ? " on" : "")} aria-pressed={chatPiano} aria-label="Piano" title="Piano" onClick={() => { playUi("click"); setChatPiano(v => { const n = !v; try { localStorage.setItem("tg_chat_piano", n ? "1" : "0"); } catch (e) {} return n; }); }}><span aria-hidden="true">🎹</span></button>
+          <button type="button" className={"chhbtn" + (chatPiano ? " on" : "")} aria-pressed={chatPiano} aria-label={xl(lang, "Piano")} title={xl(lang, "Piano")} onClick={() => { playUi("click"); setChatPiano(v => { const n = !v; try { localStorage.setItem("tg_chat_piano", n ? "1" : "0"); } catch (e) {} return n; }); }}><span aria-hidden="true">🎹</span></button>
           <ChatHistoryButtons lang={lang} count={threads.length} onHistory={() => { playUi("click"); setHistoryOpen(true); }} onNew={() => { playUi("click"); newChat(); }} />
           <button className="cbtn" aria-label={lc.close} title={lc.close} onClick={() => setModal(false)}>✕</button>
         </div>
@@ -14118,7 +14157,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
               <div className="setdiv" />
               {premium && (
                 <div className="setrow col">
-                  <label>🎯 Auto Teaching</label>
+                  <label>{"🎯 " + xl(lang, "Auto Teaching")}</label>
                   <div className="setlangs">
                     <button className={`setlangbtn${profile.auto_teach_interval_min === 0 ? " on" : ""}`}
                       onClick={() => saveAutoTeachInterval(0)}>{lang === "th" ? "ปิด" : lang === "zh" ? "关闭" : xl(lang, "Off")}</button>
@@ -14437,7 +14476,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
               <>
                 <div className="chestbig open">🎁</div>
                 <div className={`chesttitle${chestReward.kind === "jackpot" ? " jackpot" : ""}`}>
-                  {chestReward.kind === "jackpot" ? "🎉 JACKPOT! 🎉" : chestReward.kind === "big" ? "✨ " + lc.chestBig + " ✨" : lc.chestGot}
+                  {chestReward.kind === "jackpot" ? "🎉 " + xl(lang, "JACKPOT!") + " 🎉" : chestReward.kind === "big" ? "✨ " + lc.chestBig + " ✨" : lc.chestGot}
                 </div>
                 <div className="chestrewards">
                   <span>🪙 +{chestReward.coins}</span>
@@ -14571,12 +14610,12 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
               <span>{c.sub}</span>
             </div>
             <button className="installbanner-go" onClick={() => { dismissApkBanner(); setApkPillOpen(true); }}>{c.btn}</button>
-            <button className="installbanner-x" onClick={dismissApkBanner} aria-label="close">×</button>
+            <button className="installbanner-x" onClick={dismissApkBanner} aria-label={xl(lang, "close")}>×</button>
           </div>
         );
       })()}
       {showApkPill && !apkPillOpen && (
-        <button className="apkpill" onClick={() => { playUi("click"); setApkPillOpen(true); }} aria-label="Get the app">
+        <button className="apkpill" onClick={() => { playUi("click"); setApkPillOpen(true); }} aria-label={xl(lang, "Get the app")}>
           <span className="apkpill-ic">📲</span>
         </button>
       )}
@@ -14608,7 +14647,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
         return (
           <div className="apkpopov" onClick={() => setApkPillOpen(false)}>
             <div className="apkpop apkpop2" onClick={e => e.stopPropagation()}>
-              <button className="apkpop-x" onClick={() => setApkPillOpen(false)} aria-label="close">×</button>
+              <button className="apkpop-x" onClick={() => setApkPillOpen(false)} aria-label={xl(lang, "close")}>×</button>
               <img className="apkpop-icon" src="./icon.svg" alt="" />
               <b className="apkpop-title">{c.title}</b>
               <span className="apkpop-sub">{c.sub}</span>
@@ -14678,7 +14717,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
         return (
           <div className="apkpopov" onClick={() => setIosInstallOpen(false)}>
             <div className="iosinstall" onClick={e => e.stopPropagation()}>
-              <button className="apkpop-x" onClick={() => setIosInstallOpen(false)} aria-label="close">×</button>
+              <button className="apkpop-x" onClick={() => setIosInstallOpen(false)} aria-label={xl(lang, "close")}>×</button>
               <b className="apkpop-title">{c.title}</b>
               <span className="apkpop-sub">{c.sub}</span>
               {isIOSChrome ? <div className="iosinstall-warn">⚠️ {c.warnChrome}</div>
@@ -14716,7 +14755,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
             <span>{lang === "th" ? "แตะเพื่อดาวน์โหลดและติดตั้ง (อัปเดตนานๆ ครั้ง — ปกติแอพอัปเดตให้อัตโนมัติ)" : lang === "zh" ? "点击下载并安装（偶尔更新 — 日常更新会自动完成）" : xl(lang, "Tap to download & install (rare — routine updates are automatic)")}</span>
           </div>
           <button className="installbanner-go" onClick={installNativeApkUpdate}>{lang === "th" ? "ติดตั้งเลย" : lang === "zh" ? "立即安装" : xl(lang, "Update")}</button>
-          <button className="installbanner-x" onClick={dismissNativeApkUpdate} aria-label="close">×</button>
+          <button className="installbanner-x" onClick={dismissNativeApkUpdate} aria-label={xl(lang, "close")}>×</button>
         </div>
       )}
       {!showApkBanner && showInstallBanner && (
@@ -14727,7 +14766,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
             <span>{lc.installBannerSub}</span>
           </div>
           <button className="installbanner-go" onClick={installFromBanner}>{lc.setInstall}</button>
-          <button className="installbanner-x" onClick={dismissInstallBanner} aria-label="close">×</button>
+          <button className="installbanner-x" onClick={dismissInstallBanner} aria-label={xl(lang, "close")}>×</button>
         </div>
       )}
       {!showApkBanner && !showInstallBanner && showPushBanner && (
@@ -14738,7 +14777,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
             <span>{lc.pushBannerSub}</span>
           </div>
           <button className="installbanner-go" onClick={enablePushFromBanner}>{lc.pushBannerBtn}</button>
-          <button className="installbanner-x" onClick={dismissPushBanner} aria-label="close">×</button>
+          <button className="installbanner-x" onClick={dismissPushBanner} aria-label={xl(lang, "close")}>×</button>
         </div>
       )}
 
@@ -14750,14 +14789,14 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
           ? { t: "Gems ไม่พอ", b: `ต้องใช้อีก ${gemShort.short} 💎 สำหรับ ${gemShort.item || "ไอเทมชิ้นนี้"}`, ok: "เข้าใจแล้ว" }
           : (lang === "zh")
           ? { t: "Gems 不足", b: `还差 ${gemShort.short} 💎 才能获得 ${gemShort.item || "该道具"}`, ok: "知道了" }
-          : xl(lang, { t: "Not enough gems", b: `You need ${gemShort.short} more 💎 for ${gemShort.item || "this item"}`, ok: "Got it" });
+          : { t: xl(lang, "Not enough gems"), b: xl(lang, `You need ${gemShort.short} more 💎 for ${gemShort.item || xl(lang, "this item")}`), ok: xl(lang, "Got it") };
         return (
           <div className="atpopup" onClick={dismissGemShortPopup}>
             <div className="atpopup-card" onClick={e => e.stopPropagation()}>
               <div className="atpopup-hd">
                 <span className="atpopup-ic" aria-hidden="true">💎</span>
                 <div className="atpopup-tt">{gs.t}</div>
-                <button className="atpopup-x" onClick={dismissGemShortPopup} aria-label="close">×</button>
+                <button className="atpopup-x" onClick={dismissGemShortPopup} aria-label={xl(lang, "close")}>×</button>
               </div>
               <div className="atpopup-weak">{gs.b}</div>
               <div className="atpopup-weak" style={{ marginTop: 6 }}>{lc.gemHint}</div>
@@ -14782,7 +14821,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
             <span>{challengeNudge.kind === "full" ? lc.challengeNudgeFull : lc.challengeNudgeBoss.replace("{g}", challengeNudge.label)}</span>
           </div>
           <button className="installbanner-go" style={{ background: "#fff", color: "#7c3aed" }} onClick={() => { playUi("click"); clearTimeout(challengeNudgeTimer.current); setChallengeFocusGroup(challengeNudge.groupId); setPage("challenging"); setChallengeNudge(null); }}>{lc.challengeNudgeBtn}</button>
-          <button className="installbanner-x" onClick={() => { clearTimeout(challengeNudgeTimer.current); setChallengeNudge(null); }} aria-label="close">×</button>
+          <button className="installbanner-x" onClick={() => { clearTimeout(challengeNudgeTimer.current); setChallengeNudge(null); }} aria-label={xl(lang, "close")}>×</button>
         </div>
       )}
 
@@ -14791,7 +14830,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
       {notifInvite && !broadcast && (
         <div className="atpopup notifevt-wrap" onClick={() => setNotifInvite(false)}>
           <div className="atpopup-card notifevt" onClick={e => e.stopPropagation()}>
-            <button className="atpopup-x" onClick={() => setNotifInvite(false)} aria-label="close">×</button>
+            <button className="atpopup-x" onClick={() => setNotifInvite(false)} aria-label={xl(lang, "close")}>×</button>
             <div className="notifevt-ic" aria-hidden="true">🔔</div>
             <div className="notifevt-tag">{lang === "th" ? "กิจกรรมพิเศษ" : lang === "zh" ? "限时活动" : xl(lang, "Special event")}</div>
             <div className="notifevt-h">{lang === "th" ? "เปิดการแจ้งเตือน รับฟรีทันที" : lang === "zh" ? "开启通知，立即免费获得" : xl(lang, "Turn on notifications, get it free")}</div>
@@ -14813,7 +14852,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
             <div className="atpopup-hd">
               <span className="atpopup-ic" aria-hidden="true">📢</span>
               <div className="atpopup-tt">{lang === "th" ? "ประกาศจาก TiGA" : lang === "zh" ? "TiGA 公告" : xl(lang, "Announcement")}</div>
-              <button className="atpopup-x" onClick={dismissBroadcast} aria-label="close">×</button>
+              <button className="atpopup-x" onClick={dismissBroadcast} aria-label={xl(lang, "close")}>×</button>
             </div>
             {broadcast.image_url && (
               <img src={broadcast.image_url} alt="" style={{ width: "100%", borderRadius: 12, marginBottom: 10, display: "block", cursor: broadcast.link ? "pointer" : "default" }}
@@ -14873,7 +14912,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
               <div className="atpopup-hd">
                 <span className="atpopup-ic" aria-hidden="true">{ec.ic}</span>
                 <div className="atpopup-tt">{ec.title}</div>
-                <button className="atpopup-x" onClick={dismissEduTip} aria-label="close">×</button>
+                <button className="atpopup-x" onClick={dismissEduTip} aria-label={xl(lang, "close")}>×</button>
               </div>
               <div className="atpopup-weak" style={{ whiteSpace: "pre-wrap" }}>{ec.body}</div>
               <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
@@ -14901,7 +14940,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
               <div className="atpopup-hd">
                 <span className="atpopup-ic" aria-hidden="true">{c.ic}</span>
                 <div className="atpopup-tt">{c.title}</div>
-                <button className="atpopup-x" onClick={dismissConvPopup} aria-label="close">×</button>
+                <button className="atpopup-x" onClick={dismissConvPopup} aria-label={xl(lang, "close")}>×</button>
               </div>
               <div className="atpopup-weak" style={{ whiteSpace: "pre-wrap" }}>{c.body}</div>
               {/* The consequence, in its own line. `loss` is deliberately not
@@ -14942,7 +14981,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
               <div className="atpopup-hd">
                 <span className="atpopup-ic" aria-hidden="true">{c.ic}</span>
                 <div className="atpopup-tt">{c.title}</div>
-                <button className="atpopup-x" onClick={() => { logConvEvent("proof", "dismissed"); setProofPopup(null); }} aria-label="close">×</button>
+                <button className="atpopup-x" onClick={() => { logConvEvent("proof", "dismissed"); setProofPopup(null); }} aria-label={xl(lang, "close")}>×</button>
               </div>
               <div className="atpopup-weak" style={{ whiteSpace: "pre-wrap" }}>{c.body}</div>
               <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
@@ -14963,7 +15002,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
               <div className="atpopup-hd">
                 <span className="atpopup-ic" aria-hidden="true">{c.ic}</span>
                 <div className="atpopup-tt">{c.title}</div>
-                <button className="atpopup-x" onClick={() => setActivatePopup(false)} aria-label="close">×</button>
+                <button className="atpopup-x" onClick={() => setActivatePopup(false)} aria-label={xl(lang, "close")}>×</button>
               </div>
               <div className="atpopup-weak" style={{ whiteSpace: "pre-wrap" }}>{c.body}</div>
               <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
@@ -14989,7 +15028,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
             <div className="atpopup-hd">
               <span className="atpopup-ic" aria-hidden="true">🎯</span>
               <div className="atpopup-tt">{lang === "th" ? "ครู TiGA แนะนำ" : lang === "zh" ? "TiGA老师建议" : xl(lang, "Coach TiGA's Tip")}</div>
-              <button className="atpopup-x" onClick={() => setAutoTeachUpsellHint(null)} aria-label="close">×</button>
+              <button className="atpopup-x" onClick={() => setAutoTeachUpsellHint(null)} aria-label={xl(lang, "close")}>×</button>
             </div>
             <div className="atpopup-weak">
               {lang === "th"
@@ -15016,7 +15055,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
             <div className="atpopup-hd">
               <span className="atpopup-ic" aria-hidden="true">🎯</span>
               <div className="atpopup-tt">{lang === "th" ? "ครู TiGA แนะนำ" : lang === "zh" ? "TiGA老师建议" : xl(lang, "Coach TiGA's Tip")}</div>
-              <button className="atpopup-x" onClick={() => { try { recordTipAction("dismiss", autoTeachTip && autoTeachTip.feature); logUsage("atip", "dismiss"); } catch (e) {} setAutoTeachTip(null); }} aria-label="close">×</button>
+              <button className="atpopup-x" onClick={() => { try { recordTipAction("dismiss", autoTeachTip && autoTeachTip.feature); logUsage("atip", "dismiss"); } catch (e) {} setAutoTeachTip(null); }} aria-label={xl(lang, "close")}>×</button>
             </div>
             <div className="atpopup-weak">{safeStr(autoTeachTip.weakness)}</div>
             {autoTeachTip.visual && <div style={{ margin: "8px 0 2px", borderRadius: 12, overflow: "hidden" }}><TeachVisual type={autoTeachTip.visual.type} data={autoTeachTip.visual.data} lang={lang} /></div>}
@@ -15025,9 +15064,9 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
               const src = cardSourceInfo(k);
               const q = k.quiz || null;
               const KC = by({
-                th: { knowIt: "รู้ไว้ใช่ว่า", quiz: "ควิซ 30 วิ +5💎", ok: "ถูกต้อง! +5 Gems", no: "เกือบแล้ว! คำตอบคือ", streak: "สตรีคความรู้", days: "วัน", timeUp: "หมดเวลา!", src: "ที่มา" },
-                en: { knowIt: "Did you know", quiz: "30s quiz +5💎", ok: "Correct! +5 gems", no: "Close! The answer is", streak: "Knowledge streak", days: "days", timeUp: "Time's up!", src: "Source" },
-                zh: { knowIt: "你知道吗", quiz: "30秒问答 +5💎", ok: "答对了！+5 Gems", no: "就差一点！答案是", streak: "知识连续", days: "天", timeUp: "时间到！", src: "来源" },
+                th: { knowIt: "รู้ไว้ใช่ว่า", quiz: "ควิซ 30 วิ +5💎", ok: "ถูกต้อง! +5 Gems", no: "เกือบแล้ว! คำตอบคือ", streak: "สตรีคความรู้", days: "วัน", timeUp: "หมดเวลา!", source: "ที่มา" },
+                en: { knowIt: "Did you know", quiz: "30s quiz +5💎", ok: "Correct! +5 gems", no: "Close! The answer is", streak: "Knowledge streak", days: "days", timeUp: "Time's up!", source: "Source" },
+                zh: { knowIt: "你知道吗", quiz: "30秒问答 +5💎", ok: "答对了！+5 Gems", no: "就差一点！答案是", streak: "知识连续", days: "天", timeUp: "时间到！", source: "来源" },
               }, lang) || {};
               const ks = readKnowledgeStats();
               return (
@@ -15068,7 +15107,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
                     </div>
                   )}
                   {src && src.institution && (
-                    <a href={src.url} target="_blank" rel="noreferrer noopener" style={{ display: "inline-block", marginTop: 8, fontSize: 10.5, color: "var(--muted)", textDecoration: "underline", textUnderlineOffset: 2 }}>📚 {KC.src}: {src.institution}</a>
+                    <a href={src.url} target="_blank" rel="noreferrer noopener" style={{ display: "inline-block", marginTop: 8, fontSize: 10.5, color: "var(--muted)", textDecoration: "underline", textUnderlineOffset: 2 }}>📚 {KC.source}: {src.institution}</a>
                   )}
                 </div>
               );

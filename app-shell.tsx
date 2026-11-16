@@ -3,7 +3,7 @@ import { useState, useEffect, Component } from "react";
 import { sb } from "./supabase-client";
 import { saveGuestProfile, setSkipOnboard, logUsage } from "./shared-infra";
 import { handoffUrl } from "./local-identity";
-import { by, ALL_LANGS, LANG_META, isRtl } from "./lang-extra";
+import { by, ALL_LANGS, LANG_META, isRtl, isExtraLang, xl, hasCatalog, loadCatalog } from "./lang-extra";
 import { useCatalog } from "./use-catalog";
 /* ── app-shell.tsx ──
    Small presentational components clustered around the App() root: the
@@ -13,6 +13,27 @@ import { useCatalog } from "./use-catalog";
    result screens. Extracted from App.tsx verbatim as part of the App.tsx
    modularization — App() itself and PianoApp stay in App.tsx, since
    they're the file's own root/entry point. ── */
+
+/* ── the language of the early screens (2026-11-16) ──
+   Everything below mounts before PianoApp has a `lang` (the gate screens), beside it (the sign-up card, the corner Login modal) or after it has died (the two crash fallbacks).
+   Thai, English and Chinese read exactly what they always read: Thai-only text, or the owner's bilingual "Thai · English" pair. The seven extra languages (ja ko ru hi es fr ar) read ONLY their
+   own language: the English half goes through the catalog (xl) and the Thai half is never shown, so a Japanese learner no longer reads Thai + English.
+   Where the language comes from: profile.lang when the learner has chosen one (any of the ten); else the language this device used last (tg_lang_hint: PianoApp writes it on every change and main.tsx
+   loads that catalog before the first paint); else nothing, which means the Thai / English text. LoginWall keeps its own rule (the browser's language as the last resort), it only ever needs the three. */
+function deviceLang(): string {
+  try { const h = localStorage.getItem("tg_lang_hint"); if (h && ALL_LANGS.includes(h)) return h; } catch (e) {}
+  try { const l = (document.documentElement.getAttribute("lang") || "").slice(0, 2).toLowerCase(); if (ALL_LANGS.includes(l)) return l; } catch (e) {}
+  return "";
+}
+function screenLang(profile?: any): string {
+  const p = profile && profile.lang;
+  return ALL_LANGS.includes(p) ? p : deviceLang();
+}
+/* "Thai · English" for th / en / zh (sep "\n" for the two-line ones), the translated English alone for the extra languages. `en` is the xl(lg, "...") the caller writes, so the extractor sees the
+   English literal; for th / en / zh xl hands it back untouched, which is what keeps their text byte for byte what it was. solo() is the same for a text that has no English half (or whose English
+   half is a different sentence from the one the extra languages translate). */
+const pair = (lg: string, th: string, en: string, sep = " · ") => (isExtraLang(lg) ? en : th + sep + en);
+const solo = (lg: string, th: string, en: string) => (isExtraLang(lg) ? en : th);
 
 /* ════ ERROR BOUNDARY (crash safety net) ════ */
 
@@ -45,14 +66,17 @@ export class SafeZone extends Component {
   componentDidCatch(error, info) { if (isChunkLoadError(error)) reloadForNewBuild(); console.error("SafeZone caught:", error, info && info.componentStack); }
   render() {
     if (!this.state.failed) return this.props.children;
+    const lg = deviceLang(), ext = isExtraLang(lg);
+    /* the call sites hand in Thai text; an extra language never reads Thai, so a prop with Thai in it gives way to the translated default */
+    const own = (s) => (ext && s && /[\u0E00-\u0E7F]/.test(s) ? "" : s);
     return (
       <div className="presultai" style={{ borderColor: "#e55" }}>
-        <div className="presultai-h">⚠️ {this.props.label || "ส่วนนี้แสดงผลไม่สำเร็จ"}</div>
+        <div className="presultai-h">⚠️ {own(this.props.label) || solo(lg, "ส่วนนี้แสดงผลไม่สำเร็จ", xl(lg, "This part could not be shown"))}</div>
         <div className="presultai-tx" style={{ fontSize: 12, opacity: 0.8 }}>
-          {this.props.fallbackText || "ข้อมูลส่วนนี้มีปัญหา แต่แอปยังใช้งานได้ตามปกติ — กดปิดเพื่อซ่อนกล่องนี้"}
+          {own(this.props.fallbackText) || solo(lg, "ข้อมูลส่วนนี้มีปัญหา แต่แอปยังใช้งานได้ตามปกติ — กดปิดเพื่อซ่อนกล่องนี้", xl(lg, "This part has a problem, but the app still works normally — tap close to hide this box"))}
         </div>
         {this.state.err ? <div style={{ fontSize: 10, opacity: 0.6, marginTop: 6, wordBreak: "break-all" }}>{this.state.err}</div> : null}
-        <button className="cbtn" style={{ marginTop: 8 }} onClick={() => this.setState({ failed: false })}>✕ ปิด</button>
+        <button className="cbtn" style={{ marginTop: 8 }} onClick={() => this.setState({ failed: false })}>{solo(lg, "✕ ปิด", "✕ " + xl(lg, "Close"))}</button>
       </div>
     );
   }
@@ -60,7 +84,11 @@ export class SafeZone extends Component {
 export class ErrorBoundary extends Component {
   constructor(props) { super(props); this.state = { hasError: false, errText: "", errStack: "", copied: false }; }
   static getDerivedStateFromError(error) { return { hasError: true, errText: String((error && error.message) || error), errStack: String((error && error.stack) || "") }; }
-  componentDidCatch(error, info) { if (isChunkLoadError(error)) reloadForNewBuild(); console.error("Uncaught render error:", error, info); }
+  componentDidCatch(error, info) {
+    if (isChunkLoadError(error)) reloadForNewBuild(); console.error("Uncaught render error:", error, info);
+    // an extra language's catalog is a lazy chunk (main.tsx waits for it for 2.5 s at most): if it is still on its way, this screen is drawn again when it lands
+    try { const l = deviceLang(); if (isExtraLang(l) && !hasCatalog(l)) loadCatalog(l).then(() => { try { this.forceUpdate(); } catch (e) {} }); } catch (e) {}
+  }
   render() {
     if (!this.state.hasError) return this.props.children;
     // Recovery must beat the two real ways this screen appears:
@@ -94,21 +122,22 @@ export class ErrorBoundary extends Component {
     // screenshot away instead of a dead end — every session of debugging this
     // app has started with "เกิดข้อผิดพลาด" and zero information about where.
     const report = (this.state.errStack || this.state.errText || "unknown").slice(0, 1200);
+    const lg = deviceLang(), ext = isExtraLang(lg);   // the crash screen cannot use a hook: the language is read straight from the device
     return (
       <div className="tg" style={{ alignItems: "center", justifyContent: "center" }}>
         <div className="scan" />
         <div className="banscreen">
           <div style={{ fontSize: 52 }}>🎹</div>
-          <div className="locktitle">เกิดข้อผิดพลาด · Something went wrong</div>
-          <div className="locksub">ขออภัยในความไม่สะดวก กรุณาโหลดหน้าใหม่อีกครั้ง<br />Sorry about that — please reload the page to continue.</div>
-          <button className="lockbtn" onClick={reload}>โหลดใหม่ · Reload</button>
+          <div className="locktitle">{pair(lg, "เกิดข้อผิดพลาด", xl(lg, "Something went wrong"))}</div>
+          <div className="locksub">{ext ? xl(lg, "Sorry about that — please reload the page to continue.") : <>ขออภัยในความไม่สะดวก กรุณาโหลดหน้าใหม่อีกครั้ง<br />Sorry about that — please reload the page to continue.</>}</div>
+          <button className="lockbtn" onClick={reload}>{pair(lg, "โหลดใหม่", xl(lg, "Reload"))}</button>
           <details style={{ marginTop: 14, maxWidth: 420, width: "92%", textAlign: "left" }}>
             <summary style={{ cursor: "pointer", opacity: 0.75, fontSize: 13, fontFamily: "var(--f-num, monospace)" }}>
-              รายละเอียด error (แตะเพื่อคัดลอก) · Show error
+              {solo(lg, "รายละเอียด error (แตะเพื่อคัดลอก) · Show error", xl(lg, "Show error (tap to copy)"))}
             </summary>
             <pre onClick={() => { try { navigator.clipboard.writeText(report); this.setState({ copied: true }); } catch (e) {} }}
               style={{ marginTop: 8, padding: 10, borderRadius: 10, background: "rgba(0,0,0,0.45)", color: "#fca5a5", fontSize: 11, lineHeight: 1.5, maxHeight: 220, overflow: "auto", whiteSpace: "pre-wrap", wordBreak: "break-word", cursor: "pointer", fontFamily: "var(--f-num, monospace)" }}>
-              {report}{this.state.copied ? "\n\n✓ copied" : ""}
+              {report}{this.state.copied ? (ext ? "\n\n✓ " + xl(lg, "Copied!") : "\n\n✓ copied") : ""}
             </pre>
           </details>
         </div>
@@ -128,15 +157,17 @@ export function Splash() {
   );
 }
 
-export function BannedScreen({ onSignOut }) {
+export function BannedScreen({ onSignOut, profile }) {   // profile is optional: when the caller hands it in, its lang decides; otherwise the device's last language
+  const lg = screenLang(profile), ext = isExtraLang(lg);
+  useCatalog(lg);
   return (
     <div className="tg" style={{ alignItems: "center", justifyContent: "center" }}>
       <div className="scan" />
       <div className="banscreen">
         <div style={{ fontSize: 52 }}>🚫</div>
-        <div className="locktitle">บัญชีถูกระงับ · Account suspended</div>
-        <div className="locksub">บัญชีนี้ถูกระงับการใช้งาน หากคิดว่าผิดพลาด กรุณาติดต่อผู้ดูแล<br />This account has been suspended. Please contact the studio if you think this is a mistake.</div>
-        <button className="lockbtn" onClick={onSignOut}>ออกจากระบบ · Sign out</button>
+        <div className="locktitle">{pair(lg, "บัญชีถูกระงับ", xl(lg, "Account suspended"))}</div>
+        <div className="locksub">{ext ? xl(lg, "This account has been suspended. Please contact the studio if you think this is a mistake.") : <>บัญชีนี้ถูกระงับการใช้งาน หากคิดว่าผิดพลาด กรุณาติดต่อผู้ดูแล<br />This account has been suspended. Please contact the studio if you think this is a mistake.</>}</div>
+        <button className="lockbtn" onClick={onSignOut}>{pair(lg, "ออกจากระบบ", xl(lg, "Sign out"))}</button>
       </div>
     </div>
   );
@@ -148,8 +179,18 @@ export function BannedScreen({ onSignOut }) {
 // drop rejects instead of resolving) — GoTrue's client doesn't consistently
 // pick one or the other for a raw fetch failure, so both paths need the same
 // mapping or a plain "Failed to fetch" can leak straight to the screen.
-export function friendlyAuthError(msg) {
+export function friendlyAuthError(msg, lang = "") {
   const m = msg || "";
+  if (isExtraLang(lang)) {
+    // ja ko ru hi es fr ar: their own language only (the Thai · English pairs below stay for Thai, English and Chinese). A message the server wrote that we do not know is shown as it came, as it is for the three.
+    if (/already registered|already exists/i.test(m)) return xl(lang, "This email is already registered — try logging in instead");
+    if (/invalid login credentials/i.test(m)) return xl(lang, "Incorrect email or password");
+    if (/email not confirmed/i.test(m)) return xl(lang, "Please confirm your email first — check your inbox");
+    if (/rate limit|only request this after|too many requests/i.test(m)) return xl(lang, "Too many tries — please wait a moment and try again");
+    if (/unable to validate email|email address.*invalid|invalid format/i.test(m)) return xl(lang, "That email address doesn't look right — please check it");
+    if (/fetch|network|internet|offline/i.test(m)) return xl(lang, "Couldn't connect — please try again");
+    return m || xl(lang, "Something went wrong — please try again");
+  }
   if (/already registered|already exists/i.test(m)) return "อีเมลนี้สมัครไว้แล้ว — ลองเข้าสู่ระบบแทน · This email is already registered — try logging in instead";
   if (/invalid login credentials/i.test(m)) return "อีเมลหรือรหัสผ่านไม่ถูกต้อง · Incorrect email or password";
   if (/fetch|network|internet|offline/i.test(m)) return "เชื่อมต่อไม่ได้ ลองอีกครั้ง · Couldn't connect — please try again";
@@ -160,9 +201,10 @@ export function friendlyAuthError(msg) {
 // a Google account specifically, since a student who's a child may not have
 // one yet. Shared by GuestGateScreen (embedded inline, no dismiss) and
 // LoginModal below (the corner pill's dismissable version). Bilingual
-// Thai+English only, matching every other string on these screens — `lang`
-// is PianoApp-local state that doesn't exist yet this early (these screens
-// render before PianoApp ever mounts), so there's no language to switch on.
+// Thai · English for Thai, English and Chinese, matching every other string on
+// these screens; the seven extra languages read their own language only (see
+// screenLang / pair / solo at the top of this file — `lang` is PianoApp-local
+// state, so each root here reads profile.lang or the device's last language).
 /* ════ IN-APP BROWSER DETECTION ════
    2026-09-11, found by reading auth logs against a live ad campaign: real
    visitors WERE tapping "Continue with Google" — Supabase logged
@@ -234,6 +276,14 @@ export function openInRealBrowser() {
 export const PDPA_VERSION = "2026-09-11";
 const PRIVACY_URL = "privacy-policy.html";
 
+/* A sentence with the privacy-policy link inside it, for the extra languages. The English key carries the link as [[Privacy Policy]] and the translator keeps the [[ ]] around the words that become the
+   link, wherever they fall in the sentence (word order differs between languages, so the sentence is ONE string, not "I accept" + link + "and consent"). A translation that lost its markers still shows the link. */
+function PolicyLine({ lg, text }) {
+  const m = /^([\s\S]*?)\[\[([\s\S]*?)\]\]([\s\S]*)$/.exec(text);
+  const link = (label) => <a href={PRIVACY_URL} target="_blank" rel="noopener noreferrer">{label}</a>;
+  return m ? <>{m[1]}{link(m[2])}{m[3]}</> : <>{text} {link(xl(lg, "Privacy Notice"))}</>;
+}
+
 function GoogleMark() {
   return (
     <svg className="au-gico" viewBox="0 0 48 48" aria-hidden="true">
@@ -249,7 +299,8 @@ function GoogleMark() {
    only real button and hid e-mail behind a link reading "log in with existing
    account" — so someone with no Google account, or in a WebView where Google
    refuses to work at all, saw no way to create one. */
-function LoginOptions({ profile, onGoogleLogin }) {
+function LoginOptions({ profile, onGoogleLogin, lg }) {   // lg: the language of the caller (LoginModal / GuestGateScreen read it once and use the catalog hook)
+  const ext = isExtraLang(lg);
   const [inApp] = useState(() => inAppBrowser());
   const [mode, setMode] = useState("signup"); // signup | login
   const [copied, setCopied] = useState(false);
@@ -268,13 +319,14 @@ function LoginOptions({ profile, onGoogleLogin }) {
   async function submit() {
     if (busy) return;
     setErr(""); setMsg("");
-    if (signup && !name.trim()) { setErr("กรุณากรอกชื่อที่อยากให้ครูเรียก · Please enter a name"); return; }
-    if (!email.trim() || !password) { setErr("กรุณากรอกอีเมลและรหัสผ่าน · Please enter your email and password"); return; }
-    if (password.length < 6) { setErr("รหัสผ่านต้องมีอย่างน้อย 6 ตัวอักษร · Password must be at least 6 characters"); return; }
-    if (signup && password !== confirm) { setErr("รหัสผ่านไม่ตรงกัน · Passwords don't match"); return; }
+    // (a "solo" line below borrows the sentence LoginWall already has in the catalog: same meaning, no new string to translate)
+    if (signup && !name.trim()) { setErr(solo(lg, "กรุณากรอกชื่อที่อยากให้ครูเรียก · Please enter a name", xl(lg, "Please enter your name"))); return; }
+    if (!email.trim() || !password) { setErr(pair(lg, "กรุณากรอกอีเมลและรหัสผ่าน", xl(lg, "Please enter your email and password"))); return; }
+    if (password.length < 6) { setErr(pair(lg, "รหัสผ่านต้องมีอย่างน้อย 6 ตัวอักษร", xl(lg, "Password must be at least 6 characters"))); return; }
+    if (signup && password !== confirm) { setErr(pair(lg, "รหัสผ่านไม่ตรงกัน", xl(lg, "Passwords don't match"))); return; }
     // PDPA: processing may not begin without a freely given, specific,
     // informed consent — so this is a hard stop, not a nudge.
-    if (signup && !agree) { setErr("กรุณายอมรับนโยบายความเป็นส่วนตัวก่อนสมัคร · Please accept the privacy notice to continue"); return; }
+    if (signup && !agree) { setErr(solo(lg, "กรุณายอมรับนโยบายความเป็นส่วนตัวก่อนสมัคร · Please accept the privacy notice to continue", xl(lg, "Please accept the Privacy Notice"))); return; }
     setBusy(true);
     try {
       saveGuestProfile(profile); // progress made as a guest follows them in
@@ -292,26 +344,26 @@ function LoginOptions({ profile, onGoogleLogin }) {
             } },
           })
         : await sb.auth.signInWithPassword({ email: email.trim(), password });
-      if (error) { setErr(friendlyAuthError(error.message)); return; }
+      if (error) { setErr(friendlyAuthError(error.message, lg)); return; }
       if (signup && data && data.user && !data.session) {
-        setMsg("สมัครสำเร็จ! ตรวจสอบอีเมลเพื่อยืนยันบัญชี แล้วกลับมาเข้าสู่ระบบ · Account created — check your email to confirm it, then log in.");
+        setMsg(solo(lg, "สมัครสำเร็จ! ตรวจสอบอีเมลเพื่อยืนยันบัญชี แล้วกลับมาเข้าสู่ระบบ · Account created — check your email to confirm it, then log in.", xl(lg, "Account created! Check your email to confirm, then log in")));
       }
       // A live session completes through App()'s own onAuthStateChange.
     } catch (e) {
-      setErr(friendlyAuthError(e && e.message));
+      setErr(friendlyAuthError(e && e.message, lg));
     } finally {
       setBusy(false);
     }
   }
 
   async function forgotPassword() {
-    if (!email.trim()) { setErr("กรอกอีเมลก่อนเพื่อรีเซ็ตรหัสผ่าน · Enter your email above first"); return; }
+    if (!email.trim()) { setErr(solo(lg, "กรอกอีเมลก่อนเพื่อรีเซ็ตรหัสผ่าน · Enter your email above first", xl(lg, "Enter your email first, then tap Forgot password"))); return; }
     setBusy(true); setErr(""); setMsg("");
     try {
       const { error } = await sb.auth.resetPasswordForEmail(email.trim(), { redirectTo: window.location.origin + window.location.pathname });
-      if (error) setErr(friendlyAuthError(error.message));
-      else setMsg("ส่งลิงก์รีเซ็ตรหัสผ่านไปที่อีเมลแล้ว · Reset link sent — check your inbox");
-    } catch (e) { setErr(friendlyAuthError(e && e.message)); }
+      if (error) setErr(friendlyAuthError(error.message, lg));
+      else setMsg(solo(lg, "ส่งลิงก์รีเซ็ตรหัสผ่านไปที่อีเมลแล้ว · Reset link sent — check your inbox", xl(lg, "We sent a password reset link to your email")));
+    } catch (e) { setErr(friendlyAuthError(e && e.message, lg)); }
     finally { setBusy(false); }
   }
 
@@ -320,86 +372,106 @@ function LoginOptions({ profile, onGoogleLogin }) {
       await navigator.clipboard.writeText(window.location.href);
       setCopied(true); setTimeout(() => setCopied(false), 2500);
     } catch (e) {
-      setErr("คัดลอกไม่สำเร็จ กดค้างที่แถบที่อยู่เพื่อคัดลอก · Copy failed — long-press the address bar instead");
+      setErr(pair(lg, "คัดลอกไม่สำเร็จ กดค้างที่แถบที่อยู่เพื่อคัดลอก", xl(lg, "Copy failed — long-press the address bar instead")));
     }
   }
 
   return (
     <div className="au">
       <div className="au-head">
-        <div className="au-title">{signup ? "สมัครสมาชิกฟรี" : "ยินดีต้อนรับกลับมา"}</div>
+        <div className="au-title">{signup ? solo(lg, "สมัครสมาชิกฟรี", xl(lg, "Sign up free")) : solo(lg, "ยินดีต้อนรับกลับมา", xl(lg, "Welcome back"))}</div>
         <div className="au-sub">
           {!signup
-            ? "เข้าสู่ระบบเพื่อเล่นต่อจากที่ค้างไว้\nLog in to pick up where you left off"
+            ? pair(lg, "เข้าสู่ระบบเพื่อเล่นต่อจากที่ค้างไว้", xl(lg, "Log in to pick up where you left off"), "\n")
             : inApp
             // promising Google here would be a lie: it cannot work in a WebView
-            ? "สมัครด้วยอีเมลได้เลย ไม่ต้องมีบัญชี Google\nSign up with an email — no Google account needed"
-            : "เลือกได้เลย — สมัครด้วยอีเมล หรือใช้บัญชี Google\nSign up with an email, or use Google"}
+            ? pair(lg, "สมัครด้วยอีเมลได้เลย ไม่ต้องมีบัญชี Google", xl(lg, "Sign up with an email — no Google account needed"), "\n")
+            : pair(lg, "เลือกได้เลย — สมัครด้วยอีเมล หรือใช้บัญชี Google", xl(lg, "Sign up with an email, or use Google"), "\n")}
         </div>
       </div>
 
       <div className="au-seg" role="tablist">
         <button className={`au-segb${signup ? " on" : ""}`} role="tab" aria-selected={signup}
-          onClick={() => { setMode("signup"); setErr(""); setMsg(""); }}>สมัครสมาชิกใหม่</button>
+          onClick={() => { setMode("signup"); setErr(""); setMsg(""); }}>{solo(lg, "สมัครสมาชิกใหม่", xl(lg, "Sign up"))}</button>
         <button className={`au-segb${!signup ? " on" : ""}`} role="tab" aria-selected={!signup}
-          onClick={() => { setMode("login"); setErr(""); setMsg(""); }}>เข้าสู่ระบบ</button>
+          onClick={() => { setMode("login"); setErr(""); setMsg(""); }}>{solo(lg, "เข้าสู่ระบบ", xl(lg, "Log in"))}</button>
       </div>
 
       {inApp ? (
         <>
           <div className="au-warn">
-            <b>⚠️ Google ใช้ไม่ได้ในเบราว์เซอร์ของแอปนี้</b>
-            เปิดจาก Facebook / YouTube / TikTok ใช่ไหมคะ — Google ไม่ยอมให้ล็อกอินในนี้
-            {" "}สมัครด้วยอีเมลด้านล่างได้ตามปกติ หรือกดเปิดในเบราว์เซอร์จริง
+            {ext ? (
+              <>
+                <b>{"⚠️ " + xl(lg, "Google doesn't work in this app's browser")}</b>
+                {xl(lg, "Did you open this from Facebook, YouTube or TikTok? Google doesn't allow sign-in inside those apps. You can sign up with the email form below as usual, or open it in a real browser.")}
+              </>
+            ) : (
+              <>
+                <b>⚠️ Google ใช้ไม่ได้ในเบราว์เซอร์ของแอปนี้</b>
+                เปิดจาก Facebook / YouTube / TikTok ใช่ไหมคะ — Google ไม่ยอมให้ล็อกอินในนี้
+                {" "}สมัครด้วยอีเมลด้านล่างได้ตามปกติ หรือกดเปิดในเบราว์เซอร์จริง
+              </>
+            )}
           </div>
           <div className="au-esc">
-            <button className="au-escb" onClick={() => openInRealBrowser()}>🌐 เปิดในเบราว์เซอร์</button>
-            <button className="au-escb" onClick={copyLink}>{copied ? "✓ คัดลอกแล้ว" : "🔗 คัดลอกลิงก์"}</button>
+            <button className="au-escb" onClick={() => openInRealBrowser()}>{solo(lg, "🌐 เปิดในเบราว์เซอร์", "🌐 " + xl(lg, "Open in browser"))}</button>
+            <button className="au-escb" onClick={copyLink}>{copied ? solo(lg, "✓ คัดลอกแล้ว", "✓ " + xl(lg, "Copied!")) : solo(lg, "🔗 คัดลอกลิงก์", "🔗 " + xl(lg, "Copy link"))}</button>
           </div>
         </>
       ) : (
         <>
           <button className="au-g" onClick={onGoogleLogin}>
-            <GoogleMark /> {signup ? "สมัครด้วย Google" : "เข้าสู่ระบบด้วย Google"}
+            <GoogleMark /> {signup ? solo(lg, "สมัครด้วย Google", xl(lg, "Sign up with Google")) : solo(lg, "เข้าสู่ระบบด้วย Google", xl(lg, "Log in with Google"))}
           </button>
-          <div className="au-or">หรือ · or</div>
+          <div className="au-or">{pair(lg, "หรือ", xl(lg, "or"))}</div>
         </>
       )}
 
       <div className="au-f">
         {signup && (
-          <input className="au-in" type="text" autoComplete="name" placeholder="ชื่อที่อยากให้ครูเรียก · Your name"
+          <input className="au-in" type="text" autoComplete="name" placeholder={pair(lg, "ชื่อที่อยากให้ครูเรียก", xl(lg, "Your name"))}
             value={name} onChange={e => setName(e.target.value)} />
         )}
-        <input className="au-in" type="email" inputMode="email" autoComplete="email" placeholder="อีเมล · Email"
+        <input className="au-in" type="email" inputMode="email" autoComplete="email" placeholder={pair(lg, "อีเมล", xl(lg, "Email"))}
           value={email} onChange={e => setEmail(e.target.value)} />
         <input className="au-in" type="password" autoComplete={signup ? "new-password" : "current-password"}
-          placeholder="รหัสผ่าน (อย่างน้อย 6 ตัว) · Password" value={password} onChange={e => setPassword(e.target.value)} />
+          placeholder={solo(lg, "รหัสผ่าน (อย่างน้อย 6 ตัว) · Password", xl(lg, "Password (at least 6 characters)"))} value={password} onChange={e => setPassword(e.target.value)} />
         {signup && (
-          <input className="au-in" type="password" autoComplete="new-password" placeholder="ยืนยันรหัสผ่าน · Confirm password"
+          <input className="au-in" type="password" autoComplete="new-password" placeholder={pair(lg, "ยืนยันรหัสผ่าน", xl(lg, "Confirm password"))}
             value={confirm} onChange={e => setConfirm(e.target.value)} />
         )}
       </div>
 
       {signup && (
         <div className="au-pdpa">
-          <div className="au-pdpa-h">ความเป็นส่วนตัว · Privacy</div>
+          <div className="au-pdpa-h">{pair(lg, "ความเป็นส่วนตัว", xl(lg, "Privacy"))}</div>
           <div className="au-pdpa-p">
+            {ext ? xl(lg, "We keep your name, email and learning progress only to open your account and save your learning. We never sell your data, and you can ask to delete your account at any time.") : <>
             เราเก็บชื่อ อีเมล และความคืบหน้าการเรียนของคุณ เพื่อใช้เปิดบัญชีและบันทึกการเรียนเท่านั้น
             ไม่ขายข้อมูลให้ใคร และคุณขอลบบัญชีได้ทุกเมื่อ
+            </>}
           </div>
           <label className="au-ck">
             <input type="checkbox" checked={agree} onChange={e => setAgree(e.target.checked)} />
             <span>
+              {ext ? (
+                <>
+                  <span className="au-req">*</span>{" "}
+                  <PolicyLine lg={lg} text={xl(lg, "I accept the [[Privacy Policy]] and consent to the collection of the data above to provide the service")} />
+                </>
+              ) : (
+                <>
               <span className="au-req">*</span> ฉันยอมรับ
               {" "}<a href={PRIVACY_URL} target="_blank" rel="noopener noreferrer">นโยบายความเป็นส่วนตัว</a>
               {" "}และยินยอมให้เก็บข้อมูลข้างต้นเพื่อให้บริการ
+                </>
+              )}
             </span>
           </label>
           <label className="au-ck">
             <input type="checkbox" checked={marketing} onChange={e => setMarketing(e.target.checked)} />
             <span>
-              (ไม่บังคับ) ส่งข่าวคอร์สใหม่และโปรโมชันให้ฉันทางอีเมล — ไม่เลือกก็สมัครได้ตามปกติ
+              {solo(lg, "(ไม่บังคับ) ส่งข่าวคอร์สใหม่และโปรโมชันให้ฉันทางอีเมล — ไม่เลือกก็สมัครได้ตามปกติ", xl(lg, "(Optional) Email me news about new courses and promotions — you can sign up without ticking this"))}
             </span>
           </label>
         </div>
@@ -409,20 +481,29 @@ function LoginOptions({ profile, onGoogleLogin }) {
       {msg && <div className="au-ok">{msg}</div>}
 
       <button className="au-cta" disabled={busy} onClick={submit}>
-        {busy ? "กำลังดำเนินการ..." : signup ? "สมัครสมาชิกฟรี" : "เข้าสู่ระบบ"}
+        {busy ? solo(lg, "กำลังดำเนินการ...", xl(lg, "Processing…")) : signup ? solo(lg, "สมัครสมาชิกฟรี", xl(lg, "Sign up free")) : solo(lg, "เข้าสู่ระบบ", xl(lg, "Log in"))}
       </button>
 
-      {!signup && <button className="au-link" onClick={forgotPassword}>ลืมรหัสผ่าน? · Forgot password?</button>}
+      {!signup && <button className="au-link" onClick={forgotPassword}>{pair(lg, "ลืมรหัสผ่าน?", xl(lg, "Forgot password?"))}</button>}
 
       {inApp && (
         <button className="au-link" style={{ opacity: .6, fontSize: 12 }} onClick={onGoogleLogin}>
-          ลองใช้ Google ต่อไป (อาจไม่ทำงานในนี้) · Try Google anyway
+          {pair(lg, "ลองใช้ Google ต่อไป (อาจไม่ทำงานในนี้)", xl(lg, "Try Google anyway"))}
         </button>
       )}
 
       <div className="au-fine">
+        {ext ? (
+          <>
+            {xl(lg, "No credit card needed")}<br />
+            <PolicyLine lg={lg} text={xl(lg, `By signing up you accept the [[Privacy Policy]] (version ${PDPA_VERSION})`)} />
+          </>
+        ) : (
+          <>
         ฟรี ไม่ต้องใช้บัตรเครดิต · No credit card needed<br />
         การสมัครถือว่ายอมรับ <a href={PRIVACY_URL} target="_blank" rel="noopener noreferrer">นโยบายความเป็นส่วนตัว</a> (ฉบับ {PDPA_VERSION})
+          </>
+        )}
       </div>
     </div>
   );
@@ -432,12 +513,14 @@ function LoginOptions({ profile, onGoogleLogin }) {
 // dismissable modal since (unlike GuestGateScreen) this entry point is
 // always optional, never a forced stop.
 export function LoginModal({ profile, onGoogleLogin, onClose }) {
+  const lg = screenLang(profile);
+  useCatalog(lg);   // PianoApp already holds the catalog of profile.lang; this keeps the modal right if it is ever mounted on its own
   return (
     <div className="setov" onClick={onClose}>
       <div className="setcard" style={{ maxWidth: 340 }} onClick={e => e.stopPropagation()}>
-        <div className="sethdr"><span>🔐 เข้าสู่ระบบ · Login</span><button className="cbtn" onClick={onClose}>ปิด · Close</button></div>
+        <div className="sethdr"><span>{solo(lg, "🔐 เข้าสู่ระบบ · Login", "🔐 " + xl(lg, "Login"))}</span><button className="cbtn" onClick={onClose}>{pair(lg, "ปิด", xl(lg, "Close"))}</button></div>
         <div className="setbody" style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 10, padding: "14px 6px" }}>
-          <LoginOptions profile={profile} onGoogleLogin={onGoogleLogin} />
+          <LoginOptions profile={profile} onGoogleLogin={onGoogleLogin} lg={lg} />
         </div>
       </div>
     </div>
@@ -459,7 +542,8 @@ export function LoginModal({ profile, onGoogleLogin, onClose }) {
    which is where a guest who just played a song is asked to join, gets the same
    door at the top. The link is opened later and usually in another browser, so
    it carries the visit across (local-identity.handoffUrl) like the landing's. */
-function MagicLinkForm({ profile }) {
+function MagicLinkForm({ profile, lg }) {
+  const ext = isExtraLang(lg);
   const [email, setEmail] = useState("");
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState(false);
@@ -467,7 +551,7 @@ function MagicLinkForm({ profile }) {
   async function send(e) {
     e.preventDefault();
     if (busy) return;
-    if (!email.trim()) { setErr("กรุณากรอกอีเมล · Please enter your email"); return; }
+    if (!email.trim()) { setErr(pair(lg, "กรุณากรอกอีเมล", xl(lg, "Please enter your email"))); return; }
     setBusy(true); setErr("");
     try {
       saveGuestProfile(profile);
@@ -479,11 +563,11 @@ function MagicLinkForm({ profile }) {
           data: { pdpa_version: PDPA_VERSION, marketing_consent: false, via: "app-gate-otp" },
         },
       });
-      if (error) { setErr(friendlyAuthError(error.message)); return; }
+      if (error) { setErr(friendlyAuthError(error.message, lg)); return; }
       logUsage("gate", "otp:sent");
       setDone(true);
     } catch (e2) {
-      setErr(friendlyAuthError(e2 && e2.message));
+      setErr(friendlyAuthError(e2 && e2.message, lg));
     } finally {
       setBusy(false);
     }
@@ -491,23 +575,25 @@ function MagicLinkForm({ profile }) {
   if (done) {
     return (
       <div className="au-warn" role="status" style={{ width: "100%", textAlign: "left" }}>
-        <b>✉️ ส่งลิงก์แล้ว · Link sent</b>
-        เปิดอีเมลแล้วกดลิงก์เพื่อเข้าเล่นต่อ ไม่ต้องมีรหัสผ่าน · Open your email and tap the link — no password needed.
+        <b>{solo(lg, "✉️ ส่งลิงก์แล้ว · Link sent", "✉️ " + xl(lg, "Link sent"))}</b>
+        {pair(lg, "เปิดอีเมลแล้วกดลิงก์เพื่อเข้าเล่นต่อ ไม่ต้องมีรหัสผ่าน", xl(lg, "Open your email and tap the link — no password needed."))}
       </div>
     );
   }
   return (
     <form onSubmit={send} style={{ width: "100%", display: "flex", flexDirection: "column", gap: 8 }}>
       <input type="email" inputMode="email" autoComplete="email" enterKeyHint="go" placeholder="your@email.com"
-        value={email} onChange={e => setEmail(e.target.value)} aria-label="Email"
+        value={email} onChange={e => setEmail(e.target.value)} aria-label={xl(lg, "Email")}
         style={{ width: "100%", padding: "12px 14px", borderRadius: 12, border: "1.5px solid rgba(255,255,255,0.2)", background: "rgba(255,255,255,0.08)", color: "inherit", fontSize: 15, outline: "none", boxSizing: "border-box" }} />
       <button type="submit" disabled={busy}
         style={{ width: "100%", padding: "12px 22px", borderRadius: 13, border: "2px solid #d97757", background: busy ? "rgba(217,119,87,0.5)" : "linear-gradient(135deg, #d97757, #c25e3f)", color: "#fff", fontSize: 15, fontWeight: 700, cursor: busy ? "default" : "pointer" }}>
-        {busy ? "..." : "✉️ ส่งลิงก์เข้าสู่ระบบฟรี · Email me a free link"}
+        {busy ? "..." : solo(lg, "✉️ ส่งลิงก์เข้าสู่ระบบฟรี · Email me a free link", "✉️ " + xl(lg, "Email me a free link"))}
       </button>
       {err && <div style={{ fontSize: 12.5, color: "#ff8a80", lineHeight: 1.4 }}>{err}</div>}
       <div style={{ fontSize: 11, opacity: 0.55, lineHeight: 1.5, textAlign: "center" }}>
+        {ext ? <PolicyLine lg={lg} text={xl(lg, "Just one field, no password to set · By signing up you acknowledge the [[Privacy Policy]]")} /> : <>
         ช่องเดียว ไม่ต้องตั้งรหัสผ่าน · การสมัครถือว่ารับทราบ <a href="privacy-policy.html" target="_blank" rel="noopener noreferrer">นโยบายความเป็นส่วนตัว</a>
+        </>}
       </div>
     </form>
   );
@@ -544,13 +630,13 @@ function LoginWall({ profile, onGoogleLogin }) {
       const { data, error } = signup
         ? await sb.auth.signUp({ email: email.trim(), password: pass, options: { data: { full_name: name.trim(), pdpa_version: PDPA_VERSION, marketing_consent: false } } })
         : await sb.auth.signInWithPassword({ email: email.trim(), password: pass });
-      if (error) { setErr(friendlyAuthError(error.message)); return; }
+      if (error) { setErr(friendlyAuthError(error.message, lg)); return; }   // lg: an extra language reads its own language, Thai / English / Chinese keep the "Thai · English" pair
       if (signup && data && data.user && !data.session) setOk(t.created);
-    } catch (e) { setErr(friendlyAuthError(e && e.message)); } finally { setBusy(false); }
+    } catch (e) { setErr(friendlyAuthError(e && e.message, lg)); } finally { setBusy(false); }
   }
   async function forgot() {
     if (!email.trim()) { setErr(t.needEmailReset); return; }
-    setErr(""); try { const { error } = await sb.auth.resetPasswordForEmail(email.trim(), { redirectTo: window.location.origin }); if (error) setErr(friendlyAuthError(error.message)); else setOk(t.reset); } catch (e) { setErr(friendlyAuthError(e && e.message)); }
+    setErr(""); try { const { error } = await sb.auth.resetPasswordForEmail(email.trim(), { redirectTo: window.location.origin }); if (error) setErr(friendlyAuthError(error.message, lg)); else setOk(t.reset); } catch (e) { setErr(friendlyAuthError(e && e.message, lg)); }
   }
   const clay = "#d97757", inp: React.CSSProperties = { width: "100%", boxSizing: "border-box", padding: "13px 14px", borderRadius: 10, border: "1.5px solid #e2d8cf", background: "#fff", color: "#2a211b", fontSize: 16, outline: "none", fontFamily: "inherit" };
   return (
@@ -607,6 +693,8 @@ function LoginWall({ profile, onGoogleLogin }) {
 }
 
 export function GuestGateScreen({ reason, profile, onLogin }) {
+  const lg = screenLang(profile), ext = isExtraLang(lg);
+  useCatalog(lg);   // PianoApp already holds the catalog of profile.lang; this keeps the gate right if it is ever mounted on its own
   const [gateInApp] = useState(() => inAppBrowser());
   const [showSignup, setShowSignup] = useState(false);
   // PDPA: never pre-ticked, and the optional marketing purpose is asked for
@@ -628,13 +716,13 @@ export function GuestGateScreen({ reason, profile, onLogin }) {
   async function handleSignupSubmit() {
     if (signupBusy) return;
     setSignupErr("");
-    if (!signupName.trim()) { setSignupErr("กรุณากรอกชื่อ · Please enter your name"); return; }
-    if (!signupPassword || signupPassword.length < 6) { setSignupErr("รหัสผ่านต้องมีอย่างน้อย 6 ตัว · Password must be at least 6 characters"); return; }
+    if (!signupName.trim()) { setSignupErr(pair(lg, "กรุณากรอกชื่อ", xl(lg, "Please enter your name"))); return; }
+    if (!signupPassword || signupPassword.length < 6) { setSignupErr(pair(lg, "รหัสผ่านต้องมีอย่างน้อย 6 ตัว", xl(lg, "Password must be at least 6 characters"))); return; }
     // Without an email this branch finishes by handing off to Google, and in a
     // social app's WebView that is the one door that is shut (see
     // inAppBrowser). Ask for the email instead of walking them into it.
-    if (gateInApp && !signupEmail.trim()) { setSignupErr("กรุณากรอกอีเมล (ในเบราว์เซอร์ของแอปนี้ต้องใช้อีเมลสมัคร) · Email is required in this app's browser"); return; }
-    if (!gateAgree) { setSignupErr("กรุณายอมรับนโยบายความเป็นส่วนตัวก่อนสมัคร · Please accept the privacy notice to continue"); return; }
+    if (gateInApp && !signupEmail.trim()) { setSignupErr(pair(lg, "กรุณากรอกอีเมล (ในเบราว์เซอร์ของแอปนี้ต้องใช้อีเมลสมัคร)", xl(lg, "Email is required in this app's browser"))); return; }
+    if (!gateAgree) { setSignupErr(solo(lg, "กรุณายอมรับนโยบายความเป็นส่วนตัวก่อนสมัคร · Please accept the privacy notice to continue", xl(lg, "Please accept the Privacy Notice"))); return; }
     setSignupBusy(true);
     try {
       saveGuestProfile(profile);
@@ -652,7 +740,7 @@ export function GuestGateScreen({ reason, profile, onLogin }) {
             marketing_consent: !!gateMarketing,
           } },
         });
-        if (error) { setSignupErr(friendlyAuthError(error.message)); setSignupBusy(false); return; }
+        if (error) { setSignupErr(friendlyAuthError(error.message, lg)); setSignupBusy(false); return; }
         if (data && data.user) {
           await sb.from("profiles").upsert({
             id: data.user.id,
@@ -682,7 +770,7 @@ export function GuestGateScreen({ reason, profile, onLogin }) {
         setTimeout(() => onLogin(), 1500);
       }
     } catch (e) {
-      setSignupErr(e && e.message || "เกิดข้อผิดพลาด · Something went wrong");
+      setSignupErr(ext ? friendlyAuthError(e && e.message, lg) : (e && e.message || "เกิดข้อผิดพลาด · Something went wrong"));
     } finally {
       setSignupBusy(false);
     }
@@ -691,23 +779,23 @@ export function GuestGateScreen({ reason, profile, onLogin }) {
   const copy = {
     time: {
       icon: "⏳",
-      title: "สมัครฟรี แล้วเล่นต่อได้อีก 30 วัน",
-      sub: "ล็อกอินหรือสมัครสมาชิกฟรีเพื่อเล่นต่อ — ความคืบหน้าที่ทำไว้จะถูกเก็บไว้ให้ครบ\nLog in or sign up free to keep playing — everything you did stays saved.",
+      title: solo(lg, "สมัครฟรี แล้วเล่นต่อได้อีก 30 วัน", xl(lg, "Sign up free to keep playing for 30 more days")),
+      sub: pair(lg, "ล็อกอินหรือสมัครสมาชิกฟรีเพื่อเล่นต่อ — ความคืบหน้าที่ทำไว้จะถูกเก็บไว้ให้ครบ", xl(lg, "Log in or sign up free to keep playing — everything you did stays saved."), "\n"),
     },
     ai: {
       icon: "🤖",
-      title: "AI ครูสอนต้องล็อกอินก่อน · The AI teacher needs a login",
-      sub: "ฟีเจอร์นี้ต้องใช้บัญชีจริง ล็อกอินหรือสมัครสมาชิกฟรีได้เลย — ความคืบหน้าที่ทำไว้จะถูกเก็บไว้ให้ครบ\nThis feature needs a real account. Log in or sign up free — everything you did stays saved.",
+      title: pair(lg, "AI ครูสอนต้องล็อกอินก่อน", xl(lg, "The AI teacher needs a login")),
+      sub: pair(lg, "ฟีเจอร์นี้ต้องใช้บัญชีจริง ล็อกอินหรือสมัครสมาชิกฟรีได้เลย — ความคืบหน้าที่ทำไว้จะถูกเก็บไว้ให้ครบ", xl(lg, "This feature needs a real account. Log in or sign up free — everything you did stays saved."), "\n"),
     },
-    wall: {
+    wall: {   // never drawn: reason "wall" returns LoginWall (ten languages) before this is read
       icon: "🎹",
       title: "ยินดีต้อนรับสู่ TIGA · Welcome to TIGA ALPHA",
       sub: "ล็อกอินด้วย Google เพื่อเริ่มเรียน — ความคืบหน้าของคุณจะถูกเก็บไว้ทุกอุปกรณ์ · Log in with Google to start learning — your progress follows you everywhere.",
     },
     account: {
       icon: "🔐",
-      title: "ฟีเจอร์นี้ต้องมีบัญชี · This needs a real account",
-      sub: "ล็อกอินหรือสมัครสมาชิกฟรีเพื่อใช้งานส่วนนี้ — ความคืบหน้าที่ทำไว้จะถูกเก็บไว้ให้ครบ\nLog in or sign up free to use this — everything you did stays saved.",
+      title: pair(lg, "ฟีเจอร์นี้ต้องมีบัญชี", xl(lg, "This needs a real account")),
+      sub: pair(lg, "ล็อกอินหรือสมัครสมาชิกฟรีเพื่อใช้งานส่วนนี้ — ความคืบหน้าที่ทำไว้จะถูกเก็บไว้ให้ครบ", xl(lg, "Log in or sign up free to use this — everything you did stays saved."), "\n"),
     },
   };
   const c = copy[reason] || copy.time;
@@ -725,6 +813,7 @@ export function GuestGateScreen({ reason, profile, onLogin }) {
       fontSize: 12, fontWeight: 600, opacity: 0.7, marginBottom: 4, display: "block",
       color: "rgba(255,255,255,0.8)",
     };
+    const optionalTag = solo(lg, "(ไม่บังคับ · optional)", "(" + xl(lg, "optional") + ")");
 
     return (
       <div className="tg" style={{ position: "fixed", inset: 0, zIndex: 2000, alignItems: "center", justifyContent: "center" }}>
@@ -744,18 +833,18 @@ export function GuestGateScreen({ reason, profile, onLogin }) {
               color: "rgba(255,255,255,0.6)", fontSize: 22, cursor: "pointer",
               padding: "0 0 8px 0", marginBottom: 4,
             }}
-          >← กลับ</button>
+          >{solo(lg, "← กลับ", "← " + xl(lg, "Back"))}</button>
 
           {signupDone ? (
             <div style={{ textAlign: "center", padding: "20px 0" }}>
               <div style={{ fontSize: 56, marginBottom: 16 }}>🎉</div>
               <div style={{ fontSize: 22, fontWeight: 800, color: "#fff", marginBottom: 12 }}>
-                สมัครสำเร็จ! 🎹
+                {solo(lg, "สมัครสำเร็จ! 🎹", xl(lg, "Sign-up successful!") + " 🎹")}
               </div>
               <div style={{ fontSize: 14, opacity: 0.7, lineHeight: 1.6 }}>
                 {signupEmail.trim()
-                  ? "ตรวจสอบอีเมลเพื่อยืนยันบัญชี\nCheck your email to confirm"
-                  : "กำลังเข้าสู่ระบบด้วย Google..."}
+                  ? pair(lg, "ตรวจสอบอีเมลเพื่อยืนยันบัญชี", xl(lg, "Check your email to confirm"), "\n")
+                  : solo(lg, "กำลังเข้าสู่ระบบด้วย Google...", xl(lg, "Signing in with Google..."))}
               </div>
               {signupEmail.trim() && (
                 <button
@@ -765,7 +854,7 @@ export function GuestGateScreen({ reason, profile, onLogin }) {
                     border: "none", background: "linear-gradient(135deg, #d97757, #c25e3f)",
                     color: "#fff", fontSize: 15, fontWeight: 700, cursor: "pointer",
                   }}
-                >เข้าสู่ระบบ · Log in</button>
+                >{pair(lg, "เข้าสู่ระบบ", xl(lg, "Log in"))}</button>
               )}
             </div>
           ) : (
@@ -773,32 +862,32 @@ export function GuestGateScreen({ reason, profile, onLogin }) {
               <div style={{ textAlign: "center", marginBottom: 24 }}>
                 <div style={{ fontSize: 40, marginBottom: 8 }}>🎹</div>
                 <div style={{ fontSize: 22, fontWeight: 800, color: "#fff", marginBottom: 6 }}>
-                  สมัครสมาชิกฟรี
+                  {solo(lg, "สมัครสมาชิกฟรี", xl(lg, "Sign up free"))}
                 </div>
                 <div style={{ fontSize: 13, opacity: 0.5 }}>
-                  สมัครง่ายใน 10 วินาที · Free signup in 10 seconds
+                  {pair(lg, "สมัครง่ายใน 10 วินาที", xl(lg, "Free signup in 10 seconds"))}
                 </div>
               </div>
 
               <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
                 <div>
-                  <label style={labelStyle}>👤 ชื่อ-นามสกุล · Name *</label>
-                  <input style={inputStyle} type="text" placeholder="ชื่อของคุณ · Your name" value={signupName} onChange={e => setSignupName(e.target.value)} />
+                  <label style={labelStyle}>{solo(lg, "👤 ชื่อ-นามสกุล · Name *", "👤 " + xl(lg, "Name") + " *")}</label>
+                  <input style={inputStyle} type="text" placeholder={pair(lg, "ชื่อของคุณ", xl(lg, "Your name"))} value={signupName} onChange={e => setSignupName(e.target.value)} />
                 </div>
                 <div>
-                  <label style={labelStyle}>📧 อีเมล · Email <span style={{ opacity: 0.4 }}>(ไม่บังคับ · optional)</span></label>
+                  <label style={labelStyle}>{solo(lg, "📧 อีเมล · Email ", "📧 " + xl(lg, "Email") + " ")}<span style={{ opacity: 0.4 }}>{optionalTag}</span></label>
                   <input style={inputStyle} type="email" inputMode="email" autoComplete="email" placeholder="your@email.com" value={signupEmail} onChange={e => setSignupEmail(e.target.value)} />
                 </div>
                 <div>
-                  <label style={labelStyle}>🔒 รหัสผ่าน · Password *</label>
-                  <input style={inputStyle} type="password" autoComplete="new-password" placeholder="อย่างน้อย 6 ตัวอักษร · At least 6 characters" value={signupPassword} onChange={e => setSignupPassword(e.target.value)} />
+                  <label style={labelStyle}>{solo(lg, "🔒 รหัสผ่าน · Password *", "🔒 " + xl(lg, "Password") + " *")}</label>
+                  <input style={inputStyle} type="password" autoComplete="new-password" placeholder={pair(lg, "อย่างน้อย 6 ตัวอักษร", xl(lg, "At least 6 characters"))} value={signupPassword} onChange={e => setSignupPassword(e.target.value)} />
                 </div>
                 <div>
-                  <label style={labelStyle}>💬 LINE ID <span style={{ opacity: 0.4 }}>(ไม่บังคับ · optional)</span></label>
+                  <label style={labelStyle}>💬 LINE ID <span style={{ opacity: 0.4 }}>{optionalTag}</span></label>
                   <input style={inputStyle} type="text" placeholder="@yourlineid" value={signupLine} onChange={e => setSignupLine(e.target.value)} />
                 </div>
                 <div>
-                  <label style={labelStyle}>🌐 Social Network <span style={{ opacity: 0.4 }}>(ไม่บังคับ · optional)</span></label>
+                  <label style={labelStyle}>{solo(lg, "🌐 Social Network ", "🌐 " + xl(lg, "Social Network") + " ")}<span style={{ opacity: 0.4 }}>{optionalTag}</span></label>
                   <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                     <div style={{ display: "flex", gap: 8 }}>
                       <input style={{ ...inputStyle, flex: 1 }} type="text" placeholder="📱 Facebook" value={signupFb} onChange={e => setSignupFb(e.target.value)} />
@@ -820,22 +909,33 @@ export function GuestGateScreen({ reason, profile, onLogin }) {
                 )}
 
                 <div className="au-pdpa">
-                  <div className="au-pdpa-h">ความเป็นส่วนตัว · Privacy</div>
+                  <div className="au-pdpa-h">{pair(lg, "ความเป็นส่วนตัว", xl(lg, "Privacy"))}</div>
                   <div className="au-pdpa-p">
+                    {ext ? xl(lg, "We keep your name, email and learning progress only to open your account and save your learning. We never sell your data, and you can ask to delete your account at any time.") : <>
                     เราเก็บชื่อ อีเมล และความคืบหน้าการเรียนของคุณ เพื่อเปิดบัญชีและบันทึกการเรียนเท่านั้น
                     ไม่ขายข้อมูลให้ใคร และคุณขอลบบัญชีได้ทุกเมื่อ
+                    </>}
                   </div>
                   <label className="au-ck">
                     <input type="checkbox" checked={gateAgree} onChange={e => setGateAgree(e.target.checked)} />
                     <span>
+                      {ext ? (
+                        <>
+                          <span className="au-req">*</span>{" "}
+                          <PolicyLine lg={lg} text={xl(lg, "I accept the [[Privacy Policy]] and consent to the collection of the data above to provide the service")} />
+                        </>
+                      ) : (
+                        <>
                       <span className="au-req">*</span> ฉันยอมรับ
                       {" "}<a href="privacy-policy.html" target="_blank" rel="noopener noreferrer">นโยบายความเป็นส่วนตัว</a>
                       {" "}และยินยอมให้เก็บข้อมูลข้างต้นเพื่อให้บริการ
+                        </>
+                      )}
                     </span>
                   </label>
                   <label className="au-ck">
                     <input type="checkbox" checked={gateMarketing} onChange={e => setGateMarketing(e.target.checked)} />
-                    <span>(ไม่บังคับ) ส่งข่าวคอร์สใหม่และโปรโมชันให้ฉันทางอีเมล</span>
+                    <span>{solo(lg, "(ไม่บังคับ) ส่งข่าวคอร์สใหม่และโปรโมชันให้ฉันทางอีเมล", xl(lg, "(Optional) Email me news about new courses and promotions"))}</span>
                   </label>
                 </div>
 
@@ -852,19 +952,19 @@ export function GuestGateScreen({ reason, profile, onLogin }) {
                     letterSpacing: 0.3, marginTop: 4,
                   }}
                 >
-                  {signupBusy ? "..." : "🎹 สมัครสมาชิก · Sign up"}
+                  {signupBusy ? "..." : solo(lg, "🎹 สมัครสมาชิก · Sign up", "🎹 " + xl(lg, "Sign up"))}
                 </button>
 
                 <div style={{ display: "flex", alignItems: "center", gap: 12, margin: "4px 0" }}>
                   <div style={{ flex: 1, height: 1, background: "rgba(255,255,255,0.1)" }} />
-                  <span style={{ fontSize: 12, opacity: 0.4 }}>หรือ · or</span>
+                  <span style={{ fontSize: 12, opacity: 0.4 }}>{pair(lg, "หรือ", xl(lg, "or"))}</span>
                   <div style={{ flex: 1, height: 1, background: "rgba(255,255,255,0.1)" }} />
                 </div>
 
                 {gateInApp ? (
                   <button className="memberlink" style={{ width: "100%", border: "1.5px solid rgba(255,255,255,0.2)", borderRadius: 10, padding: "10px" }}
                     onClick={() => openInRealBrowser()}>
-                    🌐 เปิดในเบราว์เซอร์จริงเพื่อใช้ Google · Open in a real browser for Google
+                    {solo(lg, "🌐 เปิดในเบราว์เซอร์จริงเพื่อใช้ Google · Open in a real browser for Google", "🌐 " + xl(lg, "Open in a real browser for Google"))}
                   </button>
                 ) : (
                   <button
@@ -872,12 +972,12 @@ export function GuestGateScreen({ reason, profile, onLogin }) {
                     onClick={() => { saveGuestProfile(profile); onLogin(); }}
                     style={{ width: "100%" }}
                   >
-                    <span className="oauthico">G</span> เข้าสู่ระบบด้วย Google
+                    <span className="oauthico">G</span>{solo(lg, " เข้าสู่ระบบด้วย Google", " " + xl(lg, "Log in with Google"))}
                   </button>
                 )}
 
                 <div style={{ fontSize: 11, opacity: 0.35, textAlign: "center", lineHeight: 1.5, marginTop: 4 }}>
-                  ไม่ต้องบัตรเครดิต · No credit card required
+                  {solo(lg, "ไม่ต้องบัตรเครดิต · No credit card required", xl(lg, "No credit card needed"))}
                 </div>
               </div>
             </>
@@ -904,11 +1004,11 @@ export function GuestGateScreen({ reason, profile, onLogin }) {
             </button>
           )}
           {reason === "wall" && !gateInApp && <div style={{ fontSize: 12, opacity: 0.55 }}>หรือใช้อีเมล · or use email</div>}
-          <MagicLinkForm profile={profile} />
-          <div style={{ fontSize: 12, opacity: 0.55 }}>หรือ · or</div>
-          <LoginOptions profile={profile} onGoogleLogin={onLogin} />
+          <MagicLinkForm profile={profile} lg={lg} />
+          <div style={{ fontSize: 12, opacity: 0.55 }}>{pair(lg, "หรือ", xl(lg, "or"))}</div>
+          <LoginOptions profile={profile} onGoogleLogin={onLogin} lg={lg} />
           <div style={{ marginTop: 12, textAlign: "center" }}>
-            <div style={{ fontSize: 13, opacity: 0.6, marginBottom: 10 }}>หรือสมัครสมาชิกฟรีด้านล่าง · Or sign up free below</div>
+            <div style={{ fontSize: 13, opacity: 0.6, marginBottom: 10 }}>{pair(lg, "หรือสมัครสมาชิกฟรีด้านล่าง", xl(lg, "Or sign up free below"))}</div>
             <button
               onClick={() => setShowSignup(true)}
               style={{
@@ -921,10 +1021,10 @@ export function GuestGateScreen({ reason, profile, onLogin }) {
                 display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
               }}
             >
-              🎹 สมัครสมาชิกฟรี · Sign up free
+              {solo(lg, "🎹 สมัครสมาชิกฟรี · Sign up free", "🎹 " + xl(lg, "Sign up free"))}
             </button>
             <div style={{ fontSize: 11, opacity: 0.5, marginTop: 8, lineHeight: 1.5 }}>
-              ไม่ต้องบัตรเครดิต · สมัครง่ายใน 10 วินาที<br />No credit card · Sign up in 10 seconds
+              {ext ? xl(lg, "No credit card · Sign up in 10 seconds") : <>ไม่ต้องบัตรเครดิต · สมัครง่ายใน 10 วินาที<br />No credit card · Sign up in 10 seconds</>}
             </div>
           </div>
         </div>
@@ -944,6 +1044,8 @@ export function GuestGateScreen({ reason, profile, onLogin }) {
 // language to translate itself into yet.
 const LANG_CHOICES = ALL_LANGS.map(code => ({ code, flag: LANG_META[code].flag, label: LANG_META[code].name }));   // all ten languages, flag + native name (this screen is not mounted today; see LANG_PICKER_ENABLED in App.tsx)
 export function LangPickerScreen({ session, profile, setProfile }) {
+  const lg = screenLang(profile), ext = isExtraLang(lg);   // a device that last used an extra language is asked in it; a first-time visitor keeps the three-language title
+  useCatalog(lg);
   const [saving, setSaving] = useState(null); // which code is currently being saved
   async function pick(code) {
     if (saving) return;
@@ -962,10 +1064,12 @@ export function LangPickerScreen({ session, profile, setProfile }) {
       <div className="scan" />
       <div className="memberwrap">
         <div className="lockicon" style={{ fontSize: 36 }}>🌐</div>
-        <div className="locktitle welcome">เลือกภาษา · Choose your language · 选择语言</div>
+        <div className="locktitle welcome">{ext ? xl(lg, "Choose your language") : "เลือกภาษา · Choose your language · 选择语言"}</div>
         <div className="locksub">
+          {ext ? xl(lg, "This will be used every time you come back — change it later in Settings anytime.") : <>
           จะใช้ภาษานี้ทุกครั้งที่เข้ามา เปลี่ยนได้ทีหลังในตั้งค่า<br />
           This will be used every time you come back — change it later in Settings anytime.
+          </>}
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 10, width: "100%", maxWidth: 300, marginTop: 6, maxHeight: "min(52vh, 420px)", overflowY: "auto" }}>
           {LANG_CHOICES.map(o => (
@@ -979,7 +1083,9 @@ export function LangPickerScreen({ session, profile, setProfile }) {
   );
 }
 
-export function ProfileForm({ session, onSaved, onSignOut }) {
+export function ProfileForm({ session, onSaved, onSignOut, profile }) {   // profile is optional (App() renders this when it has none): the device's last language decides then
+  const lg = screenLang(profile);
+  useCatalog(lg);
   const meta = (session && session.user && session.user.user_metadata) || {};
   const userEmail = (session && session.user && session.user.email) || meta.email || "";
   const [email, setEmail] = useState(userEmail);
@@ -989,7 +1095,7 @@ export function ProfileForm({ session, onSaved, onSignOut }) {
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState("");
   async function save() {
-    if (!email.trim()) { setErr("กรุณากรอกอีเมล"); return; }
+    if (!email.trim()) { setErr(solo(lg, "กรุณากรอกอีเมล", xl(lg, "Please enter your email"))); return; }
     setSaving(true); setErr("");
     const { error } = await sb.from("profiles").update({
       email: email.trim(),
@@ -1000,7 +1106,7 @@ export function ProfileForm({ session, onSaved, onSignOut }) {
       updated_at: new Date().toISOString(),
     }).eq("id", session.user.id);
     setSaving(false);
-    if (error) { setErr(error.message || "บันทึกไม่สำเร็จ"); return; }
+    if (error) { setErr(error.message || solo(lg, "บันทึกไม่สำเร็จ", xl(lg, "Save failed"))); return; }
     onSaved();
   }
   return (
@@ -1008,15 +1114,15 @@ export function ProfileForm({ session, onSaved, onSignOut }) {
       <div className="scan" />
       <div className="memberwrap">
         <div className="lockicon" style={{ fontSize: 36 }}>👋</div>
-        <div className="locktitle welcome">ยินดีต้อนรับ</div>
-        <div className="locksub">แค่นี้ก็เริ่มเรียนได้เลย — ส่วนที่เหลือกรอกทีหลังก็ได้<br />{meta.full_name || userEmail}</div>
-        <input className="memberinput" type="email" placeholder="อีเมล (Email)" value={email} onChange={e => setEmail(e.target.value)} inputMode="email" />
-        <input className="memberinput" placeholder="LINE ID (ไม่บังคับ)" value={line} onChange={e => setLine(e.target.value)} />
-        <input className="memberinput" placeholder="เบอร์โทรศัพท์ (ไม่บังคับ)" value={phone} onChange={e => setPhone(e.target.value)} inputMode="tel" />
-        <input className="memberinput" placeholder="Instagram (ไม่บังคับ)" value={ig} onChange={e => setIg(e.target.value)} />
+        <div className="locktitle welcome">{solo(lg, "ยินดีต้อนรับ", xl(lg, "Welcome"))}</div>
+        <div className="locksub">{solo(lg, "แค่นี้ก็เริ่มเรียนได้เลย — ส่วนที่เหลือกรอกทีหลังก็ได้", xl(lg, "That's all you need to start learning — fill in the rest later"))}<br />{meta.full_name || userEmail}</div>
+        <input className="memberinput" type="email" placeholder={solo(lg, "อีเมล (Email)", xl(lg, "Email"))} value={email} onChange={e => setEmail(e.target.value)} inputMode="email" />
+        <input className="memberinput" placeholder={solo(lg, "LINE ID (ไม่บังคับ)", xl(lg, "LINE ID (optional)"))} value={line} onChange={e => setLine(e.target.value)} />
+        <input className="memberinput" placeholder={solo(lg, "เบอร์โทรศัพท์ (ไม่บังคับ)", xl(lg, "Phone number (optional)"))} value={phone} onChange={e => setPhone(e.target.value)} inputMode="tel" />
+        <input className="memberinput" placeholder={solo(lg, "Instagram (ไม่บังคับ)", xl(lg, "Instagram (optional)"))} value={ig} onChange={e => setIg(e.target.value)} />
         <div className="lockerr">{err}</div>
-        <button className="lockbtn" disabled={saving} onClick={save}>{saving ? "กำลังบันทึก..." : "เริ่มเรียนเลย ▶"}</button>
-        <button className="memberlink" onClick={onSignOut}>ออกจากระบบ</button>
+        <button className="lockbtn" disabled={saving} onClick={save}>{saving ? solo(lg, "กำลังบันทึก...", xl(lg, "Saving…")) : solo(lg, "เริ่มเรียนเลย ▶", xl(lg, "Start learning") + " ▶")}</button>
+        <button className="memberlink" onClick={onSignOut}>{solo(lg, "ออกจากระบบ", xl(lg, "Sign out"))}</button>
       </div>
     </div>
   );

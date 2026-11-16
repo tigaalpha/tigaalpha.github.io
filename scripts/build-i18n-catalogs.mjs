@@ -54,12 +54,32 @@ if (mergeDir) {
   console.log(`merged ${files} batch files (${mergeLangs.join(",")}): ${added} added, ${replaced} updated, ${partial} rows skipped for a missing language, ${Object.keys(catalog).length} in the catalog`);
 }
 
+/* Hand fixes that must survive a re-merge (a merge re-reads every batch output, so it would put the translator's word back): i18n-src/fixes.json = [[English key, language, text], ...].
+   Applied on every run and written to catalog.json (not under --check, which only compares). Used for what a translator could not know: two rank names that came out equal,
+   a placeholder that is cut by a 320 px input. A fix for a key the catalog does not have is an error, never a silent no-op. */
+try {
+  const fixes = JSON.parse(fs.readFileSync(path.join(ROOT, "i18n-src", "fixes.json"), "utf8"));
+  let changed = 0;
+  for (const [k, lg, t] of fixes) {
+    if (!catalog[k]) throw new Error("i18n-src/fixes.json: the catalog has no key " + JSON.stringify(k));
+    if (catalog[k][lg] !== t) { catalog[k][lg] = t; changed++; }
+  }
+  if (changed && !flag("check")) {
+    fs.writeFileSync(CAT, JSON.stringify(Object.fromEntries(Object.keys(catalog).sort().map(k => [k, catalog[k]])), null, 1) + "\n");
+    console.log(`applied ${changed} hand fixes from i18n-src/fixes.json`);
+  }
+} catch (e) { if (e.code !== "ENOENT") throw e; }
+
 if (flag("prune")) {
   const tmp = path.join(ROOT, "i18n-src", ".prune.json");
   execFileSync("node", [path.join(ROOT, "scripts/extract-i18n.mjs"), "--out=" + tmp], { stdio: "ignore" });
   const used = new Set(JSON.parse(fs.readFileSync(tmp, "utf8")).strings.map(x => x.en));
   fs.rmSync(tmp);
-  const drop = Object.keys(catalog).filter(k => !used.has(k));
+  /* keys the extractor cannot see because the code builds them where it does not look (the coach-diagnosis table in App.tsx, tigamodel/*.js, a key looked up by id): i18n-src/keep-keys.json.
+     A prune without this list deleted translations that were still on screen. */
+  let keep = new Set();
+  try { keep = new Set(JSON.parse(fs.readFileSync(path.join(ROOT, "i18n-src", "keep-keys.json"), "utf8"))); } catch (e) { if (e.code !== "ENOENT") throw e; }
+  const drop = Object.keys(catalog).filter(k => !used.has(k) && !keep.has(k));
   for (const k of drop) delete catalog[k];
   fs.writeFileSync(CAT, JSON.stringify(Object.fromEntries(Object.keys(catalog).sort().map(k => [k, catalog[k]])), null, 1) + "\n");
   console.log(`pruned ${drop.length} entries the code does not use any more; ${Object.keys(catalog).length} left`);

@@ -147,9 +147,9 @@ export function SenseiView({ stopDemo = null, startOctavePractice = null, chatHi
                   </div>
                   <FingerHand finger={cur && cur.finger != null ? cur.finger : 0} hand={hand} />
                   <div className="fchart-notes"><span>{spellNames(fingerChart.notes).join(" · ")}</span><div className="octctl" title={lc.octaveHint}>
-                <button className="octbtn" onClick={() => setPianoOct(o => Math.max(2, o - 1))} disabled={pianoOct <= 2} aria-label="Octave down">◀</button>
+                <button className="octbtn" onClick={() => setPianoOct(o => Math.max(2, o - 1))} disabled={pianoOct <= 2} aria-label={xl(lang, "Octave down")}>◀</button>
                 <span className="octlbl">C{pianoOct}–B{pianoOct + 1}</span>
-                <button className="octbtn" onClick={() => setPianoOct(o => Math.min(5, o + 1))} disabled={pianoOct >= 5} aria-label="Octave up">▶</button>
+                <button className="octbtn" onClick={() => setPianoOct(o => Math.min(5, o + 1))} disabled={pianoOct >= 5} aria-label={xl(lang, "Octave up")}>▶</button>
               </div></div>
                 </div>
               );
@@ -179,9 +179,9 @@ export function SenseiView({ stopDemo = null, startOctavePractice = null, chatHi
                 <span>{lc.replay}</span>
               </button>
               {!(fingerChart && fingerChart.notes && fingerChart.notes.some(p => p.finger != null)) && <div className="recrow2"><div className="octctl" title={lc.octaveHint}>
-                <button className="octbtn" onClick={() => setPianoOct(o => Math.max(2, o - 1))} disabled={pianoOct <= 2} aria-label="Octave down">◀</button>
+                <button className="octbtn" onClick={() => setPianoOct(o => Math.max(2, o - 1))} disabled={pianoOct <= 2} aria-label={xl(lang, "Octave down")}>◀</button>
                 <span className="octlbl">C{pianoOct}–B{pianoOct + 1}</span>
-                <button className="octbtn" onClick={() => setPianoOct(o => Math.min(5, o + 1))} disabled={pianoOct >= 5} aria-label="Octave up">▶</button>
+                <button className="octbtn" onClick={() => setPianoOct(o => Math.min(5, o + 1))} disabled={pianoOct >= 5} aria-label={xl(lang, "Octave up")}>▶</button>
               </div></div>}
             </div>
             {merged && nowEl}

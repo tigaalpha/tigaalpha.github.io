@@ -40,9 +40,9 @@ export function GamePowerBar({ lang, onOpen }: { lang: string; onOpen: () => voi
 export function PowerSheet({ lang, need = 0, onClose, onLearn }: { lang: string; need?: number; onClose: () => void; onLearn?: () => void }) {
   const v = usePower(), T = (th, en, zh) => pickT(lang, th, en, zh);
   const go = () => { onClose(); if (onLearn) onLearn(); else { try { window.dispatchEvent(new CustomEvent("tg:goto", { detail: { page: "pathway" } })); } catch (e) {} } };
-  const rows: [string, string, string, string][] = [
-    ["🧠", "+20", "เรียนเรื่องใหม่ (บทเรียนใหม่)", "Learn something new"], ["🔁", "+12", "ทบทวนบทเรียนเก่า", "Review an old lesson"],
-    ["🎹", "+10", "ซ้อมเปียโน (Practice)", "A practice round"], ["👂", "+8", "ฝึกหู · อ่านโน้ต · เล่นเพลง", "Ear · reading · a song"],
+  const rows: [string, string, string, string][] = [   // the English goes through xl() here so scripts/extract-i18n.mjs sees it (the draw below calls xl again: a no-op on a translated line)
+    ["🧠", "+20", "เรียนเรื่องใหม่ (บทเรียนใหม่)", xl(lang, "Learn something new")], ["🔁", "+12", "ทบทวนบทเรียนเก่า", xl(lang, "Review an old lesson")],
+    ["🎹", "+10", "ซ้อมเปียโน (Practice)", xl(lang, "A practice round")], ["👂", "+8", "ฝึกหู · อ่านโน้ต · เล่นเพลง", xl(lang, "Ear · reading · a song")],
   ];
   return (
     <div className="gpsheet-bg" data-gpsheet role="dialog" aria-modal="true" onClick={onClose}>

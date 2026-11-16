@@ -29,7 +29,17 @@ import { pickT, localeOf, xl, by, modelLang } from "./lang-extra";
 // plan 27 · P1-1: the note's sung name under the letter, so a child who cannot read C D E can still tell which key is meant
 const SOLFEGE_TH = { C: "โด", D: "เร", E: "มี", F: "ฟา", G: "ซอล", A: "ลา", B: "ที" };
 const SOLFEGE_EN = { C: "Do", D: "Re", E: "Mi", F: "Fa", G: "Sol", A: "La", B: "Ti" };
-function solfegeOf(pc, lang) { const base = String(pc || "").charAt(0).toUpperCase(); const m = lang === "th" ? SOLFEGE_TH : xl(lang, SOLFEGE_EN); return (m[base] || "") + (String(pc || "").includes("♭") ? "♭" : String(pc || "").length > 1 ? "♯" : ""); }
+// the sung names in the fixed-do systems of the extra languages (xl on the table was inert: it only translates a string); en / zh keep the English names, hi writes them in Devanagari
+const SOLFEGE_X = {
+  ja: { C: "ド", D: "レ", E: "ミ", F: "ファ", G: "ソ", A: "ラ", B: "シ" },
+  ko: { C: "도", D: "레", E: "미", F: "파", G: "솔", A: "라", B: "시" },
+  ru: { C: "до", D: "ре", E: "ми", F: "фа", G: "соль", A: "ля", B: "си" },
+  hi: { C: "डो", D: "रे", E: "मी", F: "फ़ा", G: "सोल", A: "ला", B: "सी" },
+  es: { C: "Do", D: "Re", E: "Mi", F: "Fa", G: "Sol", A: "La", B: "Si" },
+  fr: { C: "Do", D: "Ré", E: "Mi", F: "Fa", G: "Sol", A: "La", B: "Si" },
+  ar: { C: "دو", D: "ري", E: "مي", F: "فا", G: "صول", A: "لا", B: "سي" },
+};
+function solfegeOf(pc, lang) { const base = String(pc || "").charAt(0).toUpperCase(); const m = lang === "th" ? SOLFEGE_TH : SOLFEGE_X[lang] || SOLFEGE_EN; return (m[base] || "") + (String(pc || "").includes("♭") ? "♭" : String(pc || "").length > 1 ? "♯" : ""); }
 // plan 27 · P1-3: a hand that points at the finger to use — a child sees "this one", not a number to decode.
 // A right hand seen from above has the thumb on the left; a left hand is its mirror image.
 export function FingerHand({ finger, hand }) {

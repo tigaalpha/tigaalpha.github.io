@@ -70,7 +70,7 @@ export const replyInstruction = (lang: string) => isExtraLang(lang)
   : "";
 
 type Cat = Record<string, string>;
-type Pat = { re: RegExp; holes: number[]; to: string };
+type Pat = { re: RegExp; holes: number[]; to: string; lit: number };
 const cats: Record<string, Cat> = {};
 const pats: Record<string, Pat[]> = {};
 const memo: Record<string, Map<string, string>> = {};
@@ -91,9 +91,12 @@ export function setCatalog(lang: string, cat: Cat) {
     if (fixed.replace(/[^\p{L}]/gu, "").length < 3) continue;   // a key that is mostly holes would match everything
     const holes: number[] = [];
     const src = escRe(key).replace(/\\\{(\d+)\\\}/g, (_m, n) => { holes.push(+n); return "([\\s\\S]*?)"; });
-    list.push({ re: new RegExp("^" + src + "$"), holes, to: cats[lang][key] });
+    list.push({ re: new RegExp("^" + src + "$"), holes, to: cats[lang][key], lit: fixed.length });
   }
-  list.sort((a, b) => b.re.source.length - a.re.source.length);   // the most specific pattern first
+  /* the most specific pattern first = the one with the most FIXED text. The regex source length used to decide, but every hole adds 11 characters of source and no specificity:
+     "Clear episode {0}{1} first{2}" (the extractor writes a conditional inside a sentence as a hole too) outranked "Clear episode {0} or {1} first", "{0}{1} · {2} Chords" outranked
+     "{0} Major · {1} Chords" and "... · {1}{2} · weekly raid ..." outranked the "team goal ✓" variant, so the English " or ", "Major" and "team goal ✓" stayed inside the translated sentence (2026-11-16, review). */
+  list.sort((a, b) => b.lit - a.lit || a.holes.length - b.holes.length || b.re.source.length - a.re.source.length);
   pats[lang] = list;
   memo[lang] = new Map();
   ver++;

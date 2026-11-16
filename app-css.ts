@@ -4232,6 +4232,12 @@ html:not([data-theme="dark"]) .pvppage:not(.x3) .pvpgfxbtn{background:var(--card
 .tg .hdr .flagbtn{background:var(--card,#fff)}
 }
 
+/* ══════════ the PvP arena header wraps on a phone (2026-11-16, found by the ten-language crawl) ══════════
+   The header holds a back arrow, the title, the shop, the model class chip, the full-screen and the graphics buttons. That is wider than a phone in every language (the graphics button
+   sat past the right edge at 360 px in English and Thai too), and a title that has no space to break at, Japanese "PvPアリーナ", was squeezed to one character per line (28 px wide,
+   110 px tall). On phones the row now wraps, so nothing falls off and the title keeps its width. Wider screens and the landscape fight overlay (.pvppage.land, wider than 520 px) are untouched. */
+@media (max-width:520px){.pvphdr{flex-wrap:wrap;row-gap:6px}}
+
 /* ══════════ RIGHT-TO-LEFT: Arabic (owner 2026-11-13). ONE BLOCK: keep it at the very end of this string, after every other rule ══════════
    <html dir="rtl"> is set by main.tsx (first paint, from tg_lang_hint) and by App.tsx (on every language change), both through dirOf() in lang-extra.ts. With it, ordinary pages flow
    right to left by themselves: flex rows and grids start on the right, text-align:start|end follows the direction, chat bubbles flip sides. This block does three things:
