@@ -360,6 +360,18 @@ console.log("pages kept from an earlier build are brought up to date");
   execFileSync("node", [path.join(ROOT, "scripts/build-blog-pages.mjs")], { env: { ...process.env, BLOG_OFFLINE: "1", BLOG_OUT: keep, SITE_URL: ORIGIN, BLOG_SRC: path.join(tmp, "no-static-sources") }, stdio: "pipe" });
   ok(fs.readFileSync(path.join(keep, "th", "piano-posture.html"), "utf8") === k, "running it again changes nothing");
 }
+{
+  // a kept Arabic page (right-to-left) gets the current wall in Arabic too, and stays right-to-left
+  const keep = path.join(tmp, "keep-ar"); fs.mkdirSync(path.join(keep, "ar"), { recursive: true });
+  const cur = fs.readFileSync(path.join(tmp, "blog", "ar", "piano-posture.html"), "utf8");
+  const oldGate = '<style>#tg-gate{position:fixed}</style><div id="tg-gate" hidden><div class="tg-g-card"><a data-gate="google">x</a></div></div><script>var OLD_ONE_MINUTE=60000;</script>';
+  fs.writeFileSync(path.join(keep, "ar", "piano-posture.html"), cur.replace(/<!--tg-gate:v\d+-->[\s\S]*<!--\/tg-gate-->/, oldGate));
+  ok(fs.readFileSync(path.join(keep, "ar", "piano-posture.html"), "utf8").includes("OLD_ONE_MINUTE"), "(fixture: an Arabic page with the one-minute gate)");
+  execFileSync("node", [path.join(ROOT, "scripts/build-blog-pages.mjs")], { env: { ...process.env, BLOG_OFFLINE: "1", BLOG_OUT: keep, SITE_URL: ORIGIN, BLOG_SRC: path.join(tmp, "no-static-sources") }, stdio: "pipe" });
+  const k = fs.readFileSync(path.join(keep, "ar", "piano-posture.html"), "utf8");
+  ok(!k.includes("OLD_ONE_MINUTE") && k.includes("MS=5000") && k.includes("<!--tg-gate:v6-->") && (k.match(/id="tg-gate"/g) || []).length === 1 && k.includes('<html lang="ar" dir="rtl">') && k.includes("سجّل الدخول لمواصلة القراءة"), "ar: the old gate is replaced by the current Arabic one (5 s), once, and the page stays right-to-left");
+  ok(k === cur, "...byte for byte the page the generator writes");
+}
 
 ok(errs.length === 0, "no page errors" + (errs.length ? ": " + [...new Set(errs)].slice(0, 3).join(" | ") : ""));
 await browser.close(); server.close(); fs.rmSync(tmp, { recursive: true, force: true });

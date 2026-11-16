@@ -510,15 +510,15 @@ for (const lang of STAT) {
 }
 {
   // the meta line under the title keeps the reading order in both directions: category, then date, then the counter (first on the right in Arabic, first on the left otherwise), and the Arabic date stays 2026-11-12, not 12-11-2026
-  const order = async (lang) => { const { ctx, page } = await open(lang, { url: `${ORIGIN}/blog/${lang}/second-article.html` }); await waitFor(page, badgeShown, 5000);
+  const order = async (lang, slug = "second-article") => { const { ctx, page } = await open(lang, { url: `${ORIGIN}/blog/${lang}/${slug}.html` }); await waitFor(page, badgeShown, 5000);
     const m = await page.evaluate(() => { const meta = document.querySelectorAll("article .meta")[1], tm = meta.querySelector("time"), badge = meta.querySelector(".tg-views"); const first = [...meta.childNodes].find(n => n.nodeType === 3), rg = document.createRange(); rg.selectNodeContents(first); const cat = rg.getBoundingClientRect(), t = tm.getBoundingClientRect(), b = badge.getBoundingClientRect();
       const part = (s, e) => { const r = document.createRange(); r.setStart(tm.firstChild, s); r.setEnd(tm.firstChild, e); return r.getBoundingClientRect().left; };
       return { cat: cat.left, time: t.left, badge: b.left, y: part(0, 4), mo: part(5, 7), d: part(8, 10), text: tm.textContent, dir: getComputedStyle(tm).direction }; });
     await ctx.close(); return m; };
-  const a = await order("ar"), h = await order("hi"), j = await order("ja");
+  const a = await order("ar"), h = await order("hi", "piano-posture"), j = await order("ja");   // only ar and ja have a second article in the fixture
   ok(a.cat > a.time && a.time > a.badge, "ar: category, date and counter run right to left (x = " + Math.round(a.cat) + " > " + Math.round(a.time) + " > " + Math.round(a.badge) + ")");
   ok(a.text === "2026-11-12" && a.y < a.mo && a.mo < a.d && a.dir === "ltr", "ar: the date reads 2026-11-12 from left to right as one island (year at " + Math.round(a.y) + ", month " + Math.round(a.mo) + ", day " + Math.round(a.d) + ")");
-  ok(h.cat < h.time && h.time < h.badge && j.cat < j.time && j.time < j.badge && h.y < h.mo && h.mo < h.d && j.y < j.mo && j.mo < j.d, "hi and ja: category, date and counter run left to right, the date 2026-11-12 in order");
+  ok(h.cat < h.time && h.time < h.badge && j.cat < j.time && j.time < j.badge && h.y < h.mo && h.mo < h.d && j.y < j.mo && j.mo < j.d, "hi and ja: category, date and counter run left to right, the date in order");
 }
 {
   // the unit follows the number where the language needs it (one view, two views, a few, many) in the page script and in the list script
