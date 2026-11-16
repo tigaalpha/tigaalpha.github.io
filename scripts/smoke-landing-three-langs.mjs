@@ -87,6 +87,10 @@ for (const f of ["landing-copy", "landing-lessons", "landing-ai", "landing-utils
 const { C: COPYC, LANGS: LANGS_C, FLAGS: FLAGS_C, FLAG_NAMES: FLAGN_C, LANG_SHORT: SHORT_C, pickLang, RTL_LANGS, dirOf } = await import(pathToFileURL(join(TMPD, "landing-copy.mjs")).href);
 const { LESSONS: LESSONSC } = await import(pathToFileURL(join(TMPD, "landing-lessons.mjs")).href);
 const AIMOD = await import(pathToFileURL(join(TMPD, "landing-ai.mjs")).href).catch((e) => { no("landing-ai.ts loads in node", e && e.message); return null; });
+/* landing-utils.tsx has a class component (the ErrorBoundary), so it is bundled WITH React here and imported before the first boot,
+   while no window exists; its crash screen and sign-up error texts are checked for every language near the end */
+buildSync({ entryPoints: ["landing/landing-utils.tsx"], bundle: true, format: "esm", outfile: join(TMPD, "landing-utils-full.mjs"), jsx: "automatic", logLevel: "silent", platform: "node", define: { "process.env.NODE_ENV": '"production"' } });
+const UTILS = await import(pathToFileURL(join(TMPD, "landing-utils-full.mjs")).href).catch((e) => { no("landing-utils.tsx loads in node", e && (e.stack || e.message)); return null; });
 
 /* ── one boot per language ────────────────────────────────────────────── */
 function globals(lang) {
@@ -432,7 +436,7 @@ for (const l of LESSONSC) {
     if (!a || a.length < 200) { no(`lesson ${l.id}/${lang}: answer present`, a ? a.length : "missing"); continue; }
     const need = MUST[l.id] || [];
     /* "middle C" stays in Latin letters in every language (th, ja, ko, ru write it as is; zh and the
-       others add their own word next to it), so one token list serves all six */
+       others add their own word next to it), so one token list serves all ten */
     const miss = need.filter((tok) => !a.includes(tok));
     if (!miss.length) ok(`lesson ${l.id}/${lang}: all ${need.length} note / chord / finger tokens present`);
     else no(`lesson ${l.id}/${lang}: tokens missing`, miss.join(" ; "));
@@ -552,6 +556,41 @@ else no("landing-chat whitelist moved — re-read it and update landing-ai.ts SE
     if (/لهجات/.test(SYS.ar) && /0-9/.test(SYS.ar)) ok("landing-chat: the Arabic prompt asks for simple Modern Standard Arabic (no dialect) and Western digits 0-9"); else no("landing-chat: Arabic prompt rules");
     if (ALL.every((l) => !/Premium|Max\b|3,999|1,490|10,000/.test(SYS[l] + LIM[l]))) ok("landing-chat: no plan tier, price tier or cap is named in any prompt or limit message"); else no("landing-chat: a tier / cap is named");
   }
+}
+
+/* ── the crash screen and the sign-up errors, every language ───────────────
+   friendlyAuthError answers th / en / zh with the Thai-and-English line it always had, and every other language with its own sentence
+   followed by the English one ("native · English"); the ErrorBoundary's fallback reads <html lang> and does the same. */
+console.log("== crash screen and sign-up errors speak every landing language ==");
+if (UTILS) {
+  const { friendlyAuthError, ErrorBoundary } = UTILS;
+  const NATIVE = { ja: /[぀-ヿ一-鿿]/, ko: /[가-힯]/, ru: /[Ѐ-ӿ]/, hi: /[ऀ-ॿ]/, ar: /[؀-ۿ]/, es: /ya está registrado/, fr: /déjà enregistrée/ };
+  const EXTRA = ["ja", "ko", "ru", ...NEWL];
+  const bad = [];
+  for (const lg of EXTRA) {
+    const a = friendlyAuthError("User already registered", lg), c = friendlyAuthError("Invalid login credentials", lg), n = friendlyAuthError("Failed to fetch", lg), o = friendlyAuthError("", lg);
+    if (!NATIVE[lg].test(a) || !a.endsWith(" · This email is already registered — try logging in instead")) bad.push(lg + ":exists");
+    if (!c.endsWith(" · Incorrect email or password") || c.split(" · ")[0].length < 8) bad.push(lg + ":creds");
+    if (!n.endsWith(" · Couldn't connect — please try again") || n.split(" · ")[0].length < 8) bad.push(lg + ":net");
+    if (!o.endsWith(" · Something went wrong — please try again") || o.split(" · ")[0].length < 8) bad.push(lg + ":other");
+    if (friendlyAuthError("some provider text", lg) !== "some provider text") bad.push(lg + ":passthrough");
+  }
+  if (!bad.length) ok("friendlyAuthError: ja / ko / ru / hi / es / fr / ar each answer exists / creds / net / other in their own language + the English tail, and pass an unknown provider message through"); else no("friendlyAuthError", bad.join(" "));
+  if (["th", "en", "zh"].every((lg) => /^อีเมลนี้สมัครไว้แล้ว/.test(friendlyAuthError("User already registered", lg)))) ok("friendlyAuthError: th / en / zh keep the Thai-and-English line they always had"); else no("friendlyAuthError th / en / zh changed");
+  const texts = (el) => (el == null || typeof el === "boolean" ? [] : typeof el === "string" || typeof el === "number" ? [String(el)] : Array.isArray(el) ? el.flatMap(texts) : texts(el.props && el.props.children));
+  const crash = (lg) => {
+    const keep = globalThis.document;
+    globalThis.document = { documentElement: { getAttribute: () => lg } };
+    try { const eb = new ErrorBoundary({}); eb.state = { hasError: true }; return texts(eb.render()).join(" | "); } finally { globalThis.document = keep; }
+  };
+  const badCrash = [];
+  for (const lg of ALL) {
+    const t = crash(lg);
+    if (!/Something went wrong|Sorry about that/.test(t) || !/Reload|Sorry about that/.test(t)) badCrash.push(lg + ": no English line");
+    if (EXTRA.includes(lg) && !({ ...NATIVE, es: /Algo salió mal/, fr: /Une erreur s'est produite/ }[lg]).test(t)) badCrash.push(lg + ": no native text");
+    if (["th", "en", "zh"].includes(lg) && !/เกิดข้อผิดพลาด/.test(t)) badCrash.push(lg + ": not the Thai default");
+  }
+  if (!badCrash.length) ok("ErrorBoundary: the fallback screen reads <html lang> — its own language + English for ja / ko / ru / hi / es / fr / ar, the Thai + English default for th / en / zh"); else no("ErrorBoundary fallback", badCrash.join(" ; "));
 }
 
 cleanup();

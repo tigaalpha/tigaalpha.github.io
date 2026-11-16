@@ -810,7 +810,10 @@ export default function LandingPage1() {
         {msgs.map((m, i) => (
           <div className={`lp-row${m.who === "me" ? " me" : ""}`} key={i}>
             {m.who === "tiga" && <div className="lp-av">TIGA<br />AI</div>}
-            <div className="lp-bub" onClick={msgDone(m) ? undefined : finishTyping}>
+            {/* What the visitor typed and what the live AI wrote can be in any language, so those two bubbles take their direction
+                from their own first letter (dir="auto"): an English question on the Arabic page keeps its question mark at the
+                end of the sentence. The four canned lessons are written in the page's language and follow the page. */}
+            <div className="lp-bub" dir={m.raw != null || m.ai ? "auto" : undefined} onClick={msgDone(m) ? undefined : finishTyping}>
               {rich(msgText(m))}
               {!msgDone(m) && <i className="lp-caret" />}
             </div>
@@ -1092,7 +1095,8 @@ function SignupCard({ q, quota, timeUp, t, lang }) {
       <h2>{timeUp ? t.askTimeTitle : quota ? t.askQuotaTitle : q ? t.signupTitleQ : t.signupTitle}</h2>
       <p>{timeUp ? t.askTimeBody : t.signupBody}</p>
 
-      {q && <div className="lp-q"><span>{t.qLabel}</span>{q}</div>}
+      {/* <bdi>: the visitor's own words take their own direction, whatever the page's */}
+      {q && <div className="lp-q"><span>{t.qLabel}</span><bdi>{q}</bdi></div>}
 
       {err && <div className="lp-err">{err}</div>}
       {done && <div className="lp-ok">{done}</div>}

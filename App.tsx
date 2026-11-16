@@ -14860,10 +14860,11 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
           navigates straight to the feature — plan rule 3. */}
       {eduTip && !convPopup && !broadcast && !autoTeachTip && (() => {
         const ec = (by(EDU_COPY, lang) || EDU_COPY.en)[eduTip.kind];
+        const dest = EDU_COPY.en[eduTip.kind].go;   // the destination CODE comes from the English table: by() runs every string of it through an extra language's catalog ("pet" -> "mascota"), which sent the pet and shop tips to the profile page
         const go = () => {
           playUi("click"); dismissEduTip();
-          if (ec.go === "pet") { logUsage("nav", "pet"); setPage("pet"); }
-          else if (ec.go === "shop") { logUsage("nav", "shop"); setShopOpen(true); }
+          if (dest === "pet") { logUsage("nav", "pet"); setPage("pet"); }
+          else if (dest === "shop") { logUsage("nav", "shop"); setShopOpen(true); }
           else { setPage("profile"); }
         };
         return (

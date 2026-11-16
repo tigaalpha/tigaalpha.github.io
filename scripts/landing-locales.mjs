@@ -340,7 +340,7 @@ for (const [lang, L] of Object.entries(LOCALES)) {
   out = swapOnce(out, '<meta property="og:url" content="https://www.tigaalpha.com/landing/" />',
     `<meta property="og:url" content="${canon}" />`, "og:url");
 
-  // One bundle for all six. These sit one directory across from /landing/,
+  // One bundle for all ten. These sit one directory across from /landing/,
   // so the same relative depth with a different folder name.
   const nested = out.replaceAll('"./bundle/', '"../landing/bundle/');
   mkdirSync(path.join(OUT, L.dir), { recursive: true });

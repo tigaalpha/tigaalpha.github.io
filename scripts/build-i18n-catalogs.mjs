@@ -23,7 +23,7 @@ const mergeDir = arg("merge");
 const mergeLangs = (arg("langs") ? arg("langs").split(",") : LANGS).filter(l => LANGS.includes(l));
 if (mergeDir) {
   let added = 0, replaced = 0, files = 0, partial = 0;
-  for (const f of fs.readdirSync(path.join(mergeDir, "in")).filter(f => /^batch-[\w]+\.json$/.test(f)).sort()) {
+  for (const f of fs.readdirSync(path.join(mergeDir, "in")).filter(f => /^batch-[\w-]+\.json$/.test(f)).sort()) {
     const src = JSON.parse(fs.readFileSync(path.join(mergeDir, "in", f), "utf8"));
     // one output file per language (out-hi/, out-es/, out-fr/) or the old combined out/ folder
     const outs = {};

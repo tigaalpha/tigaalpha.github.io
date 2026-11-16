@@ -12,7 +12,7 @@
 --   PART A  the schema changes, then it queues the fetch of supabase-blog-hi-es-fr-ar-migration-rows.json. It inserts no article.
 --           (wait 10-20 seconds)
 --   PART B  finds the fetched file by its md5, checks it and inserts the rows, all in the same statement.
--- Both parts can be run again at any time; a second run changes nothing in the blog tables. Sent as ONE execution the whole file stops at PART B ("has not arrived") and is rolled back, so nothing is lost either way.
+-- Both parts can be run again at any time; a second run changes nothing in the blog tables, except that PART B inserts again an article that was deleted since (in the admin screen, say). Sent as ONE execution the whole file stops at PART B ("has not arrived") and is rolled back, so nothing is lost either way.
 -- "node scripts/gen-blog-seed-sql.mjs --set hi-es-fr-ar --sha <commit> --part a" (or b) prints one part.
 --
 -- What it changes:
@@ -24,7 +24,7 @@
 --       public.blog_stats() and public.blog_purge() carry no language list and are not touched.
 --   A.4 Queues one fetch (pg_net) of supabase-blog-hi-es-fr-ar-migration-rows.json from github.com/tigaalpha/tigaalpha.github.io at the pinned commit.
 --   B   Inserts the 48 source articles (hi 12, es 12, fr 12, ar 12) as PUBLISHED rows, but only from a fetched body whose md5 is 216149c924c0b0682935ca51680237be (416856 bytes) and that holds exactly 48 rows. "on conflict (lang, slug) do nothing": a row that
---       already exists, e.g. one the admin wrote or edited in the app, is never overwritten, and running PART B again changes nothing.
+--       already exists, e.g. one the admin wrote or edited in the app, is never overwritten, and running PART B again changes nothing (only an article deleted in the meantime is inserted again).
 --
 -- Not needed for the static pages: /blog/hi|es|fr|ar/ are built from blog-src/ and work without this file. It is needed for (a) the in-app blog list and the admin screen to show and edit these articles,
 -- (b) the admin to write new hi / es / fr / ar articles in the app, and (c) the reader counter: public.blog_hit() only counts an article that has a published row here, and refuses a language outside its list.
@@ -132,7 +132,7 @@ end
 $queue$;
 
 -- ====================================================================================================================================================================================
--- PART B of 2 — run after PART A, once the fetch has finished (10-20 seconds). Checks the fetched file by its md5 and inserts the rows, in ONE statement. Safe to run again (it then inserts nothing).
+-- PART B of 2 — run after PART A, once the fetch has finished (10-20 seconds). Checks the fetched file by its md5 and inserts the rows, in ONE statement. Safe to run again (it then inserts nothing, except an article that was deleted in the meantime).
 -- If it says the file has not arrived: wait and run it again; if it keeps saying so, the message shows the latest answer pg_net has (a 404 means the commit is not on GitHub yet).
 -- ====================================================================================================================================================================================
 do $seed$

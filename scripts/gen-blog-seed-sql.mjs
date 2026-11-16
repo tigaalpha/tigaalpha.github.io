@@ -17,6 +17,8 @@
                                                                    the RELEASE copy: the same SQL with the real commit in place of the placeholder (env BLOG_SEED_SHA does the same as --sha).
                                                                    Written to --out (or BLOG_SEED_OUT) only, never over the committed file; BLOG_SEED_SHA is read only when an output path is given too. The commit must hold the rows file: git is asked for it and its md5 must be
                                                                    the md5 of the rows produced from blog-src now (--no-git-check skips that question; the database still refuses any other md5).
+                                                                   The commit must also be on github.com (pushed): the database fetches it from raw.githubusercontent.com. If scripts/apply-sql.mjs will send a part, name the file
+                                                                   supabase-<anything>.sql (the only name that script accepts) and send PART A and PART B as two files: it sends one file as ONE execution, and the whole copy stops at PART B.
      ... --part a|b                                                prints (or writes to --out) only PART A or PART B of that copy, ready to be sent as one execution each
    The SQL: PART A widens the language checks and the two functions that carry a language list (bodies copied from supabase-blog-views-migration.sql, only the list changed) and queues one pg_net fetch
    of the rows file at the pinned commit; PART B finds the answer by its md5, checks it and inserts with ON CONFLICT (lang, slug) DO NOTHING in the same statement (pg_net sends a request only after the
@@ -168,7 +170,7 @@ function fetchSql({ posts, langs, rowsText, pinned }) {
 --   PART A  the schema changes, then it queues the fetch of ${rowsFile}. It inserts no article.
 --           (wait 10-20 seconds)
 --   PART B  finds the fetched file by its md5, checks it and inserts the rows, all in the same statement.
--- Both parts can be run again at any time; a second run changes nothing in the blog tables. Sent as ONE execution the whole file stops at PART B ("has not arrived") and is rolled back, so nothing is lost either way.
+-- Both parts can be run again at any time; a second run changes nothing in the blog tables, except that PART B inserts again an article that was deleted since (in the admin screen, say). Sent as ONE execution the whole file stops at PART B ("has not arrived") and is rolled back, so nothing is lost either way.
 -- "node scripts/gen-blog-seed-sql.mjs --set hi-es-fr-ar --sha <commit> --part a" (or b) prints one part.
 --
 -- What it changes:
@@ -180,7 +182,7 @@ function fetchSql({ posts, langs, rowsText, pinned }) {
 --       public.blog_stats() and public.blog_purge() carry no language list and are not touched.
 --   A.4 Queues one fetch (pg_net) of ${rowsFile} from github.com/${REPO} at the pinned commit.
 --   B   Inserts the ${rows.length} source articles (${per}) as PUBLISHED rows, but only from a fetched body whose md5 is ${md5} (${bytes} bytes) and that holds exactly ${rows.length} rows. "on conflict (lang, slug) do nothing": a row that
---       already exists, e.g. one the admin wrote or edited in the app, is never overwritten, and running PART B again changes nothing.
+--       already exists, e.g. one the admin wrote or edited in the app, is never overwritten, and running PART B again changes nothing (only an article deleted in the meantime is inserted again).
 --
 -- Not needed for the static pages: /blog/hi|es|fr|ar/ are built from blog-src/ and work without this file. It is needed for (a) the in-app blog list and the admin screen to show and edit these articles,
 -- (b) the admin to write new hi / es / fr / ar articles in the app, and (c) the reader counter: public.blog_hit() only counts an article that has a published row here, and refuses a language outside its list.
@@ -249,7 +251,7 @@ end
 $queue$;
 `;
   const partB = `-- ====================================================================================================================================================================================
--- PART B of 2 — run after PART A, once the fetch has finished (10-20 seconds). Checks the fetched file by its md5 and inserts the rows, in ONE statement. Safe to run again (it then inserts nothing).
+-- PART B of 2 — run after PART A, once the fetch has finished (10-20 seconds). Checks the fetched file by its md5 and inserts the rows, in ONE statement. Safe to run again (it then inserts nothing, except an article that was deleted in the meantime).
 -- If it says the file has not arrived: wait and run it again; if it keeps saying so, the message shows the latest answer pg_net has (a 404 means the commit is not on GitHub yet).
 -- ====================================================================================================================================================================================
 do $seed$
@@ -339,8 +341,9 @@ if (SET.langs.some(l => !STATIC_LANGS.includes(l))) die("STATIC_LANGS in scripts
 const posts = postsOf(SET.langs), rows = rowsOf(posts), rowsText = JSON.stringify(rows);
 const problems = [...skippedSources(posts, SET.langs), ...rowProblems(rows, SET.langs)];
 if (!rows.length || problems.length) die("the " + setName + " rows are not fit to seed:\n  - " + (problems.length ? problems.join("\n  - ") : "no article found in blog-src/" + SET.langs.join("|") + "/"));
-const reg = registryLangs(), drift = reg && (reg.length !== TEN.length || reg.some(l => !TEN.includes(l)) || TEN.some(l => !reg.includes(l)));
-const driftMsg = drift ? `lang-extra.ts lists ${reg.join(",")} but the migration widens the checks to ${TEN.join(",")}: add the new language to TEN in scripts/gen-blog-seed-sql.mjs and to the checks and functions` : "";
+const reg = registryLangs(), drift = !reg || reg.length !== TEN.length || reg.some(l => !TEN.includes(l)) || TEN.some(l => !reg.includes(l));   // an unreadable ALL_LANGS line counts as drift: a check that quietly stops checking is worse than one that stops the run
+const driftMsg = !drift ? "" : !reg ? "could not read ALL_LANGS from lang-extra.ts (was the line reformatted or the file moved?): fix registryLangs() in scripts/gen-blog-seed-sql.mjs"
+  : `lang-extra.ts lists ${reg.join(",")} but the migration widens the checks to ${TEN.join(",")}: add the new language to TEN in scripts/gen-blog-seed-sql.mjs and to the checks and functions`;
 const built = fetchSql({ posts, langs: SET.langs, rowsText, pinned: sha || "" });
 const summary = `${rows.length} articles: ${built.per}; rows file ${built.bytes} bytes, md5 ${built.md5}`;
 

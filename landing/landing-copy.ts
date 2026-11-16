@@ -18,12 +18,14 @@ export const FLAG_NAMES = { th: "ไทย", en: "English", zh: "中文", ja: "�
 export const LANG_SHORT = { th: "ไทย", en: "EN", zh: "中文", ja: "日本語", ko: "한국어", ru: "РУС", hi: "हिन्दी", es: "ES", fr: "FR", ar: "عربي" };
 
 /* ── which way the page reads ──
-   Arabic is right to left. lang-extra.ts has isRtl() / dirOf() for the app, but the
-   landing bundle does not import that file (it carries the app's catalog loaders and
-   its Intl digit patch, and every kilobyte before first paint is a visitor lost), so
-   this is the same one-entry list: LandingPage1 puts dir="rtl" on <html> from it, and
-   scripts/smoke-landing-three-langs.mjs fails if lang-extra.ts ever marks a different
-   set of languages right to left. */
+   Arabic is right to left. lang-extra.ts has isRtl() / dirOf() for the app. The landing
+   bundle could import it (measured: about 1.3 kB more, its catalog loaders are tree-shaken
+   away), but that module also carries a LANG_META row per language with fields this page
+   never reads and a module-level side effect (it snapshots Number / Date.prototype
+   toLocaleString on globalThis for the app's Arabic digit rule), and every kilobyte before
+   first paint is a visitor lost. So this is the same one-entry list: LandingPage1 puts
+   dir="rtl" on <html> from it, and scripts/smoke-landing-three-langs.mjs fails if
+   lang-extra.ts ever marks a different set of languages right to left. */
 export const RTL_LANGS = ["ar"];
 export const dirOf = (lang) => (RTL_LANGS.includes(lang) ? "rtl" : "ltr");
 
@@ -572,7 +574,7 @@ export const C = {
     askThinking: "TIGA सोच रहा है…",
     askFailed: "माफ़ कीजिए — अभी जवाब नहीं मिल पाया। एक बार फिर पूछकर देखें?",
     askQuotaTitle: "पूछना जारी रखें — बिना किसी सीमा के 🎹",
-    askTimeTitle: "मुफ़्त डेमो पूरा हुआ 🎹",
+    askTimeTitle: "मुफ़्त ट्रायल पूरा हुआ 🎹",
     askTimeBody: "आपके तीन मिनट पूरे हो गए — मुफ़्त साइन अप करें और बिना किसी सीमा के बजाना और पूछना जारी रखें। कार्ड ज़रूरी नहीं।",
     sticky: "आज ही साइन अप करें — 7 दिन मुफ़्त आज़माएँ, फिर 799 THB प्रति माह, कार्ड ज़रूरी नहीं",
     nudgeLine: "जवाब पसंद आया? मुफ़्त साइन अप करें — बिना सीमा के पूछें और अपनी प्रगति सेव करें।",

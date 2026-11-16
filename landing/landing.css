@@ -124,7 +124,7 @@ body {
 
 /* ── "open in browser" ──
    Sits at the right end of the brand's row, above the language segments, so
-   the button never competes with the six language pills for one line. */
+   the button never competes with the ten language pills for one line. */
 .lp-openbtn {
   order: 2; margin-left: auto; display: inline-flex; align-items: center; gap: 5px;
   font: inherit; font-size: 12px; font-weight: 600; line-height: 1;
@@ -513,7 +513,8 @@ a.lp-btn { text-decoration: none; }  /* the first-song button is a real link */
 :lang(ja) .lp-h1, :lang(ja) .lp-sub { word-break: auto-phrase; }
 
 /* ══ Hindi and Arabic type, and right to left (2026-11-13) ══
-   Everything below is additive: no rule above is changed for th / en / zh / ja / ko / ru / es / fr.
+   Everything below applies to a Hindi, an Arabic or a right-to-left page only: the other eight
+   languages see none of it (the ten-pill language grid further up is the one shared change).
 
    Type. Each of the two scripts gets its own stack and a taller line (1.7 instead of 1.65, and 1.5
    instead of 1.28-1.35 on the headings): Devanagari carries a headline bar and vowel marks above and
