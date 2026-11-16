@@ -1805,6 +1805,7 @@ const cat: Record<string, string> = {
   "Hydroponics grows plants in nutrient water with no soil and uses far less water than field farming.": "हाइड्रोपोनिक्स में पौधे मिट्टी के बिना पोषक तत्वों वाले पानी में उगते हैं, और खेत की खेती से बहुत कम पानी लगता है।",
   "Hymn Blast": "हिम ब्लास्ट",
   "I accept the": "मैं सहमत हूँ:",
+  "I accept the [[Privacy Notice]]": "मैं [[गोपनीयता नोटिस]] से सहमत हूँ",
   "I accept the [[Privacy Policy]] and consent to the collection of the data above to provide the service": "मुझे [[गोपनीयता नीति]] स्वीकार है और सेवा देने के लिए ऊपर दिया गया डेटा एकत्र किए जाने की मेरी सहमति है",
   "I can't keep a steady beat — how should I train it?": "मुझसे बीट स्थिर नहीं रहती — इसका अभ्यास कैसे करूँ?",
   "I just played that for you — listen and tell me how it was.": "मैंने अभी यह आपके लिए बजाया है — सुनिए और बताइए कैसा लगा।",

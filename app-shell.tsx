@@ -278,9 +278,9 @@ const PRIVACY_URL = "privacy-policy.html";
 
 /* A sentence with the privacy-policy link inside it, for the extra languages. The English key carries the link as [[Privacy Policy]] and the translator keeps the [[ ]] around the words that become the
    link, wherever they fall in the sentence (word order differs between languages, so the sentence is ONE string, not "I accept" + link + "and consent"). A translation that lost its markers still shows the link. */
-function PolicyLine({ lg, text }) {
+function PolicyLine({ lg, text, style }: { lg: string; text: string; style?: React.CSSProperties }) {   // style: the link's own look where the card sets one (LoginWall)
   const m = /^([\s\S]*?)\[\[([\s\S]*?)\]\]([\s\S]*)$/.exec(text);
-  const link = (label) => <a href={PRIVACY_URL} target="_blank" rel="noopener noreferrer">{label}</a>;
+  const link = (label) => <a href={PRIVACY_URL} target="_blank" rel="noopener noreferrer" style={style}>{label}</a>;
   return m ? <>{m[1]}{link(m[2])}{m[3]}</> : <>{text} {link(xl(lg, "Privacy Notice"))}</>;
 }
 
@@ -675,7 +675,8 @@ function LoginWall({ profile, onGoogleLogin }) {
           {signup && (
             <label style={{ display: "flex", gap: 8, alignItems: "flex-start", fontSize: 13, color: "#5a4c42" }}>
               <input type="checkbox" checked={agree} onChange={e => setAgree(e.target.checked)} style={{ marginTop: 2, width: 18, height: 18, accentColor: clay }} />
-              <span>{t.agree} <a href={PRIVACY_URL} target="_blank" rel="noopener noreferrer" style={{ color: clay }}>{t.policy}</a></span>
+              {/* the extra languages get the sentence as ONE string with [[ ]] round the link (word order differs: "[policy] に同意します"); th / en / zh keep the two pieces they always had */}
+              <span>{isExtraLang(lg) ? <PolicyLine lg={lg} text={xl(lg, "I accept the [[Privacy Notice]]")} style={{ color: clay }} /> : <>{t.agree} <a href={PRIVACY_URL} target="_blank" rel="noopener noreferrer" style={{ color: clay }}>{t.policy}</a></>}</span>
             </label>
           )}
           {err && <div role="alert" style={{ color: "#b3261e", fontSize: 13, background: "#fdecea", borderRadius: 8, padding: "8px 10px" }}>{err}</div>}

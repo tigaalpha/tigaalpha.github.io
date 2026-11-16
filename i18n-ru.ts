@@ -1805,6 +1805,7 @@ const cat: Record<string, string> = {
   "Hydroponics grows plants in nutrient water with no soil and uses far less water than field farming.": "Гидропоника — это выращивание растений в питательной воде без почвы; воды уходит намного меньше, чем на обычном поле.",
   "Hymn Blast": "Взрыв гимна",
   "I accept the": "Я принимаю",
+  "I accept the [[Privacy Notice]]": "Я принимаю [[Политику конфиденциальности]]",
   "I accept the [[Privacy Policy]] and consent to the collection of the data above to provide the service": "Я принимаю [[Политику конфиденциальности]] и даю согласие на сбор указанных выше данных для предоставления сервиса",
   "I can't keep a steady beat — how should I train it?": "Мне трудно держать ровный ритм — как это тренировать?",
   "I just played that for you — listen and tell me how it was.": "Только что я сыграл(а) это для вас — послушайте и скажите, как получилось.",

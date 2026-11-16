@@ -1805,6 +1805,7 @@ const cat: Record<string, string> = {
   "Hydroponics grows plants in nutrient water with no soil and uses far less water than field farming.": "الزراعة المائية تنمّي النباتات في ماء غني بالعناصر الغذائية دون تربة، وتستهلك ماءً أقل بكثير من زراعة الحقول.",
   "Hymn Blast": "انفجار الترنيمة",
   "I accept the": "أوافق على",
+  "I accept the [[Privacy Notice]]": "أوافق على [[إشعار الخصوصية]]",
   "I accept the [[Privacy Policy]] and consent to the collection of the data above to provide the service": "أوافق على [[سياسة الخصوصية]] وعلى جمع البيانات أعلاه لتقديم الخدمة",
   "I can't keep a steady beat — how should I train it?": "لا أستطيع الحفاظ على إيقاع ثابت — كيف أتدرّب على ذلك؟",
   "I just played that for you — listen and tell me how it was.": "عزفت لك هذا للتو، استمع وأخبرني كيف كان.",

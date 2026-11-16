@@ -1805,6 +1805,7 @@ const cat: Record<string, string> = {
   "Hydroponics grows plants in nutrient water with no soil and uses far less water than field farming.": "水耕栽培は、土を使わず栄養を含んだ水で植物を育てます。畑での栽培よりずっと少ない水で済みます。",
   "Hymn Blast": "ヒムブラスト",
   "I accept the": "以下に同意します:",
+  "I accept the [[Privacy Notice]]": "[[プライバシー通知]]に同意します",
   "I accept the [[Privacy Policy]] and consent to the collection of the data above to provide the service": "[[プライバシーポリシー]]に同意し、サービス提供のために上記のデータを収集することに同意します",
   "I can't keep a steady beat — how should I train it?": "一定のビートを保てません。どう練習すればいいですか？",
   "I just played that for you — listen and tell me how it was.": "いま弾いてみました。聴いて、どうだったか教えてください。",

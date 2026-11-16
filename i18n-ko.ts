@@ -1805,6 +1805,7 @@ const cat: Record<string, string> = {
   "Hydroponics grows plants in nutrient water with no soil and uses far less water than field farming.": "수경 재배는 흙 없이 영양분이 든 물에서 식물을 키우며, 밭농사보다 물을 훨씬 적게 써요.",
   "Hymn Blast": "찬가 블래스트",
   "I accept the": "다음에 동의합니다:",
+  "I accept the [[Privacy Notice]]": "[[개인정보 처리방침]]에 동의합니다",
   "I accept the [[Privacy Policy]] and consent to the collection of the data above to provide the service": "[[개인정보 처리방침]]에 동의하며, 서비스 제공을 위해 위의 정보를 수집하는 데 동의합니다",
   "I can't keep a steady beat — how should I train it?": "박자를 일정하게 유지하지 못해요. 어떻게 연습해야 할까요?",
   "I just played that for you — listen and tell me how it was.": "방금 연주해 봤어요 — 들어 보고 어땠는지 알려 주세요.",
