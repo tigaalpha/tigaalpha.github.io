@@ -17,8 +17,9 @@ globalThis.__posts = []; globalThis.__calls = []; globalThis.__eqs = []; globalT
 const realSetTimeout = globalThis.setTimeout; globalThis.setTimeout = (fn, ms, ...a) => realSetTimeout(fn, ms === 3000 ? 40 : ms, ...a);
 const stub = `
 export const sb = {
-  from(table) { const q = { select() { return q; }, eq(c, v) { globalThis.__eqs.push([c, v]); return q; }, order() { return q; }, limit() { return q; },
-      then(a, b) { return new Promise(r => setTimeout(r, globalThis.__dbDelay || 0)).then(() => globalThis.__dbError ? { data: null, error: { message: "boom" } } : { data: globalThis.__posts, error: null }).then(a, b); } };
+  from(table) { const fl = [], q = { select() { return q; }, eq(c, v) { globalThis.__eqs.push([c, v]); fl.push([c, v]); return q; }, order() { return q; }, limit() { return q; }, or() { return q; }, range() { return q; },
+      // the admin list filters on the server (.eq("lang", ...)) since the paginated list: the stub applies the same equality to the rows it returns (a row without that field is kept)
+      then(a, b) { return new Promise(r => setTimeout(r, globalThis.__dbDelay || 0)).then(() => globalThis.__dbError ? { data: null, error: { message: "boom" } } : { data: Array.isArray(globalThis.__posts) ? globalThis.__posts.filter(p => !p || fl.every(([c, v]) => p[c] === undefined || p[c] === v)) : globalThis.__posts, error: null }).then(a, b); } };
     q.insert = (row) => { globalThis.__writes.push({ table, op: "insert", row }); return Promise.resolve({ error: globalThis.__writeError }); };
     q.update = (row) => { globalThis.__writes.push({ table, op: "update", row }); const r = { eq() { return Promise.resolve({ error: globalThis.__writeError }); } }; return r; };
     return q; },
@@ -421,6 +422,7 @@ console.log("admin: ten languages in the lists and the filter, the migration hin
   ok("the filter row has All and one button per language with its native name (ten)", fl.length === 11 && fl[0].getAttribute("data-blog-filter") === "all" && LANGS.every(l => fl.some(b => b.getAttribute("data-blog-filter") === l && b.textContent === M.LANG_META[l].name)), fl.map(b => b.textContent).join(" | "));
   ok("with All every row shows", host.querySelectorAll("[data-blog-row]").length === 3);
   await click(fl.find(b => b.getAttribute("data-blog-filter") === "ar"), M, 40);
+  await M.act(async () => { await sleep(200); });   // the list is fetched again from the database with the language filter (paginated admin list); the fetch starts when the click's act ends
   ok("the Arabic filter shows only the Arabic row", host.querySelectorAll("[data-blog-row]").length === 1 && /AR-ROW/.test(host.textContent) && !/HI-ROW/.test(host.textContent));
   await click(host.querySelector("[data-blog-new]"), M, 60);
   const set = [...host.querySelectorAll("[data-blog-setlang]")];
