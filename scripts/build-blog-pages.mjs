@@ -1,9 +1,13 @@
-// Static, crawlable blog: one HTML page per published article (th / en / zh / ja / ko / ru), an index per language, and the article URLs appended to sitemap.xml.
+// Static, crawlable blog: one HTML page per published article (th / en / zh / ja / ko / ru / hi / es / fr / ar), an index per language, and the article URLs appended to sitemap.xml.
 // Reads public.blog_posts through the public REST API with the anon key (RLS only returns published rows). Fails soft: no table / no network = no blog pages, build continues.
 // Japanese, Korean and Russian (owner 2026-11-11) are ALSO read from committed source files, blog-src/<ja|ko|ru>/<slug>.json (see readStaticPosts): the table does not allow those
 // languages until supabase-blog-ja-ko-ru-migration.sql is applied, so the articles must be able to ship without it. A database row wins over a source file with the same (lang, slug).
+// Hindi, Spanish, French and Arabic (owner 2026-11-16) use the same folder and the same empty-index rule (404 + noindex until a post exists). Daily articles are added in the admin;
+// blog-src/<hi|es|fr|ar>/ is read when a file is there and is empty until then. supabase-blog-hi-es-fr-ar-migration.sql widens the table and is NOT applied by the build.
 // Run by `npm run build` after build-song-pages.mjs (it appends to that script's sitemap.xml). SITE_URL overrides the domain.
 import fs from "node:fs"; import path from "node:path"; import { fileURLToPath } from "node:url";
+import { STATIC_BLOG_LANGS as STATIC_LANGS } from "./blog-paths.mjs";
+export { STATIC_LANGS };
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const SITE = (process.env.SITE_URL || "https://www.tigaalpha.com").replace(/\/+$/, "");
 const OUT = path.resolve(process.env.BLOG_OUT || path.join(ROOT, "blog"));   // BLOG_OUT / BLOG_FIXTURE exist for scripts/smoke-blog-gate.mjs (no network, no repo files touched)
@@ -16,9 +20,13 @@ const safeUrl = (u) => /^https:\/\/[^\s"'<>]+$/i.test(u) ? u : "";
 const LG = { th: { name: "บล็อก", sub: "บทความเรื่องการเรียนเปียโนและดนตรี", cta: "เริ่มเรียนฟรีที่ TIGA ALPHA", back: "ทุกบทความ", loc: "th_TH", html: "th" }, en: { name: "Blog", sub: "Articles on learning piano and music", cta: "Start learning free on TIGA ALPHA", back: "All articles", loc: "en_US", html: "en" }, zh: { name: "博客", sub: "钢琴与音乐学习文章", cta: "在 TIGA ALPHA 免费开始学习", back: "全部文章", loc: "zh_CN", html: "zh-Hans" },
   ja: { name: "ブログ", sub: "ピアノと音楽の学習に役立つ記事", cta: "TIGA ALPHAで無料で始めよう", back: "すべての記事", loc: "ja_JP", html: "ja" },
   ko: { name: "블로그", sub: "피아노와 음악 학습에 관한 글", cta: "TIGA ALPHA에서 무료로 시작하기", back: "모든 글", loc: "ko_KR", html: "ko" },
-  ru: { name: "Блог", sub: "Статьи об обучении игре на фортепиано и музыке", cta: "Начните учиться бесплатно в TIGA ALPHA", back: "Все статьи", loc: "ru_RU", html: "ru" } };
-// Languages whose articles ship as committed files under blog-src/ and whose index and feed are therefore BUILT as real files (see writeBlog). th / en / zh keep the database-rendered index.
-export const STATIC_LANGS = ["ja", "ko", "ru"];
+  ru: { name: "Блог", sub: "Статьи об обучении игре на фортепиано и музыке", cta: "Начните учиться бесплатно в TIGA ALPHA", back: "Все статьи", loc: "ru_RU", html: "ru" },
+  hi: { name: "ब्लॉग", sub: "पियानो और संगीत सीखने पर लेख", cta: "TIGA ALPHA पर मुफ़्त सीखना शुरू करें", back: "सभी लेख", loc: "hi_IN", html: "hi" },
+  es: { name: "Blog", sub: "Artículos para aprender piano y música", cta: "Empieza a aprender gratis en TIGA ALPHA", back: "Todos los artículos", loc: "es_ES", html: "es" },
+  fr: { name: "Blog", sub: "Articles pour apprendre le piano et la musique", cta: "Commencez à apprendre gratuitement sur TIGA ALPHA", back: "Tous les articles", loc: "fr_FR", html: "fr" },
+  ar: { name: "المدونة", sub: "مقالات عن تعلّم البيانو والموسيقى", cta: "ابدأ التعلّم مجانًا على TIGA ALPHA", back: "كل المقالات", loc: "ar_AR", html: "ar" } };
+// Languages whose articles may ship as blog-src/<lang>/<slug>.json and whose index and feed are BUILT as real files when posts exist (see writeBlog).
+// th / en / zh keep the database-rendered index. A static language with zero posts gets no index file; the live function answers 404 + noindex.
 const STATIC_CATS = ["tips", "theory", "songs", "news", "story"], STATIC_SLUG = /^[a-z0-9]+(?:-[a-z0-9]+)*$/, STATIC_DATE = /^\d{4}-\d{2}-\d{2}(?:[T ]\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?(?:Z|[+-]\d{2}:?\d{2})?)?$/;
 const SRC_DIR = path.resolve(process.env.BLOG_SRC || path.join(ROOT, "blog-src"));   // BLOG_SRC lets the tests point at a temp folder
 // blog-src/<lang>/<slug>.json = { lang, slug, category, title, excerpt, body, created_at, published } -> a published post of that language. A malformed file is skipped with a warning (never fails the build).
@@ -68,29 +76,40 @@ function body(text) {
   } fl(); return out.join("\n");
 }
 const FONT_STACK = `system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans Thai","Noto Sans SC",sans-serif`;
-// Japanese and Korean pages name their own faces BEFORE "Noto Sans SC": a Chinese face listed first would draw kanji in Chinese glyph shapes on a machine that has it. th / en / zh / ru keep the stack byte for byte.
-const FONT_LANG = { ja: `"Hiragino Sans","Yu Gothic","Noto Sans JP"`, ko: `"Apple SD Gothic Neo","Malgun Gothic","Noto Sans KR"` };
+// Japanese and Korean pages name their own faces BEFORE "Noto Sans SC": a Chinese face listed first would draw kanji in Chinese glyph shapes on a machine that has it. th / en / zh / ru / es / fr keep the stack byte for byte.
+// Hindi and Arabic name a face that covers their script, and only those pages load it. Existing languages are not given that face.
+const FONT_LANG = { ja: `"Hiragino Sans","Yu Gothic","Noto Sans JP"`, ko: `"Apple SD Gothic Neo","Malgun Gothic","Noto Sans KR"`, hi: `"Noto Sans Devanagari"`, ar: `"Noto Sans Arabic"` };
+const FONT_LINK = {
+  hi: `<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+Devanagari:wght@400;700;800&display=swap">`,
+  ar: `<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+Arabic:wght@400;700;800&display=swap">`,
+};
+// Arabic pages only. Logical padding so lists indent from the right; the gate card stays centred.
+const RTL_CSS = `html[dir=rtl] body,html[dir=rtl] main,html[dir=rtl] .meta,html[dir=rtl] .card,html[dir=rtl] .card b,html[dir=rtl] .card span,html[dir=rtl] .rel,html[dir=rtl] .rel a,html[dir=rtl] .pager{text-align:right}html[dir=rtl] ul,html[dir=rtl] ol{padding-left:0;padding-inline-start:1.4em}html[dir=rtl] .pager{justify-content:flex-start}html[dir=rtl] .tg-g-card,html[dir=rtl] .tg-g-card h2,html[dir=rtl] .tg-g-card p{text-align:center}`;
 const fontFor = (lang) => FONT_LANG[lang] ? FONT_STACK.replace(`"Noto Sans SC"`, FONT_LANG[lang] + `,"Noto Sans SC"`) : FONT_STACK;
 const forLang = (css, lang) => FONT_LANG[lang] ? css.split(FONT_STACK).join(fontFor(lang)) : css;
 const CSS = `body{margin:0;background:#faf6f1;color:#2a211b;font:17px/1.75 ${FONT_STACK}}main{max-width:720px;margin:0 auto;padding:24px 18px 60px}header.top{border-bottom:1px solid #eadfd4;background:#fff}header.top div{max-width:720px;margin:0 auto;padding:12px 18px;display:flex;justify-content:space-between;align-items:center}header.top a{color:#d97757;font-weight:800;text-decoration:none;letter-spacing:.05em}h1{font-size:30px;line-height:1.3;margin:.3em 0}h2{font-size:23px;margin:1.6em 0 .4em}h3{font-size:19px;margin:1.4em 0 .3em}img{max-width:100%;border-radius:12px}a{color:#c2552d}.meta{color:#7a6a5e;font-size:14px}.card{display:block;background:#fff;border:1px solid #eadfd4;border-radius:14px;padding:14px 16px;margin:0 0 12px;text-decoration:none;color:inherit}.card b{font-size:18px}.card span{display:block;color:#6b5d52;font-size:15px;margin-top:4px}.cta{display:inline-block;background:#d97757;color:#fff!important;padding:12px 22px;border-radius:10px;font-weight:800;text-decoration:none;margin-top:28px}`;
 const head = (lang, title, desc, canon, extra, ld) => `<!doctype html>
-<html lang="${LG[lang].html}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<html lang="${LG[lang].html}"${lang === "ar" ? ` dir="rtl"` : ""}><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>${esc(title)}</title><meta name="description" content="${esc(desc)}"><link rel="canonical" href="${canon}">
 ${extra}<meta property="og:title" content="${esc(title)}"><meta property="og:description" content="${esc(desc)}"><meta property="og:type" content="article"><meta property="og:url" content="${canon}"><meta property="og:image" content="${SITE}/og-card.png"><meta property="og:locale" content="${LG[lang].loc}">
 <meta name="twitter:card" content="summary_large_image"><link rel="icon" href="/icon.svg" type="image/svg+xml">
 <link rel="alternate" type="application/rss+xml" title="${esc(LG[lang].name)}" href="${SITE}/blog/${lang}/feed.xml">
-<script type="application/ld+json">${JSON.stringify(ld).replace(/</g, "\\u003c")}</script><style>${forLang(CSS, lang)}.rel{margin-top:28px}.rel a{display:block;margin:6px 0}.pager{display:flex;gap:16px;margin:18px 0}</style><script src="/ga.js" defer></script></head>
+${FONT_LINK[lang] || ""}<script type="application/ld+json">${JSON.stringify(ld).replace(/</g, "\\u003c")}</script><style>${forLang(CSS, lang)}${lang === "ar" ? RTL_CSS : ""}.rel{margin-top:28px}.rel a{display:block;margin:6px 0}.pager{display:flex;gap:16px;margin:18px 0}</style><script src="/ga.js" defer></script></head>
 `;
 const topbar = (lang) => `<header class="top"><div><a href="${SITE}/">TIGA ALPHA</a><a href="${SITE}/blog/${lang}/" style="font-weight:600">${LG[lang].name}</a></div></header>`;
 const KW = { th: "สอนเปียโน, เรียนเปียโน, คอร์สเรียนเปียโน, เล่นเปียโน, เล่นดนตรี, สอนดนตรี, คอร์สเปียโน, เรียนเปียโนออนไลน์, เรียนดนตรี, แอปพลิเคชันสอนเปียโนออนไลน์, สอนเปียโนด้วยเอไอ, แอปสอนเปียโน, แอปสอนเปียโนออนไลน์, แอปสอนเปียโน AI, คอร์สเรียนเปียโนออนไลน์ AI", en: "piano teaching, learn piano, piano learning course, play piano, play music, music teaching, piano course, learn piano online, learn music, online piano teaching application, piano teaching with AI, piano teaching app, online piano lessons app, AI piano teaching app, AI online piano course", zh: "钢琴教学, 学钢琴, 钢琴学习课程, 弹钢琴, 演奏音乐, 音乐教学, 钢琴课程, 在线学钢琴, 学音乐, 在线钢琴教学应用, 用AI教钢琴, 钢琴教学App, 在线钢琴教学App, AI钢琴教学App, AI在线钢琴课程",
   ja: "ピアノ指導, ピアノを習う, ピアノ学習コース, ピアノを弾く, 音楽を演奏する, 音楽指導, ピアノレッスン, オンラインでピアノを習う, 音楽を学ぶ, オンラインピアノ指導アプリ, AIでピアノを教える, ピアノ学習アプリ, オンラインピアノレッスンアプリ, AIピアノ学習アプリ, AIオンラインピアノコース",
   ko: "피아노 교육, 피아노 배우기, 피아노 학습 과정, 피아노 연주, 음악 연주, 음악 교육, 피아노 강좌, 온라인 피아노 배우기, 음악 배우기, 온라인 피아노 교육 앱, AI 피아노 교육, 피아노 학습 앱, 온라인 피아노 레슨 앱, AI 피아노 학습 앱, AI 온라인 피아노 강좌",
-  ru: "обучение игре на фортепиано, учиться играть на фортепиано, курс фортепиано, играть на пианино, играть музыку, обучение музыке, уроки фортепиано, уроки фортепиано онлайн, изучать музыку, приложение для обучения фортепиано, обучение фортепиано с ИИ, приложение для уроков фортепиано, онлайн-уроки фортепиано, ИИ-приложение для фортепиано, онлайн-курс фортепиано с ИИ" };
+  ru: "обучение игре на фортепиано, учиться играть на фортепиано, курс фортепиано, играть на пианино, играть музыку, обучение музыке, уроки фортепиано, уроки фортепиано онлайн, изучать музыку, приложение для обучения фортепиано, обучение фортепиано с ИИ, приложение для уроков фортепиано, онлайн-уроки фортепиано, ИИ-приложение для фортепиано, онлайн-курс фортепиано с ИИ",
+  hi: "पियानो सिखाना, पियानो सीखना, पियानो सीखने का कोर्स, पियानो बजाना, संगीत बजाना, संगीत सिखाना, पियानो कोर्स, ऑनलाइन पियानो सीखना, संगीत सीखना, ऑनलाइन पियानो शिक्षण ऐप, एआई से पियानो सिखाना, पियानो टीचिंग ऐप, ऑनलाइन पियानो लेसन ऐप, एआई पियानो टीचिंग ऐप, एआई ऑनलाइन पियानो कोर्स",
+  es: "enseñanza de piano, aprender piano, curso para aprender piano, tocar el piano, tocar música, enseñanza musical, curso de piano, aprender piano en línea, aprender música, aplicación de enseñanza de piano en línea, enseñar piano con IA, app de enseñanza de piano, app de clases de piano en línea, app de enseñanza de piano con IA, curso de piano en línea con IA",
+  fr: "enseignement du piano, apprendre le piano, cours pour apprendre le piano, jouer du piano, jouer de la musique, enseignement musical, cours de piano, apprendre le piano en ligne, apprendre la musique, application d'enseignement du piano en ligne, enseigner le piano avec l'IA, application d'enseignement du piano, application de cours de piano en ligne, application d'enseignement du piano par IA, cours de piano en ligne avec IA",
+  ar: "تعليم البيانو, تعلّم البيانو, دورة تعلّم البيانو, عزف البيانو, عزف الموسيقى, تعليم الموسيقى, دورة بيانو, تعلّم البيانو عبر الإنترنت, تعلّم الموسيقى, تطبيق تعليم البيانو عبر الإنترنت, تعليم البيانو بالذكاء الاصطناعي, تطبيق تعليم البيانو, تطبيق دروس البيانو عبر الإنترنت, تطبيق تعليم البيانو بالذكاء الاصطناعي, دورة بيانو عبر الإنترنت بالذكاء الاصطناعي" };
 const ORG = { "@type": "Organization", "@id": SITE + "/#org", name: "TIGA ALPHA", url: SITE + "/", logo: { "@type": "ImageObject", url: SITE + "/og-card.png" }, founder: { "@id": SITE + "/#teacher-aum" }, sameAs: ["https://www.tigastudio.net/", "https://www.tigaalpha.com/"] };
-const AUM = { th: "ครูอั้ม", en: "Teacher Aum", zh: "Aum 老师", ja: "アウム先生", ko: "아움 선생님", ru: "Учитель Aum" };
+const AUM = { th: "ครูอั้ม", en: "Teacher Aum", zh: "Aum 老师", ja: "アウム先生", ko: "아움 선생님", ru: "Учитель Aum", hi: "शिक्षक Aum", es: "el profesor Aum", fr: "le professeur Aum", ar: "المعلم Aum" };
 const INDEX_ALTS = Object.keys(LG).map(l => `<link rel="alternate" hreflang="${LG[l].html}" href="${SITE}/blog/${l}/">`).join("") + `<link rel="alternate" hreflang="x-default" href="${SITE}/blog/en/">\n`;
 const INDEX_SM = Object.keys(LG).map(l => [LG[l].html, `${SITE}/blog/${l}/`]).concat([["x-default", `${SITE}/blog/en/`]]);
-const CATN = { tips: { th: "เทคนิคการฝึก", en: "Practice tips", zh: "练习技巧", ja: "練習のコツ", ko: "연습 팁", ru: "Советы по занятиям" }, theory: { th: "ทฤษฎีดนตรี", en: "Music theory", zh: "乐理", ja: "音楽理論", ko: "음악 이론", ru: "Теория музыки" }, songs: { th: "เพลงและเพลงฝึก", en: "Songs", zh: "曲目", ja: "曲と練習曲", ko: "곡과 연습곡", ru: "Песни и пьесы" }, news: { th: "ข่าวและประกาศ", en: "News", zh: "新闻公告", ja: "お知らせ", ko: "소식과 공지", ru: "Новости" }, story: { th: "เรื่องราว", en: "Stories", zh: "故事", ja: "ストーリー", ko: "이야기", ru: "Истории" } };
+const CATN = { tips: { th: "เทคนิคการฝึก", en: "Practice tips", zh: "练习技巧", ja: "練習のコツ", ko: "연습 팁", ru: "Советы по занятиям", hi: "अभ्यास के सुझाव", es: "Consejos de práctica", fr: "Conseils de pratique", ar: "نصائح التمرين" }, theory: { th: "ทฤษฎีดนตรี", en: "Music theory", zh: "乐理", ja: "音楽理論", ko: "음악 이론", ru: "Теория музыки", hi: "संगीत सिद्धांत", es: "Teoría musical", fr: "Théorie musicale", ar: "نظرية الموسيقى" }, songs: { th: "เพลงและเพลงฝึก", en: "Songs", zh: "曲目", ja: "曲と練習曲", ko: "곡과 연습곡", ru: "Песни и пьесы", hi: "गाने और अभ्यास", es: "Canciones", fr: "Morceaux", ar: "مقطوعات" }, news: { th: "ข่าวและประกาศ", en: "News", zh: "新闻公告", ja: "お知らせ", ko: "소식과 공지", ru: "Новости", hi: "समाचार", es: "Noticias", fr: "Actualités", ar: "أخبار" }, story: { th: "เรื่องราว", en: "Stories", zh: "故事", ja: "ストーリー", ko: "이야기", ru: "Истории", hi: "कहानियाँ", es: "Historias", fr: "Histoires", ar: "قصص" } };
 /* ── the reading gate (owner 2026-11-04) ──
    Anyone may read an article without an account — that is what lets search send people here. After THIRTY SECONDS of actual reading (it was one minute until 2026-11-07, owner) (time the tab is
    visible; a tab in the background does not count) a pop-up opens in the middle of the screen and invites the reader to log in or sign up free for
@@ -112,6 +131,10 @@ const GATE_T = {
   ja: { title: "続きを読むにはログイン", sub: "無料でログインまたは会員登録すると、この記事の続きを読めます。そのままTIGA AIアプリで、ピアノを無料で学び始められます。", google: "Googleで続ける", signup: "無料で会員登録", login: "アカウントをお持ちの方はログイン", trial: "ログインして、ピアノのレッスンを7日間無料で体験。クレジットカードは不要です。" },
   ko: { title: "계속 읽으려면 로그인하세요", sub: "무료로 로그인하거나 가입하면 이 글의 나머지를 읽을 수 있고, 바로 TIGA AI 앱에서 피아노를 무료로 배우기 시작할 수 있어요.", google: "Google로 계속하기", signup: "무료로 가입하기", login: "이미 회원이신가요? 로그인", trial: "로그인하고 피아노 레슨을 7일 동안 무료로 체험하세요. 신용카드는 필요 없어요." },
   ru: { title: "Войдите, чтобы читать дальше", sub: "Войдите или зарегистрируйтесь бесплатно, чтобы дочитать эту статью, а затем начните бесплатно учиться играть на фортепиано в приложении TIGA AI.", google: "Продолжить через Google", signup: "Зарегистрироваться бесплатно", login: "Уже есть аккаунт? Войти", trial: "Войдите и 7 дней бесплатно пробуйте уроки фортепиано — банковская карта не нужна." },
+  hi: { title: "आगे पढ़ने के लिए लॉग इन करें", sub: "इस लेख का बाकी हिस्सा पढ़ने के लिए मुफ़्त लॉग इन या साइन अप करें, फिर TIGA AI ऐप के साथ पियानो मुफ़्त सीखना शुरू करें।", google: "Google से जारी रखें", signup: "मुफ़्त साइन अप करें", login: "पहले से सदस्य हैं? लॉग इन करें", trial: "7 दिन का मुफ़्त पियानो ट्रायल शुरू करने के लिए लॉग इन करें — क्रेडिट कार्ड की ज़रूरत नहीं।" },
+  es: { title: "Inicia sesión para seguir leyendo", sub: "Inicia sesión o regístrate gratis para leer el resto de este artículo y empieza a aprender piano gratis con la app TIGA AI.", google: "Continuar con Google", signup: "Regístrate gratis", login: "¿Ya tienes cuenta? Inicia sesión", trial: "Inicia sesión y prueba las clases de piano 7 días gratis, sin tarjeta de crédito." },
+  fr: { title: "Connectez-vous pour continuer la lecture", sub: "Connectez-vous ou inscrivez-vous gratuitement pour lire la suite de cet article, puis commencez à apprendre le piano gratuitement avec l'application TIGA AI.", google: "Continuer avec Google", signup: "Inscription gratuite", login: "Déjà membre ? Connectez-vous", trial: "Connectez-vous pour essayer les cours de piano 7 jours gratuitement, sans carte bancaire." },
+  ar: { title: "سجّل الدخول لمتابعة القراءة", sub: "سجّل الدخول أو أنشئ حسابًا مجانيًا لتقرأ بقية هذا المقال، ثم ابدأ تعلّم البيانو مجانًا مع تطبيق TIGA AI.", google: "المتابعة عبر Google", signup: "إنشاء حساب مجاني", login: "لديك حساب؟ سجّل الدخول", trial: "سجّل الدخول لتجربة دروس البيانو 7 أيام مجانًا — دون بطاقة ائتمان." },
 };
 const GATE_CSS = `#tg-gate{position:fixed;inset:0;z-index:2147483000;display:flex;align-items:center;justify-content:center;padding:16px;background:rgba(34,26,21,.95);-webkit-backdrop-filter:blur(16px);backdrop-filter:blur(16px);overscroll-behavior:contain;animation:tgGf .22s ease-out}#tg-gate[hidden]{display:none}
 .tg-g-card{position:relative;box-sizing:border-box;width:100%;max-width:400px;max-height:calc(100vh - 32px);overflow:auto;background:#fff;color:#2a211b;border:1px solid #eee3d8;border-radius:18px;padding:28px 22px 14px;text-align:center;box-shadow:0 18px 60px rgba(60,30,10,.35);font:16px/1.5 ${FONT_STACK};animation:tgGu .28s cubic-bezier(.2,.8,.2,1)}
@@ -128,10 +151,10 @@ const GATE_CSS = `#tg-gate{position:fixed;inset:0;z-index:2147483000;display:fle
 const GMARK = `<svg width="20" height="20" viewBox="0 0 48 48" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9.1 3.6l6.8-6.8C35.9 2.4 30.4 0 24 0 14.6 0 6.5 5.4 2.6 13.2l7.9 6.2C12.4 13.6 17.7 9.5 24 9.5z"/><path fill="#4285F4" d="M46.1 24.5c0-1.6-.1-3.1-.4-4.5H24v9h12.4c-.5 2.9-2.2 5.3-4.6 6.9l7.4 5.7c4.3-4 6.9-9.9 6.9-17.1z"/><path fill="#FBBC05" d="M10.5 28.6c-.5-1.4-.8-3-.8-4.6s.3-3.2.8-4.6l-7.9-6.2C.9 16.4 0 20.1 0 24s.9 7.6 2.6 10.8l7.9-6.2z"/><path fill="#34A853" d="M24 48c6.5 0 11.9-2.1 15.9-5.8l-7.4-5.7c-2.1 1.4-4.9 2.3-8.5 2.3-6.3 0-11.6-4.1-13.5-9.9l-7.9 6.2C6.5 42.6 14.6 48 24 48z"/></svg>`;
 const J = (v) => JSON.stringify(v).replace(/</g, "\\u003c");   // JSON inside an inline <script>: never let a slug close it
 const VIEWS_CSS = `.tg-views{color:#7a6a5e;white-space:nowrap}.tg-cv{display:block;margin-top:6px;color:#8a7a6e;font-size:13px}`;
-const VIEWS_LBL = { th: "ยอดวิว", en: "views", zh: "次浏览", ja: "回閲覧", ko: "회 조회", ru: "просмотров" };
+const VIEWS_LBL = { th: "ยอดวิว", en: "views", zh: "次浏览", ja: "回閲覧", ko: "회 조회", ru: "просмотров", hi: "बार देखा गया", es: "visitas", fr: "vues", ar: "مشاهدة" };
 // the number sits straight against the unit in Japanese ("1,234回閲覧") and Korean ("1,234회 조회"); the others have a space. LOC_JS is the locale expression the page scripts format the number with (th / en / zh keep their old text).
 const VIEWS_SEP = (lang) => lang === "ja" || lang === "ko" ? "" : " ";
-const LOC_JS = (lang) => ["th", "en", "zh"].includes(lang) ? `LANG==="th"?"th-TH":LANG==="zh"?"zh-CN":"en-US"` : J(({ ja: "ja-JP", ko: "ko-KR", ru: "ru-RU" })[lang] || "en-US");
+const LOC_JS = (lang) => ["th", "en", "zh"].includes(lang) ? `LANG==="th"?"th-TH":LANG==="zh"?"zh-CN":"en-US"` : J(({ ja: "ja-JP", ko: "ko-KR", ru: "ru-RU", hi: "hi-IN", es: "es-ES", fr: "fr-FR", ar: "ar" })[lang] || "en-US");
 /* The reader script of an article page (owner 2026-11-07): one shared reading clock does three jobs. (1) It counts the visit and shows the number of readers beside the date
    ("👁 1,234 views"): public.blog_hit() (supabase-blog-views-migration.sql) counts one view per device per article per day and returns the all-time number. (2) After 3 seconds of
    reading it records a "read" and, for someone with no session in this browser, opens the log-in pop-up (one minute until 2026-11-07, 30 seconds until 2026-11-12, 15 seconds until 2026-11-13, 5 seconds until 2026-11-16 — owner 2026-11-13: "5 seconds, in every language: most readers stay under 10 seconds, so sign them up in the first 10"; owner 2026-11-16: "3 seconds", and the pop-up says that the 7-day trial needs no credit card). (3) It records when the pop-up was shown and
@@ -199,7 +222,7 @@ export function relatedPosts(posts, p, n = 5) {
   const rest = same.filter(x => !p.category || x.category !== p.category);
   return [...cat, ...rest].slice(0, Math.min(6, Math.max(3, n))).slice(0, n);
 }
-const REL = { th: "บทความที่เกี่ยวข้อง", en: "Related articles", zh: "相关文章", ja: "関連記事", ko: "관련 글", ru: "Похожие статьи" };
+const REL = { th: "บทความที่เกี่ยวข้อง", en: "Related articles", zh: "相关文章", ja: "関連記事", ko: "관련 글", ru: "Похожие статьи", hi: "संबंधित लेख", es: "Artículos relacionados", fr: "Articles liés", ar: "مقالات ذات صلة" };
 function relatedHtml(lang, items) {
   const list = (items || []).slice(0, 6);
   if (list.length < 3) return "";
@@ -217,11 +240,12 @@ export function articleHtml(p, set, related = []) {
     { "@type": "BreadcrumbList", itemListElement: [{ "@type": "ListItem", position: 1, name: "TIGA ALPHA", item: SITE + "/" }, { "@type": "ListItem", position: 2, name: L.name, item: `${SITE}/blog/${p.lang}/` }, { "@type": "ListItem", position: 3, name: p.title, item: canon }] }, ORG] };
   const d = new Date(p.created_at).toISOString().slice(0, 10);
   const coverAlt = String(p.cover_alt || "").trim() || p.title;
-  return head(p.lang, `${p.title} | TIGA ALPHA`, desc, canon, alts, ld) + `<body>${topbar(p.lang)}<main><article><p class="meta"><a href="${SITE}/blog/${p.lang}/">← ${L.back}</a></p><h1>${esc(p.title)}</h1><p class="meta">${esc(CATN[p.category || "tips"] ? CATN[p.category || "tips"][p.lang] : "")} · <time datetime="${d}">${d}</time></p>${safeUrl(p.cover_url || "") ? `<img src="${safeUrl(p.cover_url)}" alt="${esc(coverAlt)}">` : ""}${body(p.body)}${relatedHtml(p.lang, related)}<p><a class="cta" href="${SITE}/">${L.cta}</a></p></article></main>${gateHtml(p.lang, p.slug)}</body></html>\n`;
+  const backArrow = p.lang === "ar" ? "→" : "←";
+  return head(p.lang, `${p.title} | TIGA ALPHA`, desc, canon, alts, ld) + `<body>${topbar(p.lang)}<main><article><p class="meta"><a href="${SITE}/blog/${p.lang}/">${backArrow} ${L.back}</a></p><h1>${esc(p.title)}</h1><p class="meta">${esc(CATN[p.category || "tips"] ? CATN[p.category || "tips"][p.lang] : "")} · <time datetime="${d}">${d}</time></p>${safeUrl(p.cover_url || "") ? `<img src="${safeUrl(p.cover_url)}" alt="${esc(coverAlt)}">` : ""}${body(p.body)}${relatedHtml(p.lang, related)}<p><a class="cta" href="${SITE}/">${L.cta}</a></p></article></main>${gateHtml(p.lang, p.slug)}</body></html>\n`;
 }
 export const INDEX_PAGE = 48;
-const MORE = { th: "หน้าถัดไป", en: "Next page", zh: "下一页", ja: "次のページ", ko: "다음 페이지", ru: "Следующая страница" };
-const PREV = { th: "หน้าก่อน", en: "Previous page", zh: "上一页", ja: "前のページ", ko: "이전 페이지", ru: "Предыдущая страница" };
+const MORE = { th: "หน้าถัดไป", en: "Next page", zh: "下一页", ja: "次のページ", ko: "다음 페이지", ru: "Следующая страница", hi: "अगला पृष्ठ", es: "Página siguiente", fr: "Page suivante", ar: "الصفحة التالية" };
+const PREV = { th: "หน้าก่อน", en: "Previous page", zh: "上一页", ja: "前のページ", ko: "이전 페이지", ru: "Предыдущая страница", hi: "पिछला पृष्ठ", es: "Página anterior", fr: "Page précédente", ar: "الصفحة السابقة" };
 export function indexHtml(lang, list, page = 1) {
   const L = LG[lang];
   const rows = (list || []).filter(p => p && p.lang === lang && p.slug);
@@ -371,7 +395,7 @@ if (!process.env.BLOG_OUT) {
   const cat = liveCatalogRows(statics);
   fs.mkdirSync(path.join(ROOT, "api"), { recursive: true });
   fs.writeFileSync(path.join(ROOT, "api/blog-live-catalog.json"), JSON.stringify(cat));
-  console.log(`build-blog-pages: live catalog ${cat.length} static ja/ko/ru rows`);
+  console.log(`build-blog-pages: live catalog ${cat.length} static rows`);
 }
 }
 export function liveCatalogRows(posts) {

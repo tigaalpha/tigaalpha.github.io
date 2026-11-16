@@ -4,7 +4,8 @@ import { BlogBody, BlogPost, BLOG_CATS, catName, catLabel } from "./BlogPage";
 import { BlogStatsCard } from "./AdminBlogStats";
 
 import { pickT, ALL_LANGS, LANG_META } from "./lang-extra";
-/* Admin: write, edit, publish and delete blog articles in Thai / English / Mandarin / Japanese / Korean / Russian (the last three need supabase-blog-ja-ko-ru-migration.sql, otherwise the table refuses them), with a category, a cover picture, pictures inside the text and links.
+/* Admin: write, edit, publish and delete blog articles in Thai / English / Mandarin / Japanese / Korean / Russian / Hindi / Spanish / French / Arabic.
+   Japanese, Korean and Russian need supabase-blog-ja-ko-ru-migration.sql. Hindi, Spanish, French and Arabic need supabase-blog-hi-es-fr-ar-migration.sql. Until that file is applied the table refuses those four codes. Language chips, search and the editor already list them.
    Rendered only for admin_tier >= 3 (App.tsx); the table's and the image bucket's RLS (public.is_top_admin()) refuse anyone else even if this screen were reached.
    The list is paged on the server (BLOG_ADMIN_PAGE rows, newest first) for the language chip that is on, with a debounced ilike on slug and title. A single limit() over every language hid anything older than that window. */
 const slugOf = (s: string) => (s || "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 60);
@@ -114,7 +115,7 @@ export function AdminBlog({ lang }: { lang: string }) {
         error = again.error;
         altSkipped = !error;
       }
-      if (error) { say(/blog_posts_lang_check/i.test(error.message) ? T("ฐานข้อมูลยังไม่รองรับภาษานี้ — รัน supabase-blog-ja-ko-ru-migration.sql ก่อน", "The database does not accept this language yet — run supabase-blog-ja-ko-ru-migration.sql first", "数据库尚未支持该语言 — 请先运行 supabase-blog-ja-ko-ru-migration.sql") : /duplicate|unique/i.test(error.message) ? T("มีบทความภาษานี้ที่ใช้ลิงก์สั้นนี้แล้ว ลองเปลี่ยนลิงก์สั้น", "An article in this language already uses this slug — change the slug", "该语言下已有相同链接名的文章，请更换") : error.message); return; }
+      if (error) { say(/blog_posts_lang_check/i.test(error.message) ? T("ฐานข้อมูลยังไม่รองรับภาษานี้ — ภาษาฮินดี สเปน ฝรั่งเศส อาหรับให้รัน supabase-blog-hi-es-fr-ar-migration.sql ก่อน (ญี่ปุ่น เกาหลี รัสเซียใช้ supabase-blog-ja-ko-ru-migration.sql)", "The database does not accept this language yet — for Hindi, Spanish, French and Arabic run supabase-blog-hi-es-fr-ar-migration.sql first (Japanese, Korean and Russian use supabase-blog-ja-ko-ru-migration.sql)", "数据库尚未支持该语言 — 印地语、西班牙语、法语、阿拉伯语请先运行 supabase-blog-hi-es-fr-ar-migration.sql（日语、韩语、俄语请运行 supabase-blog-ja-ko-ru-migration.sql）") : /duplicate|unique/i.test(error.message) ? T("มีบทความภาษานี้ที่ใช้ลิงก์สั้นนี้แล้ว ลองเปลี่ยนลิงก์สั้น", "An article in this language already uses this slug — change the slug", "该语言下已有相同链接名的文章，请更换") : error.message); return; }
       const done = publish ? T("เผยแพร่แล้ว ✓", "Published ✓", "已发布 ✓") : T("บันทึกแล้ว ✓", "Saved ✓", "已保存 ✓");
       const note = altSkipped ? " " + T("(คำอธิบายรูปปกยังไม่ถูกบันทึก — คอลัมน์ cover_alt ยังไม่มี)", "(cover description was not saved — the cover_alt column is not there yet)", "（封面说明尚未保存——还没有 cover_alt 列）") : "";
       say(done + note, true); setF(null); setTick(t => t + 1);

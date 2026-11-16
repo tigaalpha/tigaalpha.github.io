@@ -1,11 +1,12 @@
 // Vercel serves dist/ only, but the song pages, landing pages, sitemap.xml, robots.txt and the blog are written to the repo root (that is what GitHub Pages serves).
 // Without this step tigaalpha.com/sitemap.xml and /landing/ fall through to the app's index.html. Copies those outputs into dist/ as the last build step.
 import fs from "node:fs"; import path from "node:path"; import { fileURLToPath } from "node:url";
+import { STATIC_BLOG_LANGS } from "./blog-paths.mjs";
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), ".."), DIST = path.join(ROOT, "dist");
-// ja / ko / ru indexes and feeds are baked into blog/ for GitHub Pages. On Vercel a file wins over the rewrite, so those three
+// Static-language indexes and feeds are baked into blog/ for GitHub Pages. On Vercel a file wins over the rewrite, so they
 // would hide posts published after the build. Drop only them from dist/; the article HTML stays, and the repo files are not touched.
 export function stripLiveBlogShell(blogDir) {
-  for (const lang of ["ja", "ko", "ru"]) {
+  for (const lang of STATIC_BLOG_LANGS) {
     const dir = path.join(blogDir, lang);
     for (const name of ["index.html", "feed.xml"]) fs.rmSync(path.join(dir, name), { force: true });
     fs.rmSync(path.join(dir, "page"), { recursive: true, force: true });

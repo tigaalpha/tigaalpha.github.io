@@ -21,7 +21,7 @@
       ]
     },
     {
-      "source": "/blog/(ja|ko|ru)/feed.xml",
+      "source": "/blog/(ja|ko|ru|hi|es|fr|ar)/feed.xml",
       "headers": [{ "key": "Content-Type", "value": "application/rss+xml; charset=utf-8" }]
     },
     {
