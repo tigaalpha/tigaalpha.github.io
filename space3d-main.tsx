@@ -12,7 +12,7 @@ export default function MainCanvas({ variant, tier, stage, feed, bus, dpr, dbg =
       onCreated={({ gl }) => {
         // three checks every program's compile status synchronously in its
         // default debug mode, which is a stall per shader on a phone
-        gl.debug.checkShaderErrors = false;
+        gl.debug.checkShaderErrors = dbg.indexOf("chk") >= 0;   // a test switch (tg_3d_dbg "chk"); off otherwise, as it always was
         gl.domElement.addEventListener("webglcontextlost", (e) => { e.preventDefault(); onLost && onLost(); });
       }}>
       <SceneRoot variant={variant} tier={tier} stage={stage} feed={feed} bus={bus} dpr={dpr} onFirst={onFirst} onSlow={onSlow} />

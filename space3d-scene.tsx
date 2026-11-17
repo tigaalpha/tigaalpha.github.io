@@ -137,7 +137,7 @@ void main(){
   float fade = exp(-length(vW.xz - uO) * .16);
   gl_FragColor = vec4(uC * g * fade * uA, 1.);
 }`;
-function Floor({ tier, tone, focusZ = 0 }) {
+function Floor({ tier, tone, focusZ = 0, hi = false }) {
   const grid = useMemo(() => new THREE.ShaderMaterial({
     vertexShader: GRID_VS, fragmentShader: GRID_FS, transparent: true, depthWrite: false,
     blending: THREE.AdditiveBlending, uniforms: { uC: { value: tone.a.clone().lerp(tone.key, 0.5) }, uA: { value: 0.035 }, uO: { value: new THREE.Vector2(0, focusZ - 1) } },
@@ -148,7 +148,7 @@ function Floor({ tier, tone, focusZ = 0 }) {
       <mesh rotation-x={-Math.PI / 2} position={[0, 0, -6]}>
         <planeGeometry args={[70, 70]} />
         {tier >= 2 ? (
-          <MeshReflectorMaterial blur={[260, 70]} resolution={tier >= 3 ? 1024 : 256} mixBlur={0.85} mixStrength={2.4}
+          <MeshReflectorMaterial blur={[260, 70]} resolution={tier >= 3 ? 1024 : 256} mixBlur={0.85} mixStrength={hi ? 3.2 : 2.4}
             roughness={0.72} depthScale={1.2} minDepthThreshold={0.3} maxDepthThreshold={1.4}
             color="#0e1016" metalness={0.5} mirror={0.82} />
         ) : (
@@ -520,11 +520,11 @@ const SHAFT_VS = `varying vec2 vUv; varying vec3 vN; varying vec3 vV;
 void main(){ vUv = uv; vN = normalize(normalMatrix * normal); vec4 mv = modelViewMatrix * vec4(position,1.); vV = normalize(-mv.xyz); gl_Position = projectionMatrix * mv; }`;
 const SHAFT_FS = `uniform vec3 uC; uniform float uA; varying vec2 vUv; varying vec3 vN; varying vec3 vV;
 void main(){ float f = pow(abs(dot(vN, vV)), 1.6); float fall = pow(vUv.y, 1.4); gl_FragColor = vec4(uC * f * fall * uA, 1.); }`;
-function Shafts({ tier, tone, variant }) {
+function Shafts({ tier, tone, variant, hi = false }) {
   const mat = useMemo(() => new THREE.ShaderMaterial({
     vertexShader: SHAFT_VS, fragmentShader: SHAFT_FS, transparent: true, depthWrite: false, side: THREE.DoubleSide,
-    blending: THREE.AdditiveBlending, uniforms: { uC: { value: tone.key.clone() }, uA: { value: tier >= 2 ? 0.065 : 0.05 } },
-  }), [tier, tone]);
+    blending: THREE.AdditiveBlending, uniforms: { uC: { value: tone.key.clone() }, uA: { value: tier >= 2 ? (hi ? 0.13 : 0.065) : 0.05 } },
+  }), [tier, tone, hi]);
   useEffect(() => () => mat.dispose(), [mat]);
   const list = variant === "arena" ? [[-2.8, -3, 1.6], [0, 0.2, 2.4], [2.9, -6, 1.7]]
     : variant === "pets" ? [[0, -0.1, 1.6], [-2.6, -5, 1.4], [2.8, -7.5, 1.5]]
@@ -697,12 +697,12 @@ void main(){
   c *= smoothstep(0., .05, vUv.y) * (1. - smoothstep(.6, 1., vUv.y) * .85);
   gl_FragColor = vec4(c * uI, 1.);
 }`;
-function ArenaSet({ mats, tone }) {
+function ArenaSet({ mats, tone, hi = false }) {
   const box = useMemo(() => new THREE.BoxGeometry(1, 1, 1), []);
   const haze = useMemo(() => new THREE.ShaderMaterial({
     vertexShader: UV_VS, fragmentShader: HAZE_FS,
-    uniforms: { uA: { value: tone.a.clone() }, uB: { value: tone.b.clone() }, uK: { value: tone.key.clone() }, uI: { value: 1 } },
-  }), [tone]);
+    uniforms: { uA: { value: tone.a.clone() }, uB: { value: tone.b.clone() }, uK: { value: tone.key.clone() }, uI: { value: hi ? 2.3 : 1 } },
+  }), [tone, hi]);
   useEffect(() => () => { box.dispose(); haze.dispose(); }, [box, haze]);
   const mull = useMemo(() => {
     const l = [];
@@ -712,12 +712,15 @@ function ArenaSet({ mats, tone }) {
   }, []);
   const cols = useMemo(() => [[-4.3, 2.9, -4.6, 0.035, 5.8, 0.035], [4.3, 2.9, -4.6, 0.035, 5.8, 0.035]], []);
   const caps = useMemo(() => [[-4.3, 0.06, -4.6, 0.22, 0.12, 0.22], [4.3, 0.06, -4.6, 0.22, 0.12, 0.22], [-4.3, 5.84, -4.6, 0.16, 0.08, 0.16], [4.3, 5.84, -4.6, 0.16, 0.08, 0.16]], []);
+  const foot = useMemo(() => [[0, 0.075, -8.12, 17.6, 0.014, 0.02]], []);
   return (
     <group>
       <mesh position={[0, 3.5, -8.4]} material={haze}><planeGeometry args={[20, 7]} /></mesh>
       <Instances geo={box} mat={mats.titaniumDark} list={mull} />
       <Instances geo={box} mat={mats.blade} list={cols} />
       <Instances geo={box} mat={mats.titanium} list={caps} />
+      {/* High: a thin lit line along the foot of the wall: the polished floor doubles it, and a doubled line is what tells the eye the floor is glass */}
+      {hi && <Instances geo={box} mat={mats.cove} list={foot} />}
     </group>
   );
 }
@@ -788,11 +791,38 @@ function Env({ tone }) {
   return null;
 }
 
+/* ── ground mist (High arena only) ── a low sheet of haze over the floor between the fighters and the wall: the
+   one cheap thing that puts air in a room. Built once, and the arena room only renders while the camera moves. */
+const MIST_FS = `uniform vec3 uC; uniform float uA; varying vec2 vUv;
+float h(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+float n(vec2 p){ vec2 i = floor(p), f = fract(p); f = f * f * (3. - 2. * f);
+  return mix(mix(h(i), h(i + vec2(1., 0.)), f.x), mix(h(i + vec2(0., 1.)), h(i + vec2(1., 1.)), f.x), f.y); }
+void main(){
+  vec2 p = vUv * vec2(9., 6.);
+  float d = n(p) * .55 + n(p * 2.1 + 3.) * .3 + n(p * 4.3 + 7.) * .15;
+  float r = length((vUv - vec2(.5, .6)) * vec2(1.05, 1.5));
+  float a = smoothstep(.66, .04, r) * smoothstep(.3, .82, d);
+  gl_FragColor = vec4(uC * a * uA, 1.);
+}`;
+function GroundMist({ tone }) {
+  const mat = useMemo(() => new THREE.ShaderMaterial({
+    vertexShader: UV_VS, fragmentShader: MIST_FS, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
+    uniforms: { uC: { value: tone.key.clone().lerp(tone.a, 0.35) }, uA: { value: 0.1 } },
+  }), [tone]);
+  useEffect(() => () => mat.dispose(), [mat]);
+  return (
+    <mesh position={[0, 0.34, -4.4]} rotation-x={-Math.PI / 2} material={mat} renderOrder={2}>
+      <planeGeometry args={[24, 15]} />
+    </mesh>
+  );
+}
+
 function Scene({ variant: shot, tier, tone, feed, bus, dpr }) {
   const variant = roomOf(shot);
   const mats = useMats(tone);
   const pulse = useRef(0);
   const arena = variant === "arena";
+  const hi = arena && tier >= 2;          // High-only room additions: the arena on a capable device (Low never builds this room at all)
   const center = useRef({ x: 0, z: 2.2 });
   return (
     <>
@@ -804,17 +834,18 @@ function Scene({ variant: shot, tier, tone, feed, bus, dpr }) {
       {tier >= 2 && <pointLight position={[-4.5, 2.6, -3]} intensity={5} distance={11} decay={2} color={tone.hexA} />}
       {tier >= 2 && <pointLight position={[4.5, 2.6, -3.5]} intensity={5} distance={11} decay={2} color={tone.hexB} />}
       {!off("env") && <Env tone={tone} />}
-      {!off("floor") && <Floor tier={tier} tone={tone} focusZ={arena ? 2 : 0} />}
+      {!off("floor") && <Floor tier={tier} tone={tone} focusZ={arena ? 2 : 0} hi={hi} />}
       {!off("arch") && <Architecture mats={mats} tier={tier} tone={tone} variant={variant} />}
       {!off("float") && <Floaters mats={mats} tier={tier} feed={feed} pulse={pulse} variant={variant} />}
       {!off("dust") && <Dust tier={tier} tone={tone} dpr={dpr} zMax={arena ? -2.5 : 1.5} />}
-      {!off("shaft") && <Shafts tier={tier} tone={tone} variant={variant} />}
+      {!off("shaft") && <Shafts tier={tier} tone={tone} variant={variant} hi={hi} />}
+      {hi && !off("mist") && <GroundMist tone={tone} />}
       {!arena && <Plinth mats={mats} tone={tone} r={variant === "pets" || shot === "shop-pet" ? 0.42 : shot === "shop-bot" ? 0.55 : 0.6} feed={feed} pulse={pulse} backlight
         portal={variant === "pets" || shot === "shop-pet" ? 0.5 : shot === "shop-bot" ? 0.8 : 0.74} />}
       {arena && <Plinth mats={mats} tone={tone} r={3.2} pulse={pulse} glow={0.55} at={center} />}
       {arena && <ArenaFrame bus={bus} center={center} feed={feed} />}
       {arena && <pointLight position={[0, 4.5, 3]} intensity={26} distance={16} decay={2} color={tone.hexKey} />}
-      {arena && !off("set") && <ArenaSet mats={mats} tone={tone} />}
+      {arena && !off("set") && <ArenaSet mats={mats} tone={tone} hi={hi} />}
       {!off("holo") && <Holo kind="a" feed={feed} tone={tone} position={arena ? [-4.7, 2.7, -7.6] : [2.5, 2.35, -5.4]} rotation={[0, arena ? 0.3 : -0.36, 0]} scale={arena ? 1.1 : 0.9} />}
       {!off("holo") && <Holo kind="b" feed={feed} tone={tone} position={arena ? [4.7, 2.7, -7.6] : [3.3, 1.2, -6.8]} rotation={[0, arena ? -0.3 : -0.46, 0]} scale={arena ? 1.1 : 0.8} />}
       <Rig variant={shot} feed={feed} bus={bus} />
@@ -827,6 +858,7 @@ function Post({ tier, variant }) {
   return (
     <EffectComposer multisampling={tier >= 3 ? 4 : 0} disableNormalPass>
       {tier >= 3 && variant !== "arena" ? <DepthOfField focusDistance={0.012} focalLength={0.03} bokehScale={2.2} /> : null}
+      {tier >= 3 && variant === "arena" ? <DepthOfField focusDistance={0.054} focalLength={0.04} bokehScale={2.6} /> : null}
       <Bloom mipmapBlur intensity={0.5} luminanceThreshold={0.92} luminanceSmoothing={0.2} radius={0.72} />
       <Vignette offset={0.28} darkness={0.78} />
       <Noise opacity={0.028} premultiply />
