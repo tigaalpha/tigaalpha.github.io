@@ -10,11 +10,14 @@ const LITE0 = typeof window !== "undefined" && (isLowEnd() || !!(window.matchMed
    keeps its static bake; `dprCap` = pixel ratio ceiling of both canvases;
    `pk` = particle / debris count multiplier; `hz` = effects pass rate (0 =
    every frame); `motes` = ambient dust specks; `lobN` = rockets in a salvo. */
-const FXC = { lite: LITE0, dprCap: LITE0 ? 1 : 2, pk: 1, hz: 0, motes: isLowEnd() ? 8 : 22, lobN: LITE0 ? 4 : 6 };
+/* `hi` / `tier` (2026-11-17) switch on the High-only layers of arena-hi.ts (fighter reflections, light that answers the
+   hits, a tier-3 bloom). They are false / 0 until a plan says otherwise, and on Low they are never anything else. */
+const FXC = { lite: LITE0, dprCap: LITE0 ? 1 : 2, pk: 1, hz: 0, motes: isLowEnd() ? 8 : 22, lobN: LITE0 ? 4 : 6, hi: false, tier: 0 };
 export function applyFxPlan(pl) {
   if (!pl) return false;
   const was = FXC.lite + "|" + FXC.dprCap;
   FXC.lite = !!pl.liteFight; FXC.dprCap = pl.dprCap; FXC.pk = pl.pk; FXC.hz = pl.hz; FXC.motes = pl.motes; FXC.lobN = pl.lobN;
+  FXC.hi = !!pl.hi; FXC.tier = pl.hi ? (pl.fxTier | 0) : 0;
   return was !== FXC.lite + "|" + FXC.dprCap;
 }
 /* ── arena-fx.tsx ──
@@ -1324,13 +1327,24 @@ export function useArenaFx(stage, opts = {}) {
       S.lastDraw = now;
       const dt = Math.min(0.05, (now - last) / 1000); last = now;
       S.t += dt;
+      /* High only (arena-hi.ts): the extra layers are a chunk of their own, fetched the first time a High fight
+         draws; on Low none of this runs. A change of level while the fight is open lets go of them again. */
+      let HL = null;
+      if (FXC.hi) {
+        if (!S.hiL && !S.hiBad && !S.hiLoad) {
+          S.hiLoad = 1;
+          import("./arena-hi").then((m) => { if (stateRef.current === S && !S.hiBad) { S.hiL = m.create(S, cv, FXC); S.idleDone = false; } }).catch(() => { S.hiBad = 1; });
+        }
+        HL = S.hiL || null;
+        if (HL && HL.dirty(now)) S.idleDone = false;
+      } else if (S.hiL) { try { S.hiL.dispose(); } catch (e) {} S.hiL = null; S.hiLoad = 0; }
       /* nothing alive and nothing moved since the last empty frame: the canvases
          are already clear, so do not clear and upload them again (a layer that
          is rewritten every frame is recomposited every frame, even when empty) */
       const anyFx = S.parts.length || S.beams.length || S.rings.length || S.lasers.length || S.lobs.length || S.balls.length
         || S.smoke.length || S.flares.length || S.debris.length || S.embers.length || S.scorch.length || S.shock.length
         || S.swipes.length || S.stars.length || S.dust.length || S.lines.length || S.rays.length || S.pools.length
-        || S.ripples.length || S.hexes.length || S.flash;
+        || S.ripples.length || S.hexes.length || S.flash || (HL && HL.busy());
       const sig = S.pos.me + S.pos.op * 3.1 + (S.air.me || 0) * 7.7 + (S.air.op || 0) * 13.3;
       if (!anyFx && S.idleDone && S.sig === sig && (S.plain ? true : (FXC.lite && !S.motes.length && S.bgDone === (S.bake && S.bake.key)))) {
         S.raf = requestAnimationFrame(frame); return;
@@ -1397,6 +1411,8 @@ export function useArenaFx(stage, opts = {}) {
          what makes the two DOM figures stand IN it: a pool of their own light
          spread on the polished floor, a tight shadow where the feet meet it,
          and the ripple a hit sends across it. */
+      let reflDone = false;
+      if (HL && ctx === fxctx) { reflDone = true; try { HL.floor(ctx); } catch (e) { HL.fail(); } }   // High: the mirror comes first, so the contact shadow darkens it where the feet meet the floor
       if (S.plain && S.sprites) {
         const Y = S.floorY || S.h * 0.9;
         for (const side of ["me", "op"]) {
@@ -1429,6 +1445,7 @@ export function useArenaFx(stage, opts = {}) {
 
       // ── from here on it is drawn IN FRONT of the fighters ──
       ctx = fxctx;
+      if (HL && !reflDone) { try { HL.floor(ctx); } catch (e) { HL.fail(); } }   // High: the mirror floor under each fighter
 
       /* Everything from here to the smoke is LIGHT, so it composites additively:
          two beams crossing get brighter where they meet, a fireball blows out
@@ -1436,6 +1453,7 @@ export function useArenaFx(stage, opts = {}) {
          This one line is most of the difference between a particle system that
          looks drawn and one that looks lit. */
       ctx.globalCompositeOperation = "lighter";
+      if (HL) { try { HL.light(ctx, dt); } catch (e) { HL.fail(); } }   // High: the room is lit by the hits, under the bolts
 
       // ── bolts in flight
       for (let i = S.beams.length - 1; i >= 0; i--) {
@@ -1809,6 +1827,8 @@ export function useArenaFx(stage, opts = {}) {
         ctx.stroke(); ctx.globalAlpha = 1;
       }
 
+      if (HL) { try { HL.bloom(ctx, cv); } catch (e) { HL.fail(); } }   // High, tier 3: the light glows into the room
+
       // ── back to normal blending: debris is matter, not light, and drawing
       //    it additively would turn every chunk into a glowing blob
       ctx.globalCompositeOperation = "source-over";
@@ -1850,10 +1870,11 @@ export function useArenaFx(stage, opts = {}) {
         if (S.flash.p >= 1) S.flash = null;
         else { ctx.fillStyle = S.flash.c; ctx.globalAlpha = (1 - S.flash.p) * S.flash.a; ctx.fillRect(0, 0, S.w, S.h); ctx.globalAlpha = 1; }
       }
+      if (HL) HL.tick(now, !!anyFx);   // the High layers' own watchdog: costliest first, before the level steps down
       S.raf = requestAnimationFrame(frame);
     };
     S.raf = requestAnimationFrame(frame);
-    return () => { cancelAnimationFrame(S.raf); ro.disconnect(); stateRef.current = null; };
+    return () => { cancelAnimationFrame(S.raf); ro.disconnect(); if (S.hiL) { try { S.hiL.dispose(); } catch (e) {} S.hiL = null; } stateRef.current = null; };
   }, []);
 
   /* Where a shot comes out of, and where it lands. A hand, a head and a weapon
@@ -1901,6 +1922,7 @@ export function useArenaFx(stage, opts = {}) {
     bus.emit({ type: "hit", at: side, power: Math.min(1.6, power) });
     S.ripples.push({ x: S.w * (S.pos[side] || 0.5), r: 90 + 70 * Math.min(1.6, power), p: 0, dur: 0.75, c: colour });
     const { x, y } = at(side, part);
+    if (FXC.hi && S.hiL) S.hiL.hit(x, y, colour, power);   // High: the room answers the hit
     S.rings.push({ x, y, r0: 6, r1: 40 + 44 * power, dur: 0.42, c: colour });
     // a hot flash at the point of contact — a hit should look like it hurt
     S.balls.push({ x, y, r: 15 + 16 * power, p: 0, dur: 0.16 });
@@ -1946,6 +1968,7 @@ export function useArenaFx(stage, opts = {}) {
        contact rather than every frame: a hard flash where it lands, a
        pressure ring off it, and sparks thrown back UP the beam, which is the
        direction a spatter actually goes. */
+    if (FXC.hi && S.hiL) S.hiL.hit(b.x, b.y, colour, 0.8 + w * 0.1);   // High: the room answers the beam
     S.balls.push({ x: b.x, y: b.y, r: 16 + w * 3, p: 0, dur: 0.2 });
     S.shock.push({ x: b.x, y: b.y, r0: 4, r1: 54 + w * 5, p: 0, dur: 0.3 });
     if (!reduced()) {
@@ -1992,6 +2015,7 @@ export function useArenaFx(stage, opts = {}) {
     colour = paletteGate(colour);
     bus.emit({ type: "hit", at: side, power: Math.min(1.8, power * 0.75) });
     const { x, y } = at(side, part);
+    if (FXC.hi && S.hiL) S.hiL.hit(x, y, colour, power * 1.15);   // High: a big one lights the whole room
     S.shock.push({ x, y, r0: 10, r1: 210 * power, p: 0, dur: 0.34 });
     S.rays.push({ x, y, r: 260 * power, n: 9, a0: Math.random() * 6.28, seed: Math.random() * 100, p: 0, dur: 0.4, c: colour });
     S.pools.push({ x, r: 120 * power, p: 0, dur: 0.5, c: colour });
@@ -2091,6 +2115,7 @@ export function useArenaFx(stage, opts = {}) {
     S.ripples.push({ x: S.w * (S.pos[side === "me" ? "op" : "me"] || 0.5), r: 80 + 60 * Math.min(1.6, power), p: 0, dur: 0.65, c: colour });
     const foe = side === "me" ? "op" : "me";
     const { x, y } = at(foe, kind === "kick" ? "foot" : "body");
+    if (FXC.hi && S.hiL) S.hiL.hit(x, y, colour, power);   // High: the room answers the hit
     const dir = (S.pos[foe] || .5) > (S.pos[side] || .5) ? 1 : -1;
     /* two stars, counter-rotated and different sizes, so the burst is dense
        rather than a single tidy asterisk */

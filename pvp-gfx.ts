@@ -82,12 +82,15 @@ export interface GfxPlan {
   lobN: number;         // rockets in a salvo
   tone: boolean;        // no CSS filter on the whole stage (hit-stop and round tone are an overlay)
   calm: boolean;        // no stage shake, no backdrop blur on the pads
+  hi: boolean;          // the extra High layers of the effects canvas (arena-hi.ts, 2026-11-17): never on Low
+  fxTier: number;       // 0 on Low; on High 1..3 from the device: 2 = fighter reflections + light that answers the hits, 3 = + a half-resolution bloom
 }
 export function resolveGfx(level: PvpGfx): GfxPlan {
   if (level === "low") {
-    return { level, key: "low", liteFight: true, room: false, dprCap: 1, pk: 0.4, hz: 30, motes: 0, lobN: 3, tone: true, calm: true };
+    return { level, key: "low", liteFight: true, room: false, dprCap: 1, pk: 0.4, hz: 30, motes: 0, lobN: 3, tone: true, calm: true, hi: false, fxTier: 0 };
   }
   const t = touch();
   let low = false; try { low = isLowEnd(); } catch (e) {}
-  return { level, key: "high" + (t ? "t" : ""), liteFight: t, room: true, dprCap: t ? 1 : 1.5, pk: 1, hz: 0, motes: low ? 8 : 22, lobN: t ? 4 : 6, tone: true, calm: false };
+  let st = 1; try { st = spaceTier(); } catch (e) {}
+  return { level, key: "high" + (t ? "t" : ""), liteFight: t, room: true, dprCap: t ? 1 : 1.5, pk: 1, hz: 0, motes: low ? 8 : 22, lobN: t ? 4 : 6, tone: true, calm: false, hi: true, fxTier: st >= 3 ? 3 : st >= 2 ? 2 : 1 };
 }
