@@ -92,54 +92,63 @@ export function notFoundHtml(lang) {
 `;
 }
 
-const HTML_LANG = { th: "th", en: "en", zh: "zh-Hans", ja: "ja", ko: "ko", ru: "ru", hi: "hi", es: "es", fr: "fr", ar: "ar" };
+/* The blog sitemap is TEN files, one per language: /sitemap-blog-<lang>.xml for th en zh ja ko ru hi es fr ar (reviews of 2026-11-17).
+   The protocol allows 50,000 urls and 50 MB in a file, but these files are built in memory and sent in ONE piece by a Vercel Function, and a Function may not answer more than about 4.5 MB (a larger body is refused with
+   FUNCTION_RESPONSE_PAYLOAD_TOO_LARGE, a 500 for the crawler; found in review, not measurable from the sandbox: confirm on a preview deployment). With ~11,000 translated articles on top of ~3,000 the single sitemap-blog.xml
+   would have been 6 to 9 MB, and because robots.txt and the root sitemap.xml both named it, the sitemap of the WHOLE blog (the old pages too) would have stopped being served.
+   So the file of a language lists only that language's published rows, the ones that are files in the deploy AND the live_only ones (sitemapLangBuild): about 1,300 to 3,000 rows, 0.2 to 0.4 MB, a tenth of the platform's limit.
+   The set of files is FIXED (BLOG_LANGS), so the root sitemap.xml (written at build time by build-song-pages.mjs, see blogSitemapIndexEntries) names every one of them directly and never needs a row count; a sitemap index may not
+   list another index, so there is no index of the ten below sitemap-blog.xml: that old address is a 301 to /sitemap.xml (vercel.json). SITEMAP_MAX_URLS / SITEMAP_MAX_BYTES are the safety cap of ONE file (far under the protocol's
+   50,000 urls and the platform's 4.5 MB): a file that ever reaches it leaves out its oldest articles, says so (log line, x-blog-sitemap-dropped) and is still a file the crawlers accept. */
+export const SITEMAP_MAX_URLS = 45000, SITEMAP_MAX_BYTES = 4000000;
 
-/* One sitemap file may hold 50,000 urls and 50 MB (52,428,800 bytes). sitemap-blog.xml is ONE file (the root sitemap.xml lists it once, and a sitemap index may not list another index), so the function
-   keeps itself under 45,000 urls and 45,000,000 bytes: article urls past that are left out, never a file the crawlers would reject. The newest articles are kept (the rows arrive newest first), a slug stays whole
-   (all its languages or none), and the ten language index urls are always kept. The caller logs what was left out (sitemapBlogBuild returns the numbers). The row count today is ~15,000, a third of the limit;
-   past it, the file has to be split into parts that the root sitemap.xml lists one by one. */
-export const SITEMAP_MAX_URLS = 45000, SITEMAP_MAX_BYTES = 45000000;
+const dayOf = (p) => String(p.updated_at || p.created_at || "").slice(0, 10);
+const validDay = (d) => /^\d{4}-\d{2}-\d{2}$/.test(d);
 
-export function sitemapBlogBuild(posts, site, limits) {
+/* sitemap-blog-<lang>.xml. `posts` are rows as the function reads them (slug, lang, published, created_at, updated_at; newest first); a row of another language, an unpublished one, a duplicate slug, a bad slug and a null are
+   ignored. An entry is the address and the day and nothing else (about 130 bytes): no xhtml:link. The page of an article carries its own hreflang set (the generator writes it into a static file, the live page builds it from the
+   database), and a sitemap that says less than the page cannot disagree with it; a file that reads only ONE language's rows could not name the sibling languages anyway. The language index address closes the file (lastmod: the
+   newest article), and only when the language has an article, so no address in a sitemap is a 404; a language with no article yet is an empty but valid urlset. The newest articles are kept when the cap is reached,
+   and the result says how many were left out. */
+export function sitemapLangBuild(posts, site, lang, limits) {
   const maxUrls = (limits && limits.maxUrls) || SITEMAP_MAX_URLS, maxBytes = (limits && limits.maxBytes) || SITEMAP_MAX_BYTES;
-  const list = (posts || []).filter(p => p && p.published !== false && SLUG.test(p.slug || "") && LANGS.has(p.lang));
-  const by = {};
-  for (const p of list) (by[p.slug] = by[p.slug] || {})[p.lang] = p;
-  const tail = [];
-  for (const lang of BLOG_LANGS) {
-    const rows = list.filter(p => p.lang === lang);
-    if (!rows.length) continue;
-    const newest = rows.map(p => String(p.updated_at || p.created_at || "").slice(0, 10)).filter(d => /^\d{4}-\d{2}-\d{2}$/.test(d)).sort().pop();
-    tail.push(`<url><loc>${site}/blog/${lang}/</loc>${newest ? `<lastmod>${newest}</lastmod>` : ""}</url>`);
+  const seen = new Set(), list = [];
+  if (LANGS.has(lang)) for (const p of posts || []) {
+    if (!p || p.published === false || p.lang !== lang || !SLUG.test(p.slug || "") || seen.has(p.slug)) continue;
+    seen.add(p.slug); list.push(p);
   }
-  let urlsLeft = maxUrls - tail.length, bytesLeft = maxBytes - 1024 - tail.reduce((n, l) => n + l.length + 1, 0);   // 1,024 bytes for the xml header and the closing tag
+  const newest = list.map(dayOf).filter(validDay).sort().pop();
+  const tail = list.length ? `<url><loc>${site}/blog/${lang}/</loc>${newest ? `<lastmod>${newest}</lastmod>` : ""}</url>` : "";
+  let urlsLeft = maxUrls - (tail ? 1 : 0), bytesLeft = maxBytes - 1024 - (tail ? tail.length + 1 : 0);   // 1,024 bytes for the xml header and the closing tag (every line is ASCII: a slug is a-z0-9-)
   const lines = [];
-  let total = 0, full = false;
-  for (const slug of Object.keys(by)) {
-    const set = by[slug], langs = Object.keys(set);
-    total += langs.length;
-    if (full) continue;   // the budget ran out on an earlier slug: only count what is left out
-    const xd = set.en ? "en" : langs[0];
-    const group = langs.map(lang => {
-      const p = set[lang];
-      const loc = `${site}/blog/${lang}/${encodeURIComponent(slug)}.html`;
-      const day = String(p.updated_at || p.created_at || "").slice(0, 10);
-      const alts = langs.map(l => `<xhtml:link rel="alternate" hreflang="${HTML_LANG[l]}" href="${site}/blog/${l}/${encodeURIComponent(slug)}.html"/>`).join("");
-      return `<url><loc>${loc}</loc>${/^\d{4}-\d{2}-\d{2}$/.test(day) ? `<lastmod>${day}</lastmod>` : ""}${alts}<xhtml:link rel="alternate" hreflang="x-default" href="${site}/blog/${xd}/${encodeURIComponent(slug)}.html"/></url>`;
-    });
-    const bytes = group.reduce((n, l) => n + l.length + 1, 0);
-    if (group.length > urlsLeft || bytes > bytesLeft) { full = true; continue; }
-    for (const l of group) lines.push(l);
-    urlsLeft -= group.length; bytesLeft -= bytes;
+  for (const p of list) {
+    const day = dayOf(p);
+    const line = `<url><loc>${site}/blog/${lang}/${encodeURIComponent(p.slug)}.html</loc>${validDay(day) ? `<lastmod>${day}</lastmod>` : ""}</url>`;
+    if (urlsLeft < 1 || line.length + 1 > bytesLeft) break;
+    lines.push(line); urlsLeft--; bytesLeft -= line.length + 1;
   }
   const kept = lines.length;
-  for (const l of tail) lines.push(l);
+  if (tail) lines.push(tail);
   return {
-    xml: `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">\n${lines.join("\n")}\n</urlset>\n`,
-    total, kept, dropped: total - kept, urls: lines.length, maxUrls, maxBytes,
+    xml: `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${lines.join("\n")}${lines.length ? "\n" : ""}</urlset>\n`,
+    total: list.length, kept, dropped: list.length - kept, urls: lines.length, maxUrls, maxBytes,
   };
 }
 
-export function sitemapBlogXml(posts, site, limits) {
-  return sitemapBlogBuild(posts, site, limits).xml;
+// The blog entries of the ROOT sitemap.xml (a sitemap index): the ten per-language files, listed directly. build-song-pages.mjs writes them at build time; the set is fixed, so it never has to know how many rows exist.
+export function blogSitemapIndexEntries(site, lastmod) {
+  return BLOG_LANGS.map(lang => `<sitemap><loc>${site}/sitemap-blog-${lang}.xml</loc><lastmod>${lastmod}</lastmod></sitemap>`);
+}
+// What the function answers when it is asked for no language (/api/blog-sitemap): the ten files as a sitemap index. Nothing links to it (/sitemap-blog.xml is a 301 to /sitemap.xml); it only gives that address a valid answer.
+export function blogSitemapIndexXml(site, lastmod) {
+  return `<?xml version="1.0" encoding="UTF-8"?>\n<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${blogSitemapIndexEntries(site, lastmod).join("\n")}\n</sitemapindex>\n`;
+}
+
+// "0-499/15234" -> 15234. null when there is no header object, no Content-Range, or no number after the slash ("0-499/*"). PostgREST answers it for a request that sent "Prefer: count=exact".
+export function totalFromContentRange(r) {
+  try {
+    const raw = r && r.headers && typeof r.headers.get === "function" ? r.headers.get("content-range") : null;
+    const m = raw ? /\/(\d+)\s*$/.exec(String(raw)) : null;
+    return m ? Number(m[1]) : null;
+  } catch { return null; }
 }

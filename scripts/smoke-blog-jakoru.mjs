@@ -185,7 +185,7 @@ console.log("sitemap");
   }
   { const locs = [...sm.matchAll(/<loc>([^<]+)<\/loc>/g)].map(m => m[1]); ok(new Set(locs).size === locs.length, "no url is listed twice (" + locs.length + " <loc> entries)"); }
   ok(/<lastmod>2026-11-1[12]<\/lastmod>/.test(sm), "lastmod comes from created_at");
-  ok(!sm.includes("/blog/th/piano-posture.html</loc>"), "th / en / zh articles are NOT repeated here (the live sitemap-blog.xml has them)");
+  ok(!sm.includes("/blog/th/piano-posture.html</loc>"), "th / en / zh articles are NOT repeated here (the live sitemap-blog-<lang>.xml files have them)");
 }
 
 console.log("th / en / zh output is unchanged");
@@ -362,15 +362,16 @@ console.log("pagination of the static index");
 
 console.log("sitemap index gets one more entry (what build-song-pages.mjs writes), once");
 {
+  const BP = await import(pathToFileURL(path.join(ROOT, "scripts/blog-paths.mjs")).href + "?idx=" + Date.now());
   const root = path.join(tmp, "root"); fs.mkdirSync(path.join(root, "scripts"), { recursive: true });
   fs.copyFileSync(GEN, path.join(root, "scripts/build-blog-pages.mjs")); fs.copyFileSync(path.join(ROOT, "scripts/blog-paths.mjs"), path.join(root, "scripts/blog-paths.mjs")); fs.copyFileSync(path.join(ROOT, "supabase-client.ts"), path.join(root, "supabase-client.ts")); fs.cpSync(S, path.join(root, "blog-src"), { recursive: true });
-  const idx = `<?xml version="1.0" encoding="UTF-8"?>\n<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n<sitemap><loc>${SITE}/sitemap-pages.xml</loc><lastmod>2026-11-10</lastmod></sitemap>\n<sitemap><loc>${SITE}/sitemap-blog.xml</loc><lastmod>2026-11-10</lastmod></sitemap>\n</sitemapindex>\n`;
+  const idx = `<?xml version="1.0" encoding="UTF-8"?>\n<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n<sitemap><loc>${SITE}/sitemap-pages.xml</loc><lastmod>2026-11-10</lastmod></sitemap>\n${BP.blogSitemapIndexEntries(SITE, "2026-11-10").join("\n")}\n</sitemapindex>\n`;
   W(path.join(root, "sitemap.xml"), idx);
   const run = () => gen({ __script: path.join(root, "scripts/build-blog-pages.mjs"), BLOG_FIXTURE: path.join(tmp, "posts.json") }, { cwd: root });
   const a = run(); const s1 = rd(path.join(root, "sitemap.xml")); run(); const s2 = rd(path.join(root, "sitemap.xml"));
   ok(a.code === 0 && s1.includes(`<sitemap><loc>${SITE}/blog/sitemap-static.xml</loc><lastmod>2026-11-12</lastmod></sitemap>`), "the index lists blog/sitemap-static.xml with the newest date");
   ok(s1 === s2 && (s2.match(/sitemap-static\.xml/g) || []).length === 1, "...once, also after a second run");
-  ok(s2.includes("sitemap-pages.xml") && s2.includes("sitemap-blog.xml") && s2.trim().endsWith("</sitemapindex>"), "...and the other entries and a closed file are kept");
+  ok(s2.includes("sitemap-pages.xml") && BP.BLOG_LANGS.every(l => s2.includes(`sitemap-blog-${l}.xml`)) && s2.trim().endsWith("</sitemapindex>"), "...and the other entries (the ten per-language blog files too) and a closed file are kept");
   ok(fs.existsSync(path.join(root, "blog", "sitemap-static.xml")) && fs.existsSync(path.join(root, "blog", "ja", "index.html")), "(the files were written under the root's blog/)");
 }
 
@@ -397,11 +398,11 @@ console.log("blog-paths.mjs and blog-live.mjs");
   ok(nf.includes('<html lang="zh-Hans">') && !/<html[^>]* dir=/.test(nf) && P.notFoundHtml("hi").includes('<html lang="hi">') && P.notFoundHtml("es").includes('<html lang="es">') && P.notFoundHtml("fr").includes('<html lang="fr">') && !/<html[^>]* dir=/.test(P.notFoundHtml("hi") + P.notFoundHtml("es") + P.notFoundHtml("fr") + P.notFoundHtml("ja")), "the 404 page of hi / es / fr says its own language and is left-to-right (so does ja; zh is still the default)");
   { const ar = P.notFoundHtml("ar"); ok(ar.includes('<html lang="ar" dir="rtl">') && ar.includes("لم يتم العثور على هذا المقال") && ar.includes("<bdi>This article is not published.</bdi>") && !ar.includes('lang="zh-Hans"') && ar.includes("/blog/ar/") && ar.includes('<meta name="robots" content="noindex">'), "the Arabic 404 page is lang=\"ar\" dir=\"rtl\", in Arabic, noindex, and its one fixed English line is its own bidi island"); }
   const rows = [{ slug: "p", lang: "en", published: true, created_at: "2026-10-01" }, { slug: "p", lang: "ja", published: true, created_at: "2026-11-11" }, { slug: "p", lang: "ru", published: true, created_at: "2026-11-11" }];
-  const xml = P.sitemapBlogXml(rows, SITE);
-  ok(xml.includes(`<loc>${SITE}/blog/ja/p.html</loc>`) && xml.includes('hreflang="ja"') && xml.includes('hreflang="ru"') && xml.includes(`hreflang="x-default" href="${SITE}/blog/en/p.html"`), "the live sitemap lists ja / ru articles with their alternates");
-  ok(xml.includes(`<loc>${SITE}/blog/ja/</loc>`) && xml.includes(`<loc>${SITE}/blog/ru/</loc>`) && !xml.includes(`<loc>${SITE}/blog/ko/</loc>`), "...and an index line only for a language that has an article");
-  { const rows2 = ["en", "hi", "es", "fr", "ar"].map(l => ({ slug: "p", lang: l, published: true, created_at: "2026-11-13" })), x2 = P.sitemapBlogXml(rows2, SITE);
-    ok(["hi", "es", "fr", "ar"].every(l => x2.includes(`<loc>${SITE}/blog/${l}/p.html</loc>`) && x2.includes(`hreflang="${l}" href="${SITE}/blog/${l}/p.html"`) && x2.includes(`<loc>${SITE}/blog/${l}/</loc>`)) && x2.includes(`hreflang="x-default" href="${SITE}/blog/en/p.html"`) && !x2.includes(`<loc>${SITE}/blog/ja/</loc>`), "the live sitemap lists hi / es / fr / ar articles, their indexes and the cluster of five with x-default = English"); }
+  const xmlJa = P.sitemapLangBuild(rows, SITE, "ja").xml, xmlRu = P.sitemapLangBuild(rows, SITE, "ru").xml, xmlKo = P.sitemapLangBuild(rows, SITE, "ko").xml;
+  ok(xmlJa.includes(`<loc>${SITE}/blog/ja/p.html</loc>`) && xmlRu.includes(`<loc>${SITE}/blog/ru/p.html</loc>`) && !xmlJa.includes("/blog/ru/") && !xmlJa.includes("/blog/en/") && !xmlRu.includes("/blog/ja/"), "the live sitemap lists ja / ru articles, each in the file of its own language (no hreflang alternates in a sitemap entry any more: the page carries them)");
+  ok(xmlJa.includes(`<loc>${SITE}/blog/ja/</loc>`) && xmlRu.includes(`<loc>${SITE}/blog/ru/</loc>`) && !xmlKo.includes("<loc>"), "...and an index line only for a language that has an article (ko has none: an empty urlset)");
+  { const rows2 = ["en", "hi", "es", "fr", "ar"].map(l => ({ slug: "p", lang: l, published: true, created_at: "2026-11-13" }));
+    ok(["hi", "es", "fr", "ar"].every(l => { const x = P.sitemapLangBuild(rows2, SITE, l).xml; return x.includes(`<loc>${SITE}/blog/${l}/p.html</loc>`) && x.includes(`<loc>${SITE}/blog/${l}/</loc>`) && !x.includes("/blog/en/") && !x.includes("xhtml"); }) && !P.sitemapLangBuild(rows2, SITE, "ja").xml.includes("<loc>"), "the live sitemap lists hi / es / fr / ar articles and their indexes, one language per file, and nothing for ja"); }
   // the function: it never replaces a good static index with an empty list
   const mk = (data) => async () => ({ ok: true, json: async () => data });
   for (const l of STAT) {
@@ -414,7 +415,7 @@ console.log("blog-paths.mjs and blog-live.mjs");
   const li = await L.serveBlog({ lang: "ja" }, mk([row])); ok(li.status === 200 && li.headers["content-language"] === "ja" && li.body.includes("/blog/ja/live-one.html"), "ja: with database rows the index is rendered live");
   const la = await L.serveBlog({ lang: "ja", rest: "live-one.html" }, mk([row])); ok(la.status === 200 && la.body.includes('<html lang="ja">') && la.headers["content-language"] === "ja", "ja: an article published after the build is served live");
   const lr = await L.serveBlog({ lang: "ru", rest: "live-ru.html" }, mk([{ ...row, lang: "ru", slug: "live-ru" }, { ...row, lang: "en", slug: "live-ru" }])); ok(lr.status === 200 && lr.body.includes('hreflang="en"') && lr.body.includes('hreflang="ru"'), "ru: the live page lists the English row as an alternate (the language whitelist covers all ten)");
-  const sm = await L.serveBlogSitemap(mk(rows)); ok(sm.status === 200 && sm.body.includes("/blog/ja/p.html"), "the live sitemap function includes ja");
+  const sm = await L.serveBlogSitemap(mk(rows), { catalog: [] }, "ja"); ok(sm.status === 200 && sm.body.includes("/blog/ja/p.html") && !sm.body.includes("/blog/ru/"), "the live sitemap function includes ja (in the ja file)");
   // hi / es / fr / ar through the function: an index, a feed and an article published after the build, each in its own language (Arabic right-to-left), and the catalog of the committed articles
   for (const l of NEWL) {
     const r = { ...row, lang: l, slug: "live-" + l, title: TITLE[l], body: "Para one.\n\nPara two.\n" };
@@ -429,8 +430,9 @@ console.log("blog-paths.mjs and blog-live.mjs");
     ok(miss.status === 404 && miss.headers["content-language"] === l && miss.body.includes(`<html lang="${l}"${l === "ar" ? ' dir="rtl"' : ""}>`) && !miss.body.includes('lang="zh-Hans"'), l + ": an unknown article is a 404 in " + l + ", not in Chinese");
   }
   { const cat = await import(pathToFileURL(GEN).href + "?cat=" + Date.now()); const rowsC = cat.liveCatalogRows(cat.readStaticPosts(S)); ok(["ja", "ko", "ru", "hi", "es", "fr", "ar"].every(l => rowsC.some(p => p.lang === l && p.slug === "piano-posture")) && rowsC.every(p => STAT.includes(p.lang)), "the live catalog is built from every source-file language (ja ko ru hi es fr ar)"); }
-  { const smx = await L.serveBlogSitemap(mk([{ slug: "q", lang: "en", published: true, created_at: "2026-11-01" }]), { catalog: [{ lang: "ar", slug: "q", published: true, created_at: "2026-11-13" }, { lang: "hi", slug: "q", published: true, created_at: "2026-11-13" }] });
-    ok(smx.status === 200 && smx.body.includes(`<loc>${SITE}/blog/ar/q.html</loc>`) && smx.body.includes(`hreflang="ar" href="${SITE}/blog/ar/q.html"`) && smx.body.includes(`hreflang="hi" href="${SITE}/blog/hi/q.html"`) && smx.body.includes(`<loc>${SITE}/blog/ar/</loc>`), "the live sitemap merges the catalog rows of hi / ar with the database rows"); }
+  { const cat = [{ lang: "ar", slug: "q", published: true, created_at: "2026-11-13" }, { lang: "hi", slug: "q", published: true, created_at: "2026-11-13" }], dbq = mk([{ slug: "q", lang: "en", published: true, created_at: "2026-11-01" }]);
+    const sa = await L.serveBlogSitemap(dbq, { catalog: cat }, "ar"), sh = await L.serveBlogSitemap(dbq, { catalog: cat }, "hi"), se = await L.serveBlogSitemap(dbq, { catalog: cat }, "en");
+    ok(sa.status === 200 && sa.body.includes(`<loc>${SITE}/blog/ar/q.html</loc>`) && sa.body.includes(`<loc>${SITE}/blog/ar/</loc>`) && sh.body.includes(`<loc>${SITE}/blog/hi/q.html</loc>`) && se.body.includes(`<loc>${SITE}/blog/en/q.html</loc>`) && !se.body.includes("/blog/ar/") && !sa.body.includes("/blog/hi/"), "the live sitemap files merge the catalog rows of hi / ar with the database rows, each in the file of its own language"); }
 }
 
 console.log("vercel.json and the redirect rules");
