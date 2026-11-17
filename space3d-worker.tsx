@@ -48,7 +48,8 @@ self.onmessage = (e) => {
       root.configure({
         gl: { ...glOptions(m.tier), context: probe },
         size: size(m), dpr: m.dpr, frameloop: "never", events: undefined, camera: CAMERA,
-        onCreated: (st) => { st.gl.debug.checkShaderErrors = false; },
+        // tg_3d_dbg containing "chk" turns three's shader-error check back on (a test switch; off, as it always was, otherwise)
+        onCreated: (st) => { st.gl.debug.checkShaderErrors = (m.dbg || "").indexOf("chk") >= 0; },
       });
       draw();
     } catch (err) {
