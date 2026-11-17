@@ -20,7 +20,18 @@ const MSG: Record<string, { t: string; b: (streak: number) => string }> = {
   th: { t: "รายงานประจำสัปดาห์พร้อมแล้ว 📊", b: (streak) => `สตรีค ${streak} วัน — ครู TiGA สรุปจุดที่ควรฝึกต่อให้แล้ว แตะเพื่อดูเลย` },
   en: { t: "Your weekly report is ready 📊", b: (streak) => `${streak}-day streak — I've picked out exactly what to focus on next. Tap to see it` },
   zh: { t: "本周报告已生成 📊", b: (streak) => `连续${streak}天——老师已经帮你找出接下来该练的重点，点击查看` },
+  ja: { t: "週間レポートの準備ができました 📊", b: (streak) => `${streak}日連続 — 次に力を入れるポイントを選んでおきました。タップして見てみましょう` },
+  ko: { t: "주간 리포트가 준비됐어요 📊", b: (streak) => `연속 학습 ${streak}일째예요! 다음에 집중할 부분을 콕 집어 정리해 뒀어요. 탭해서 확인해 보세요` },
+  ru: { t: "Недельный отчёт готов 📊", b: (streak) => `Серия дней: ${streak}. Мы подобрали именно то, на чём стоит сосредоточиться дальше. Нажмите, чтобы посмотреть` },
+  hi: { t: "आपकी साप्ताहिक रिपोर्ट तैयार है 📊", b: (streak) => `${streak} दिन की स्ट्रीक — आगे ठीक किस पर ध्यान देना है, यह मैंने आपके लिए चुन लिया है। देखने के लिए टैप करें` },
+  es: { t: "Tu informe semanal está listo 📊", b: (streak) => `Días de racha: ${streak}. Ya elegí justo en qué enfocarte a continuación. Toca para verlo` },
+  fr: { t: "Ton bilan hebdomadaire est prêt 📊", b: (streak) => `Série de ${streak} jour${streak > 1 ? "s" : ""} — j'ai repéré exactement sur quoi te concentrer ensuite. Touche pour voir` },
+  ar: { t: "تقريرك الأسبوعي جاهز 📊", b: (streak) => `سلسلة أيامك: ${streak} — اخترت لك بالضبط ما تركّز عليه بعد ذلك. المس لتراه` },
 };
+
+// The language a learner is written to: their own when this table has it (ja ko ru hi es fr ar joined th en zh on 2026-11-17; before that
+// they got the English text), Thai when the profile has no language at all (as it always was), English for a language not in the table.
+const pickLang = (l: string | null | undefined): string => (!l || l === "th") ? "th" : Object.prototype.hasOwnProperty.call(MSG, l) ? l : "en";
 
 Deno.serve(async (req) => {
   if (req.method !== "POST") return new Response("Method not allowed", { status: 405 });
@@ -67,8 +78,7 @@ Deno.serve(async (req) => {
 
   let sent = 0, pruned = 0, failed = 0, notified = 0;
   for (const u of users) {
-    // ja / ko / ru / hi / es / fr / ar learners (2026-11-11, extended 2026-11-13) get the English report rather than a Thai one; no lang at all stays Thai as before
-    const lang = u.lang === "zh" ? "zh" : (!u.lang || u.lang === "th") ? "th" : "en";
+    const lang = pickLang(u.lang);
     const m = MSG[lang];
     const title = m.t, body = m.b(u.streak || 0);
 
