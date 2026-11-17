@@ -53,7 +53,7 @@ export function RobotAdventure3DPage({ lang, me, adminTier = 0, onBack, playUi, 
   const cur = RA_PLANETS.find(p => p.id === sel) || RA_PLANETS[0], curIdx = RA_PLANETS.indexOf(cur);
   const next3d = RA_PLANETS.findIndex((p, i) => playable(p.id) && open(i) && !done.includes(p.id));
   const inPart = RA_PLANETS.map((p, gi) => ({ p, gi })).filter(x => secOf(x.p.id) === part), POS = posOf(inPart.length);
-  const stage = useRef<HTMLDivElement>(null);
+  const stage = useRef<HTMLDivElement>(null), hubRoot = useRef<HTMLDivElement>(null);
 
   useEffect(() => { if (screen === "film") { try { enterFs(); } catch (e) {} } }, [screen]);   // same as Adventure: every film is full screen
 
@@ -73,6 +73,13 @@ export function RobotAdventure3DPage({ lang, me, adminTier = 0, onBack, playUi, 
     const mv = (e: PointerEvent) => { const r = el.getBoundingClientRect(); const x = (e.clientX - r.left) / r.width - 0.5, y = (e.clientY - r.top) / r.height - 0.5; el.style.setProperty("--tx", (x * 6).toFixed(2) + "deg"); el.style.setProperty("--ty", (y * -3).toFixed(2) + "deg"); };
     window.addEventListener("pointermove", mv); return () => window.removeEventListener("pointermove", mv);
   }, [screen]);
+
+  /* High (owner 2026-11-17): a real sky behind the map, a canvas with a painted nebula and three layers of soft stars that drift and shift with the same tilt as the floor; fetched only when Graphics is High, nothing in front of it changes */
+  useEffect(() => {
+    if (screen !== "hub" || !high) return undefined; let stop: () => void = () => {}, dead = false;
+    import("./robot-adventure-3d-hi").then(m => { if (dead || !hubRoot.current) return; try { stop = m.startHubSky(hubRoot.current, stage.current); } catch (e) {} }).catch(() => {});
+    return () => { dead = true; try { stop(); } catch (e) {} };
+  }, [screen, high]);
 
   const go = (id: string, fromHost = false) => {
     if (!playable(id)) return;
@@ -113,7 +120,7 @@ export function RobotAdventure3DPage({ lang, me, adminTier = 0, onBack, playUi, 
 
   const brief = dfn && sel === cur.id ? dfn.data.brief : null;
   return (
-    <div className={"ra-hub" + (portrait ? " rot" : "") + (high ? " hi" : "")} data-ra="hub">
+    <div className={"ra-hub" + (portrait ? " rot" : "") + (high ? " hi" : "")} data-ra="hub" ref={hubRoot}>
       <style>{CSS}</style>
       {powerNeed != null && <PowerSheet lang={lang} need={powerNeed} onClose={() => setPowerNeed(null)} />}
       <div className="ra-stars s1" /><div className="ra-stars s2" /><div className="ra-neb" />
@@ -203,6 +210,7 @@ const CSS = `
 .ra-hub.hi .ra-orb img{box-shadow:inset -8px -10px 18px #000a,inset 5px 6px 14px #fff3,0 0 16px color-mix(in srgb,var(--c) 55%,transparent),0 8px 18px #0008}
 .ra-hub.hi .ra-orb:after{content:"";position:absolute;inset:6% 38% 40% 8%;border-radius:50%;background:radial-gradient(closest-side,#fff5,transparent);pointer-events:none}
 .ra-hub.hi .ra-stars.s1{animation-duration:90s}
+.ra-hub[data-sky] .ra-stars,.ra-hub[data-sky] .ra-neb{display:none}
 .ra-orb b{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:18px;background:#0008;border-radius:50%}.ra-orb em{position:absolute;right:-4px;top:-4px;width:20px;height:20px;border-radius:50%;background:#2ecf7a;color:#fff;font-style:normal;font-size:13px;font-weight:900;display:flex;align-items:center;justify-content:center}
 @keyframes ra-bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-7px)}}
 .ra-nm{font-size:10px;font-weight:800;text-align:center;line-height:1.15;text-shadow:0 1px 6px #000;max-width:76px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.ra-pl u{font-size:9px;text-decoration:none;font-weight:900;letter-spacing:.5px;padding:1px 7px;border-radius:9px;background:#ffffff1a;opacity:.75}.ra-pl u.g{background:#2ecf7a;color:#03140c;opacity:1}
