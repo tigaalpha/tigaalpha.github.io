@@ -366,7 +366,7 @@ const flat = (o, pre = "") => Object.entries(o).flatMap(([k, v]) => typeof v ===
 const EN = Object.fromEntries(flat(COPYC.en));
 const emoji = (t) => (t.match(/\p{Extended_Pictographic}/gu) || []).join("");
 /* a set, because the Thai strings repeat the number in their bilingual tail ("6 ตัวอักษร · … 6 characters") */
-const nums = (t) => [...new Set(t.match(/\d[\d,]*/g) || [])].join("|");
+const nums = (t) => [...new Set((t.match(/\d[\d,]*/g) || []).map((x) => x.replace(/,$/, "")))].join("|");   // a comma right after a number is punctuation ("US$24.99, 카드 불필요")
 const brace = (t) => (t.match(/\{[a-z]+\}/g) || []).join();
 for (const lang of ALL) {
   const L = Object.fromEntries(flat(COPYC[lang]));
@@ -391,7 +391,7 @@ for (const lang of ALL) {
   /* hi / es / fr / ar are held to a stricter line: EVERY string carries exactly the digits of its English twin
      (not only the six that carry the promise), in the same order, and none of them in a digit system the app never prints */
   if (NEWL.includes(lang)) {
-    const allNums = (t) => (t.match(/\d[\d,]*/g) || []).join("|");
+    const allNums = (t) => (t.match(/\d[\d,]*/g) || []).map((x) => x.replace(/,$/, "")).join("|");
     const badAll = Object.keys(EN).filter((k) => allNums(EN[k]) !== allNums(L[k]));
     if (!badAll.length) ok(`${lang}: every one of the ${Object.keys(EN).length} strings has the digits of the English one, in the same order`);
     else no(`${lang}: digits differ from English`, badAll.map((k) => `${k}: "${allNums(EN[k])}" vs "${allNums(L[k])}"`).join(" ; "));
@@ -405,13 +405,22 @@ for (const lang of ALL) {
     if (!badMark.length) ok(`${lang}: the same number of arrow / play glyphs as English in every string`);
     else no(`${lang}: arrow glyph count`, badMark.join(","));
   }
-  /* the numbers the promise rests on: 7 (days), 799 (price), 6 (password), 5 (seconds), 100,000+ */
+  /* the numbers the promise rests on: 7 (days), the price (US$24.99 · ฿799 th · ¥176 zh), 6 (password), 5 (seconds), 100,000+ */
   const NUMKEYS = ["sticky", "trialLine", "passPh", "errShort", "nudgeBtn", "proofSongs"];
-  const badNum = NUMKEYS.filter((k) => nums(EN[k]) !== nums(L[k]));
+  /* The price is the one number that differs by design (owner, 2026-11-17): English and every extra language quote US$24.99, Thai
+     ฿799 and Chinese ¥176 (what the app charges each of them). The English copy is the reference; th and zh are compared with
+     its price swapped for their own. */
+  const PT = lang === "th" ? "799" : lang === "zh" ? "176" : "24.99";
+  const ref = (k) => (lang === "th" ? EN[k].replace("US$24.99", "799") : lang === "zh" ? EN[k].replace("US$24.99", "176") : EN[k]);
+  const badNum = NUMKEYS.filter((k) => nums(ref(k)) !== nums(L[k]));
   if (!badNum.length) ok(`${lang}: the numbers in ${NUMKEYS.join(", ")} match English`);
-  else no(`${lang}: numbers`, badNum.map((k) => `${k}: "${nums(EN[k])}" vs "${nums(L[k])}"`).join(" ; "));
-  if (/\b799\b/.test(L.sticky) && /\b799\b/.test(L.trialLine) && /\b7\b/.test(L.sticky.replace(/799/g, ""))) ok(`${lang}: sticky + trial line state 7 days and 799`);
-  else no(`${lang}: 7 days / 799 in sticky + trialLine`);
+  else no(`${lang}: numbers`, badNum.map((k) => `${k}: "${nums(ref(k))}" vs "${nums(L[k])}"`).join(" ; "));
+  const hasPT = (t) => t.includes(PT);
+  if (hasPT(L.sticky) && hasPT(L.trialLine) && /\b7\b/.test(L.sticky.replace(PT, ""))) ok(`${lang}: sticky + trial line state 7 days and the price (${PT})`);
+  else no(`${lang}: 7 days / the price ${PT} in sticky + trialLine`);
+  if (lang === "th") ok("th: keeps the baht price");
+  else if (!/799|THB|baht|バーツ|바트|бат\b|泰铢|بات/i.test(L.sticky + L.trialLine)) ok(`${lang}: no baht price in sticky + trial line`);
+  else no(`${lang}: still quotes the baht price`, L.sticky + " | " + L.trialLine);
 }
 
 /* ── the four lessons, ten languages ────────────────────────────────────

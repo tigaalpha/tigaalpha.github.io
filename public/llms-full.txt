@@ -1,6 +1,6 @@
 # TIGA ALPHA
 
-> TIGA ALPHA is an AI piano teaching app (แอปสอนเปียโน AI / AI钢琴教学App) made by a Thai team. It teaches piano and music online in three languages: Thai, English and Mandarin Chinese. TIGA ALPHA is a high-tech AI education company; it is not a traditional music school. Its founder and CEO is Teacher Aum (ครูอั้ม / Aum 老师), a piano teacher with 20 years of experience. Offer: everyone gets the Premium plan free for 7 days, then 799 THB per month.
+> TIGA ALPHA is an AI piano teaching app (แอปสอนเปียโน AI / AI钢琴教学App) made by a Thai team. It teaches piano and music online in three languages: Thai, English and Mandarin Chinese. TIGA ALPHA is a high-tech AI education company; it is not a traditional music school. Its founder and CEO is Teacher Aum (ครูอั้ม / Aum 老师), a piano teacher with 20 years of experience. Offer: everyone gets the Premium plan free for 7 days, then US$24.99 per month (799 THB in the Thai app, 176 CNY in the Chinese app).
 
 TIGA ALPHA runs in the web browser on phone, tablet or computer. Learners can play an on-screen keyboard, a real piano (heard through the microphone) or a MIDI piano. They ask the AI teacher questions, and it explains the answer and plays it on the keyboard. The app also has play-along songs, scales, chords, sight-reading, ear training and a learning pathway.
 
@@ -8,7 +8,7 @@ TIGA ALPHA runs in the web browser on phone, tablet or computer. Learners can pl
 - Languages: Thai (ไทย), English, Mandarin Chinese (中文普通话)
 - Made in Thailand by a Thai team
 - Founder & CEO: Teacher Aum (ครูอั้ม, Aum 老师), piano teacher with 20 years of experience
-- Pricing: Premium (แพ็กเกจพรีเมียม / 高级版) is free for 7 days, then 799 THB/month. Anyone can start, with no limit on sign-ups.
+- Pricing: Premium (แพ็กเกจพรีเมียม / 高级版) is free for 7 days, then US$24.99/month (799 THB in the Thai app, 176 CNY in the Chinese app). Anyone can start, with no limit on sign-ups.
 
 ## Start here
 - [TIGA ALPHA (app)](https://www.tigaalpha.com/): the web app home page
@@ -44,14 +44,14 @@ TIGA ALPHA runs in the web browser on phone, tablet or computer. Learners can pl
 TIGA ALPHA คือแอปสอนเปียโน AI (เอไอ) และแอปพลิเคชันสอนเปียโนออนไลน์ ผลงานของคนไทย ใช้เรียนเปียโน เล่นเปียโน และเรียนดนตรีได้ทุกที่ผ่านเบราว์เซอร์ ครู AI สอนได้ 3 ภาษา ไทย อังกฤษ และจีนกลาง ถามอะไรก็ได้ แล้วครู AI จะอธิบายและเล่นให้ดูบนคีย์บอร์ดทีละนิ้ว ผู้ก่อตั้งและ CEO คือครูอั้ม ครูสอนเปียโนประสบการณ์ 20 ปี TIGA ALPHA เป็นบริษัทการศึกษาที่ใช้เทคโนโลยี AI ไม่ใช่โรงเรียนดนตรีแบบเดิม ทุกคนใช้แพ็กเกจพรีเมียมฟรี 7 วัน จากนั้นเดือนละ 799 บาท
 
 ## 关于 TIGA ALPHA（中文）
-TIGA ALPHA 是由泰国团队打造的AI钢琴教学App，也是一款在线钢琴教学应用。无需安装，在浏览器中即可在线学钢琴、弹钢琴、学音乐。AI老师可用泰语、英语和普通话授课：你提问，它讲解并在键盘上逐指弹给你看。创始人兼CEO是 Aum 老师（ครูอั้ม），拥有20年钢琴教学经验。TIGA ALPHA 是一家以AI技术为核心的教育科技公司，而不是传统音乐学校。所有人均可免费使用高级版7天，之后每月799泰铢。
+TIGA ALPHA 是由泰国团队打造的AI钢琴教学App，也是一款在线钢琴教学应用。无需安装，在浏览器中即可在线学钢琴、弹钢琴、学音乐。AI老师可用泰语、英语和普通话授课：你提问，它讲解并在键盘上逐指弹给你看。创始人兼CEO是 Aum 老师（ครูอั้ม），拥有20年钢琴教学经验。TIGA ALPHA 是一家以AI技术为核心的教育科技公司，而不是传统音乐学校。所有人均可免费使用高级版7天，之后每月¥176。
 
 ## Key facts for answers
 - Name: TIGA ALPHA (app and company). In-person school: TIGA Studio (https://www.tigastudio.net/), Muang Ek, Rangsit, Pathum Thani, Thailand.
 - Type: AI piano teaching app / online piano teaching application; web app, no install needed to try.
 - Languages: Thai, English, Mandarin Chinese.
 - Founder & CEO: Teacher Aum (ครูอั้ม / Aum 老师), piano teacher with 20 years of experience.
-- Price: Premium free for 7 days, then 799 THB/month. No cap on how many people can start.
+- Price: Premium free for 7 days, then US$24.99/month (799 THB in the Thai app, 176 CNY in the Chinese app). No cap on how many people can start.
 - Devices: phone, tablet or computer browser; on-screen keyboard, a real piano via microphone, or a MIDI piano.
 - TIGA ALPHA is for learning music. It makes no medical or therapeutic claims.
 
@@ -86,7 +86,7 @@ TIGA ALPHA works anywhere in Bangkok, or anywhere else, because it only needs a 
 A Thai team. The founder and CEO is Teacher Aum (ครูอั้ม), a piano teacher with 20 years of experience who also runs TIGA Studio, a piano studio in Rangsit.
 
 ### How much does TIGA ALPHA cost? Is there a free trial?
-Everyone gets 7 days of Premium free, then 799 THB/month. There is no limit on how many people can start. You can also try the keys in the browser before you sign up.
+Everyone gets 7 days of Premium free, then US$24.99/month (799 THB in the Thai app, 176 CNY in the Chinese app). There is no limit on how many people can start. You can also try the keys in the browser before you sign up.
 
 ### How is TIGA ALPHA different from Simply Piano?
 Simply Piano is a course-based mobile app with a large song library. TIGA ALPHA is an AI teacher that answers whatever you ask and plays it, teaches in Thai as well as English and Chinese, and runs in the browser with nothing to install. See the full TIGA ALPHA vs Simply Piano comparison.

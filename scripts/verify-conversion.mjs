@@ -67,12 +67,38 @@ if (!YEAR_FN) throw new Error("verify-conversion: cannot read yearPrice() from p
 const YEAR_PRICE_FROM_SOURCE = new Function("PLAN_PRICE", `return (p) => {${YEAR_FN[1]}\n}`)(PRICES);
 const STD_YEAR = YEAR_PRICE_FROM_SOURCE("premium").toLocaleString("en-US");
 console.log(`\n  (real PLAN_PRICE: premium=${PRICES.premium}, max=${PRICES.max}; real yearPrice(premium)=${YEAR_PRICE_FROM_SOURCE("premium")})`);
-writeFileSync(`${OUT}/payment.mjs`,
+/* The per-language prices (owner, 2026-11-17: US$24.99 outside Thailand, ¥176 for zh, ฿799 for th) come from the REAL payment.tsx too:
+   its two other price tables, the language -> currency table and the four small pure functions the funnel now calls. They are cut out of
+   the source text (brace matched), not retyped, then esbuild strips the TypeScript. */
+const grabTable = (name) => {
+  const m = paymentSrc.match(new RegExp("export const " + name + "\\s*=\\s*\\{([^}]+)\\}"));
+  if (!m) throw new Error("verify-conversion: cannot read " + name + " from payment.tsx");
+  const out = {};
+  for (const x of m[1].matchAll(/(\w+)\s*:\s*([\d.]+)/g)) out[x[1]] = Number(x[2]);
+  return out;
+};
+const PRICES_USD = grabTable("PLAN_PRICE_USD"), PRICES_CNY = grabTable("PLAN_PRICE_CNY");
+const cutFn = (name) => {
+  const i = paymentSrc.indexOf("export function " + name + "(");
+  if (i < 0) throw new Error("verify-conversion: cannot read " + name + "() from payment.tsx");
+  let depth = 0, j = paymentSrc.indexOf("{", paymentSrc.indexOf(")", i));
+  for (let k = j; k < paymentSrc.length; k++) { if (paymentSrc[k] === "{") depth++; else if (paymentSrc[k] === "}" && --depth === 0) return paymentSrc.slice(i, k + 1); }
+  throw new Error("verify-conversion: unbalanced " + name);
+};
+const CUR_TABLE = (paymentSrc.match(/export const CURRENCY_BY_LANG[^=]*=\s*(\{[^}]+\});/) || [])[1];
+const CUR_FN = (paymentSrc.match(/export const currencyOf\s*=[^\n]*/) || [])[0];
+if (!CUR_TABLE || !CUR_FN) throw new Error("verify-conversion: cannot read CURRENCY_BY_LANG / currencyOf from payment.tsx");
+writeFileSync(`${OUT}/payment-stub.ts`,
   `export const TRIAL_MAX = ${JSON.stringify(TRIAL_MAX_LITERAL)};\n` +
   `export const PLAN_PRICE = ${JSON.stringify(PRICES)};\n` +
-  `export const yearPrice = (p) => {${YEAR_FN[1]}\n};\n` +
+  `export const PLAN_PRICE_USD = ${JSON.stringify(PRICES_USD)};\n` +
+  `export const PLAN_PRICE_CNY = ${JSON.stringify(PRICES_CNY)};\n` +
+  `export const CURRENCY_BY_LANG: Record<string,string> = ${CUR_TABLE};\n` +
+  `${CUR_FN}\n` +
+  `${cutFn("yearPrice")}\n${cutFn("planPriceByCur")}\n${cutFn("yearPriceByCur")}\n${cutFn("fmtPrice")}\n` +
   `export const trialLenDays = (p) => (p && p.founding_member ? ${FOUNDING_DAYS_FROM_SOURCE} : ${TRIAL_DAYS_FROM_SOURCE});\n` +
   `export const isTrialPlan = (p) => p === "trial" || p === TRIAL_MAX;\n`);
+execSync(`npx esbuild ${OUT}/payment-stub.ts --format=esm --outfile=${OUT}/payment.mjs --log-level=error`, { stdio: "pipe" });
 // rewrite the import to the stub
 let src = readFileSync(`${OUT}/use-conversion.mjs`, "utf8");
 src = src.replace(/from\s*"\.\/payment"/, `from "./payment.mjs"`);
@@ -164,6 +190,14 @@ ok(C.canUseSongGift() === false, "song gift: gone after one use (lifetime)");
    instead of through a tier/price cross-check that can no longer discriminate. */
 const MAX_PRICE = PRICES.max.toLocaleString("en-US");
 const STD_PRICE = PRICES.premium.toLocaleString("en-US");
+/* What each language must be quoted (owner, 2026-11-17: "the new price is US$24.99"): Thai ฿799 as before (the Thai copy adds บาท itself),
+   English and EVERY extra language US dollars, Chinese yuan (what the zh pricing page and checkout charge). Derived from the real
+   payment.tsx functions AND pinned to the owner's numbers, so a change of either side fails here. */
+const PAY = await import(pathToFileURL(`${OUT}/payment.mjs`).href);
+const QM = { th: STD_PRICE }, QY = { th: STD_YEAR };
+for (const l of ["en", "zh"]) { const c = PAY.currencyOf(l); QM[l] = PAY.fmtPrice(c, PAY.planPriceByCur(c, "premium")); QY[l] = PAY.fmtPrice(c, PAY.yearPriceByCur(c, "premium")); }
+ok(QM.th === "799" && QM.en === "US$24.99" && QM.zh === "¥176", `the owner's prices: th ${QM.th}, en ${QM.en}, zh ${QM.zh}`);
+ok(QY.en === "US$290.88" && QY.zh === "¥2,049", `and their yearly figures (12 months less 3%): en ${QY.en}, zh ${QY.zh}, th ${QY.th}`);
 ok(C.STANDARD_COPY === C.CONV_COPY,
   "the promo and standard copy tables are the same object (two-plan change)");
 ok(C.convCheckoutTier(promo) === "premium" && C.convCheckoutTier("trial") === "premium" && C.convCheckoutTier("max") === "premium",
@@ -176,10 +210,11 @@ for (const lang of ["th", "en", "zh"]) {
     `copy ${lang}: alt + winbackAlt + both proof kinds present`);
   const priced = JSON.stringify(cc);
   ok(priced.includes("Premium"), `copy ${lang}: names the one sellable tier`);
-  ok(priced.includes(STD_PRICE), `copy ${lang}: quotes the real Premium price ${STD_PRICE}`);
+  ok(priced.includes(QM[lang]), `copy ${lang}: quotes the real Premium price ${QM[lang]}`);
   ok(!(/"max"|"family"|"maxfamily"/).test(priced),
     `copy ${lang}: never offers a plan id that cannot be bought (max/family/maxfamily)`);
-  ok(cc.closing.body.includes(STD_PRICE), `copy ${lang}: last-day body carries the Premium price`);
+  ok(cc.closing.body.includes(QM[lang]), `copy ${lang}: last-day body carries the Premium price`);
+  ok(lang === "th" ? priced.includes("บาท") : !/baht|THB|泰铢|฿/i.test(priced), `copy ${lang}: ${lang === "th" ? "Thai still says บาท" : "no baht / THB / 泰铢 / ฿ anywhere: the price carries its own currency"}`);
 }
 
 /* ── day 7 must quote BOTH cadences, monthly and yearly ─────────────────────
@@ -199,13 +234,14 @@ ok(YEAR_PRICE_FROM_SOURCE("premium") === 9300,
 const YEAR_TOL = { th: "บาทต่อปี", en: "per year", zh: "每年" };
 for (const lang of ["th", "en", "zh"]) {
   const cl = C.CONV_COPY[lang].closing;
-  ok(cl.body.includes(STD_YEAR), `day-7 ${lang}: generic body quotes the real yearly price ${STD_YEAR}`);
+  ok(cl.body.includes(QY[lang]), `day-7 ${lang}: generic body quotes the real yearly price ${QY[lang]}`);
   ok(cl.body.includes(YEAR_TOL[lang]), `day-7 ${lang}: generic body labels that figure as per-year`);
   // same fixture shape as `proofish` below — only improvedCount >= 1 matters
   const pb = C.personalizedBody("closing", lang, { improvedCount: 3, bestDelta: 12, sessions: 4 }, cl.body, "trial");
-  ok(pb.includes(STD_YEAR), `day-7 ${lang}: the PROOF body also quotes the yearly price ${STD_YEAR} (it replaces the generic one wholesale)`);
+  ok(pb.includes(QY[lang]), `day-7 ${lang}: the PROOF body also quotes the yearly price ${QY[lang]} (it replaces the generic one wholesale)`);
   ok(pb.includes(YEAR_TOL[lang]), `day-7 ${lang}: the PROOF body labels the yearly figure as per-year`);
-  ok(pb.includes(STD_PRICE), `day-7 ${lang}: the PROOF body still quotes the monthly price ${STD_PRICE}`);
+  ok(pb.includes(QM[lang]), `day-7 ${lang}: the PROOF body still quotes the monthly price ${QM[lang]}`);
+  ok(lang === "th" || !/baht|THB|泰铢|฿/i.test(pb), `day-7 ${lang}: the PROOF body names no baht either`);
 }
 
 // ── day 7 must state the CONSEQUENCE, not only the price (owner 2026-10-05) ──
@@ -256,6 +292,17 @@ ok(C.convCheckoutTier("trial") === "premium", "convCheckoutTier: trial checkout 
 ok(C.convCheckoutTier("max") === "premium", "convCheckoutTier: non-trial defaults to Premium, never silently Max");
 ok(C.trialPriceThb(promo) === STD_PRICE && C.trialPriceThb("trial") === STD_PRICE,
   "trialPriceThb: every plan string is quoted the one real Premium price, formatted from PLAN_PRICE");
+ok(C.trialPriceFor("th") === "799" && C.trialPriceFor("en") === "US$24.99" && C.trialPriceFor("zh") === "¥176",
+  "trialPriceFor: th ฿799 (number only), en US$24.99, zh ¥176 — each in the currency checkout charges that language in");
+for (const l of ["ja", "ko", "ru", "hi", "es", "fr", "ar", "xx", undefined]) {
+  ok(C.trialPriceFor(l) === "US$24.99" && C.trialYearPriceFor(l) === QY.en, `trialPriceFor(${l}): every other language, an unknown one included, is US$24.99 (and ${QY.en} a year)`);
+}
+for (const kind of ["closing", "d7proof", "proof"]) {
+  const body = C.personalizedBody(kind, "ja", { improvedCount: 2, bestDelta: 11, sessions: 4 }, null, "trial");
+  ok(body.includes("US$24.99") && !/baht|THB|฿/i.test(body), `personalizedBody(${kind}) for an extra language (it reads the English copy) quotes US$24.99 and no baht`);
+  const zh = C.personalizedBody(kind, "zh", { improvedCount: 2, bestDelta: 11, sessions: 4 }, null, "trial");
+  ok(zh.includes("¥176") && !/泰铢|฿/.test(zh), `personalizedBody(${kind}) in Chinese quotes ¥176, not 泰铢`);
+}
 ok(C.trialTierName(promo) === "Premium" && C.trialTierName("trial") === "Premium",
   "trialTierName: the plan argument is ignored — everyone is told Premium");
 ok(C.trialYearPriceThb(promo) === STD_YEAR && C.trialYearPriceThb("trial") === STD_YEAR,
@@ -315,11 +362,11 @@ ok(C.personalizedBody("closing", "en", { improvedCount: 0, bestDelta: null }, "G
 ok(C.personalizedBody("closing", "en", { improvedCount: 3, bestDelta: 8, sessions: 23 }, null, promo).includes("23 sessions"), "v3: closing personalized names sessions when known");
 for (const lang of ["th", "en", "zh"]) {
   const promoBody = C.personalizedBody("closing", lang, { improvedCount: 2, bestDelta: 11, sessions: 4 }, null, promo);
-  ok(promoBody.includes(STD_PRICE) && promoBody.includes("Premium"),
-    `v3: ${lang} a legacy 'trialmax' member's closing body quotes Premium at ${STD_PRICE}, never a plan that cannot be bought`);
+  ok(promoBody.includes(QM[lang]) && promoBody.includes("Premium"),
+    `v3: ${lang} a legacy 'trialmax' member's closing body quotes Premium at ${QM[lang]}, never a plan that cannot be bought`);
   const stdBody = C.personalizedBody("closing", lang, { improvedCount: 2, bestDelta: 11, sessions: 4 }, null, "trial");
-  ok(stdBody.includes(STD_PRICE) && stdBody.includes("Premium") && !stdBody.includes("Max"),
-    `v3: ${lang} post-cap closing body quotes Premium at ${STD_PRICE} and never mentions Max`);
+  ok(stdBody.includes(QM[lang]) && stdBody.includes("Premium") && !stdBody.includes("Max"),
+    `v3: ${lang} post-cap closing body quotes Premium at ${QM[lang]} and never mentions Max`);
 }
 
 // post-purchase activation: exactly once, paid only, admins excluded
@@ -327,6 +374,39 @@ ok(C.firstPaidActivation("premium") === true, "v3: first paid moment fires activ
 ok(C.firstPaidActivation("premium") === false, "v3: second call - no replay (once per account)");
 ok(C.firstPaidActivation("trial") === false && C.firstPaidActivation("free") === false && C.firstPaidActivation("maxfamily") === false, "v3: trial/free/admin never fire activation");
 ok(!!(C.ACTIVATION_COPY.th && C.ACTIVATION_COPY.en && C.ACTIVATION_COPY.zh), "v3: activation copy in all 3 languages");
+
+/* ── the seven extra languages read the English copy through their catalogs (owner, 2026-11-17: US$24.99, no baht) ──
+   personalizedBody() and CONV_COPY.en hand them the English sentence with the price already in it; the catalog sentence has {n} holes
+   and must match it. A second bundle holds the real use-conversion, the real lang-extra and the seven generated catalogs in ONE module graph
+   so setCatalog() reaches the copy that use-conversion calls. A sentence the catalog does not know would show in English. */
+{
+  const CAT = ["ja", "ko", "ru", "hi", "es", "fr", "ar"];
+  writeFileSync(`${OUT}/conv-entry.ts`,
+    `export * from ${JSON.stringify(process.cwd() + "/use-conversion")};\nexport { setCatalog, xl } from ${JSON.stringify(process.cwd() + "/lang-extra")};\n` +
+    CAT.map(l => `export { default as cat_${l} } from ${JSON.stringify(process.cwd() + "/i18n-" + l)};`).join("\n") + "\n");
+  execSync(`npx esbuild ${OUT}/conv-entry.ts --bundle --format=esm --outfile=${OUT}/conv-entry.mjs --log-level=error`, { stdio: "pipe" });
+  const X = await import(pathToFileURL(`${OUT}/conv-entry.mjs`).href);
+  for (const l of CAT) X.setCatalog(l, X["cat_" + l]);
+  const proof = { improvedCount: 2, bestDelta: 11, sessions: 4 };
+  const ENGLISH_LEFT = /\b(per month|per year|Keep |the normal|free trial|baht)\b/i   // ("coaching" is a loanword in es and fr, not a leftover);
+  for (const l of CAT) {
+    const rows = [
+      ["closing (generic)", X.convCopyFor(l).closing.body],
+      ["d7proof (generic)", X.convCopyFor(l).d7proof.body],
+      ["proof (generic)", X.convCopyFor(l).proof.body],
+      ["closing cta", X.convCopyFor(l).closing.cta],
+      ["d7proof cta", X.convCopyFor(l).d7proof.cta],
+      ["closing (personal)", X.xl(l, X.personalizedBody("closing", l, proof, null, "trial"))],
+      ["d7proof (personal)", X.xl(l, X.personalizedBody("d7proof", l, proof, null, "trial"))],
+      ["proof (personal)", X.xl(l, X.personalizedBody("proof", l, proof, null, "trial"))],
+    ];
+    for (const [what, text] of rows) {
+      ok(typeof text === "string" && text.includes("US$24.99"), `${l} ${what}: quotes US$24.99`);
+      ok(!ENGLISH_LEFT.test(text) && !/baht|THB|฿|バーツ|바트|бат\b|baht|bahts|بات/i.test(text), `${l} ${what}: translated (no English sentence left) and names no baht`);
+    }
+    ok(X.xl(l, X.personalizedBody("closing", l, proof, null, "trial")).includes("US$290.88"), `${l} closing (personal): quotes the yearly US$290.88`);
+  }
+}
 
 rmSync(OUT, { recursive: true, force: true });
 console.log(`\n${pass} PASS, ${fail} FAIL`);

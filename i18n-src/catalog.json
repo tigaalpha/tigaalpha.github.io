@@ -28043,6 +28043,15 @@
   "hi": "पहले हफ़्ते में ही साबित — टीचर TIGA की कोचिंग के बाद आप उन जगहों पर +{0}% बेहतर हुए जहाँ पहले चूकते थे{1}।\n\n{2} को आज से बनाए रखें: {3} baht प्रति माह, सामान्य {4} कीमत।",
   "ar": "ثبت ذلك في الأسبوع الأول: بعد تدريب المعلّم TIGA تحسّنت بنسبة +{0}% في المواضع التي كنت تخطئ فيها{1}.\n\nاحتفظ بـ {2} من اليوم: {3} بات شهريًا، وهو السعر العادي لـ {4}."
  },
+ "Proven in week one — after Teacher TIGA's coaching you improved +{0}% on spots you used to miss{1}.\n\nKeep {2} from today: {3} per month, the normal {4} price.": {
+  "ja": "1週目で成果が出ました。TIGA先生のコーチングで、以前ミスしていた箇所が+{0}%上達しました{1}。\n\n今日から{2}を続けましょう。月額{3}、通常の{4}料金です。",
+  "ko": "첫 주에 효과가 입증됐어요 — TIGA 선생님의 코칭 후 자주 틀리던 부분이 +{0}% 좋아졌어요{1}.\n\n오늘부터 {2} 이용을 계속하세요: 월 {3}, 정상 {4} 가격이에요.",
+  "ru": "Результат уже за первую неделю: после занятий с учителем TIGA твоя игра улучшилась на +{0}% там, где раньше были ошибки{1}.\n\nОставь {2} уже сегодня: {3} в месяц, обычная цена {4}.",
+  "hi": "पहले ही हफ़्ते में नतीजा दिखा — Teacher TIGA की कोचिंग के बाद, जिन जगहों पर आप पहले चूक जाते थे, वहाँ आपमें +{0}% सुधार हुआ{1}।\n\nआज से {2} जारी रखें: {3} प्रति माह, यानी सामान्य {4} कीमत।",
+  "es": "Resultados en la primera semana: tras el coaching del profesor TIGA, mejoraste +{0}% en los pasajes que antes se te escapaban{1}.\n\nQuédate con {2} desde hoy: {3} al mes, el precio normal de {4}.",
+  "fr": "Résultat dès la première semaine : après le coaching de Prof TIGA, tu as progressé de +{0} % sur des passages que tu ratais{1}.\n\nGarde {2} dès aujourd'hui : {3} par mois, au tarif normal {4}.",
+  "ar": "ظهرت النتيجة في الأسبوع الأول — بعد تدريب المعلّم TIGA تحسّنت بنسبة +{0}% في المواضع التي كنت تخطئ فيها{1}.\n\nاحتفظ بـ {2} من اليوم: {3} شهريًا، بالسعر المعتاد {4}."
+ },
  "Proxima Centauri b": {
   "ja": "プロキシマ・ケンタウリ b",
   "ko": "프록시마 센타우리 b",
@@ -35603,6 +35612,15 @@
   "hi": "टीचर TIGA की कोचिंग आपके असली अभ्यास में पहले से काम कर रही है।\n\n{0} को आज से {1} baht प्रति माह में बनाए रखें।",
   "ar": "تدريب المعلّم TIGA يؤتي ثماره بالفعل في تدريبك الحقيقي.\n\nاحتفظ بـ {0} من اليوم بسعر {1} بات شهريًا."
  },
+ "Teacher TIGA's coaching is already working on your real practice.\n\nKeep {0} from today at {1} per month.": {
+  "ja": "TIGA先生のコーチングは、あなたの実際の練習にもう効果を出しています。\n\n今日から{0}を月額{1}で続けましょう。",
+  "ko": "TIGA 선생님의 코칭이 실제 연습에서 이미 효과를 내고 있어요.\n\n오늘부터 {0} 이용을 월 {1}에 계속하세요.",
+  "ru": "Занятия с учителем TIGA уже помогают в твоей реальной практике.\n\nОставь {0} уже сегодня за {1} в месяц.",
+  "hi": "Teacher TIGA की कोचिंग आपके असली अभ्यास पर असर दिखा रही है।\n\nआज से {0} जारी रखें, {1} प्रति माह।",
+  "es": "El coaching del profesor TIGA ya está funcionando en tu práctica real.\n\nQuédate con {0} desde hoy por {1} al mes.",
+  "fr": "Le coaching de Prof TIGA fonctionne déjà sur ton vrai entraînement.\n\nGarde {0} dès aujourd'hui pour {1} par mois.",
+  "ar": "تدريب المعلّم TIGA يعمل فعلًا على تدريبك الحقيقي.\n\nاحتفظ بـ {0} من اليوم بسعر {1} شهريًا."
+ },
  "Teacher TiGA asks directly (worth more than guessing)": {
   "ja": "TIGA先生から直接質問（推測よりも確かです）",
   "ko": "TIGA 선생님이 직접 물어봐요 (추측보다 정확해요)",
@@ -36637,6 +36655,15 @@
   "fr": "Le coaching fonctionne : ton point faible a progressé de +{0} %.\n\nCe prof se souvient de chaque étape de ta progression. Garde-le après l'essai ({1} à {2} bahts par mois).",
   "hi": "कोचिंग काम कर रही है — आपकी कमज़ोर जगह +{0}% सुधरी है।\n\nयह शिक्षक आपकी तरक्की का हर कदम याद रखता है। ट्रायल के बाद भी इसे रखें ({1}, {2} baht प्रति माह)।",
   "ar": "التدريب يؤتي ثماره: تحسّن موضع صعوبتك بنسبة +{0}%.\n\nهذا المعلّم يتذكر كل خطوة في تقدمك. احتفظ به بعد التجربة ({1} بسعر {2} بات شهريًا)."
+ },
+ "The coaching is working — your trouble spot improved +{0}%.\n\nThis teacher remembers every step of your progress. Keep it after the trial ({1} at {2} per month).": {
+  "ja": "コーチングの効果が出ています。苦手な箇所が+{0}%上達しました。\n\nこの先生は、あなたの上達のステップをすべて覚えています。トライアル後も続けましょう（{1}、月額{2}）。",
+  "ko": "코칭이 효과를 내고 있어요 — 어려워하던 부분이 +{0}% 좋아졌어요.\n\n이 선생님은 내 성장 과정을 하나하나 기억해요. 체험이 끝난 뒤에도 계속 이용하세요 ({1}, 월 {2}).",
+  "ru": "Занятия работают: твоё проблемное место улучшилось на +{0}%.\n\nЭтот учитель помнит каждый шаг твоего прогресса. Оставь его после пробного периода ({1} за {2} в месяц).",
+  "hi": "कोचिंग काम कर रही है — आपकी कमज़ोर जगह में +{0}% सुधार हुआ।\n\nयह शिक्षक आपकी प्रगति का हर कदम याद रखता है। ट्रायल के बाद भी इसे साथ रखें ({1}, {2} प्रति माह)।",
+  "es": "El coaching funciona: tu punto difícil mejoró +{0}%.\n\nEste profesor recuerda cada paso de tu progreso. Quédate con él después de la prueba ({1} a {2} al mes).",
+  "fr": "Le coaching fonctionne : ton point faible a progressé de +{0} %.\n\nCe prof se souvient de chaque étape de ta progression. Garde-le après l'essai ({1} à {2} par mois).",
+  "ar": "التدريب يعمل — تحسّن موضع صعوبتك بنسبة +{0}%.\n\nهذا المعلّم يتذكّر كل خطوة في تقدمك. احتفظ به بعد التجربة ({1} بسعر {2} شهريًا)."
  },
  "The colony collapsed": {
   "ja": "コロニーが崩壊しました",
@@ -38591,6 +38618,15 @@
   "hi": "आज आपके 7 दिन के मुफ़्त ट्रायल का आख़िरी दिन है — आप ये खो देंगे: {0}ऐसा शिक्षक जिसने आपकी {1} कमज़ोरियाँ सुधारीं (+{2}%), और आपके बनाए सारे आँकड़े।\n\n{3} प्लान रखने के लिए {4} baht प्रति माह या {5} baht प्रति वर्ष लगेंगे।",
   "ar": "اليوم هو آخر يوم في تجربتك المجانية لمدة 7 أيام. ما ستخسره: {0}معلّم حسّن {1} من نقاط ضعفك (+{2}%)، وكل الإحصاءات التي بنيتها.\n\nللاحتفاظ بخطة {3}، التكلفة {4} بات شهريًا، أو {5} بات سنويًا."
  },
+ "Today is the last day of your 7-day free trial — what you'd lose: {0}a teacher who improved {1} of your weak spots (+{2}%), and every stat you built.\n\nTo keep the {3} plan, it costs {4} per month, or {5} per year.": {
+  "ja": "今日は7日間無料トライアルの最終日です。終了すると失われるもの：{0}苦手な箇所{1}か所を上達させてくれた先生（+{2}%）と、これまでに積み上げたすべての記録。\n\n{3}プランを続けるには、月額{4}、または年額{5}です。",
+  "ko": "오늘이 7일 무료 체험의 마지막 날이에요 — 계속하지 않으면 {0}약한 부분 {1}곳을 좋아지게 해 준 선생님(+{2}%)과 지금까지 쌓은 모든 기록을 잃게 돼요.\n\n{3} 플랜을 계속 이용하려면 월 {4}, 또는 연 {5}이에요.",
+  "ru": "Сегодня последний день твоего 7-дневного бесплатного пробного периода. Что ты потеряешь: {0}учителя, который улучшил {1} твоих слабых мест (+{2}%), и всю накопленную статистику.\n\nЧтобы оставить план {3}, нужно {4} в месяц или {5} в год.",
+  "hi": "आज आपके 7 दिन के मुफ़्त ट्रायल का आख़िरी दिन है — आप क्या खो देंगे: {0}एक ऐसा शिक्षक जिसने आपकी {1} कमज़ोर जगहों को बेहतर किया (+{2}%), और आपके बनाए सारे आँकड़े।\n\n{3} प्लान जारी रखने के लिए {4} प्रति माह, या {5} प्रति वर्ष लगेंगे।",
+  "es": "Hoy es el último día de tu prueba gratuita de 7 días. Esto es lo que perderías: {0}un profesor que mejoró {1} de tus puntos débiles (+{2}%) y todas las estadísticas que has construido.\n\nPara quedarte con el plan {3}, cuesta {4} al mes o {5} al año.",
+  "fr": "Aujourd'hui, c'est le dernier jour de ton essai gratuit de 7 jours. Voici ce que tu perdrais : {0}un prof qui a fait progresser {1} de tes points faibles (+{2} %), et toutes les stats que tu as construites.\n\nPour garder la formule {3}, compte {4} par mois ou {5} par an.",
+  "ar": "اليوم هو آخر يوم في تجربتك المجانية لمدة 7 أيام — ما قد تفقده: {0}معلّمًا حسّن {1} من نقاط ضعفك (+{2}%)، وكل الإحصاءات التي بنيتها.\n\nللاحتفاظ بخطة {3}، تبلغ التكلفة {4} شهريًا، أو {5} سنويًا."
+ },
  "Today is the last day of your 7-day free trial. To keep the {0} plan, it costs {1} baht per month, or {2} baht per year.": {
   "ja": "今日は7日間無料トライアルの最終日です。{0}プランを続けるには、月額{1}バーツ、または年額{2}バーツです。",
   "ko": "오늘은 7일 무료 체험의 마지막 날이에요. {0} 플랜을 계속 이용하려면 월 {1}바트 또는 연 {2}바트예요.",
@@ -38599,6 +38635,15 @@
   "fr": "Aujourd'hui, c'est le dernier jour de ton essai gratuit de 7 jours. Pour garder l'offre {0}, compte {1} bahts par mois, ou {2} bahts par an.",
   "hi": "आज आपके 7 दिन के मुफ़्त ट्रायल का आख़िरी दिन है। {0} प्लान रखने के लिए {1} baht प्रति माह या {2} baht प्रति वर्ष लगेंगे।",
   "ar": "اليوم هو آخر يوم في تجربتك المجانية لمدة 7 أيام. للاحتفاظ بخطة {0}، التكلفة {1} بات شهريًا، أو {2} بات سنويًا."
+ },
+ "Today is the last day of your 7-day free trial. To keep the {0} plan, it costs {1} per month, or {2} per year.": {
+  "ja": "今日は7日間無料トライアルの最終日です。{0}プランを続けるには、月額{1}、または年額{2}です。",
+  "ko": "오늘이 7일 무료 체험의 마지막 날이에요. {0} 플랜을 계속 이용하려면 월 {1}, 또는 연 {2}이에요.",
+  "ru": "Сегодня последний день твоего 7-дневного бесплатного пробного периода. Чтобы оставить план {0}, нужно {1} в месяц или {2} в год.",
+  "hi": "आज आपके 7 दिन के मुफ़्त ट्रायल का आख़िरी दिन है। {0} प्लान जारी रखने के लिए {1} प्रति माह, या {2} प्रति वर्ष लगेंगे।",
+  "es": "Hoy es el último día de tu prueba gratuita de 7 días. Para quedarte con el plan {0}, cuesta {1} al mes o {2} al año.",
+  "fr": "Aujourd'hui, c'est le dernier jour de ton essai gratuit de 7 jours. Pour garder la formule {0}, compte {1} par mois ou {2} par an.",
+  "ar": "اليوم هو آخر يوم في تجربتك المجانية لمدة 7 أيام. للاحتفاظ بخطة {0}، تبلغ التكلفة {1} شهريًا، أو {2} سنويًا."
  },
  "Today!": {
   "ja": "今日！",
@@ -42605,6 +42650,15 @@
   "hi": "आपकी कमज़ोर जगहें असली अभ्यास से सुधर रही हैं।\n\nट्रायल के बाद भी इस शिक्षक को रखें — {0}, {1} baht प्रति माह।",
   "ar": "مواضع صعوبتك تتحسن بفضل التدريب الحقيقي.\n\nاحتفظ بهذا المعلّم بعد التجربة: {0} بسعر {1} بات شهريًا."
  },
+ "Your trouble spots are improving from real practice.\n\nKeep this teacher after the trial — {0} at {1} per month.": {
+  "ja": "実際の練習で、苦手な箇所が上達しています。\n\nトライアル後もこの先生と続けましょう。{0}、月額{1}です。",
+  "ko": "실제 연습으로 어려운 부분이 좋아지고 있어요.\n\n체험이 끝난 뒤에도 이 선생님과 함께하세요 — {0}, 월 {1}.",
+  "ru": "Твои проблемные места улучшаются благодаря реальной практике.\n\nОставь этого учителя после пробного периода — {0} за {1} в месяц.",
+  "hi": "असली अभ्यास से आपकी कमज़ोर जगहें बेहतर हो रही हैं।\n\nट्रायल के बाद भी इस शिक्षक को साथ रखें — {0}, {1} प्रति माह।",
+  "es": "Tus puntos difíciles están mejorando con la práctica real.\n\nQuédate con este profesor después de la prueba: {0} a {1} al mes.",
+  "fr": "Tes points faibles progressent grâce à ton vrai entraînement.\n\nGarde ce prof après l'essai : {0} à {1} par mois.",
+  "ar": "مواضع صعوبتك تتحسّن بفضل التدريب الحقيقي.\n\nاحتفظ بهذا المعلّم بعد التجربة — {0} بسعر {1} شهريًا."
+ },
  "Your turn: press the key the orange light is on": {
   "ja": "あなたの番です。オレンジ色に光っている鍵盤を押してください",
   "ko": "당신 차례예요: 주황색 불이 켜진 건반을 누르세요",
@@ -45935,6 +45989,15 @@
   "hi": "⭐ {0} रखें",
   "ar": "⭐ احتفظ بـ {0}"
  },
+ "⭐ Keep {0} — {1}/month": {
+  "ja": "⭐ {0}を続ける — 月額{1}",
+  "ko": "⭐ {0} 계속 이용 — 월 {1}",
+  "ru": "⭐ Оставить {0} — {1}/мес.",
+  "hi": "⭐ {0} जारी रखें — {1}/माह",
+  "es": "⭐ Quédate con {0} — {1}/mes",
+  "fr": "⭐ Garder {0} — {1}/mois",
+  "ar": "⭐ احتفظ بـ {0} — {1}/شهر"
+ },
  "⭐ Keep {0} — {1}฿/month": {
   "ja": "⭐ {0}を続ける — 月額{1}฿",
   "ko": "⭐ {0} 유지하기 — 월 {1}฿",
@@ -47230,6 +47293,15 @@
   "fr": "💰 Un paiement est arrivé",
   "hi": "💰 एक भुगतान आया है",
   "ar": "💰 وصلت دفعة جديدة"
+ },
+ "💳 Keep {0} — {1}/month": {
+  "ja": "💳 {0}を続ける — 月額{1}",
+  "ko": "💳 {0} 계속 이용 — 월 {1}",
+  "ru": "💳 Оставить {0} — {1}/мес.",
+  "hi": "💳 {0} जारी रखें — {1}/माह",
+  "es": "💳 Quédate con {0} — {1}/mes",
+  "fr": "💳 Garder {0} — {1}/mois",
+  "ar": "💳 احتفظ بـ {0} — {1}/شهر"
  },
  "💳 Keep {0} — ฿{1}/month": {
   "ja": "💳 {0}を続ける — 月額฿{1}",

@@ -27,7 +27,7 @@
    earned rather than gated. Lifetime-once via localStorage, deliberately
    separate from the day-bucketed tg_usage counters (those reset daily). ── */
 
-import { trialLenDays, isTrialPlan, canonicalPlan, PLAN_PRICE, yearPrice } from "./payment";
+import { trialLenDays, isTrialPlan, canonicalPlan, PLAN_PRICE, yearPrice, currencyOf, planPriceByCur, yearPriceByCur, fmtPrice } from "./payment";
 
 import { by, isExtraLang, xl } from "./lang-extra";
 /* ══ WHICH COPY A TRIAL GETS ══════════════════════════════════════════════
@@ -53,6 +53,13 @@ export function trialPriceThb(_plan) { return fmtThb(PLAN_PRICE.premium); }
    bill by — instead of being typed in, so a price change can never leave the
    funnel promising a yearly number that checkout does not charge. */
 export function trialYearPriceThb(_plan) { return fmtThb(yearPrice("premium")); }
+/* The price a learner is quoted, in the currency checkout charges THEIR language in (payment.tsx currencyOf): Thai baht for
+   th ("799": the Thai copy adds บาท itself), US dollars for English and every extra language ("US$24.99"), Chinese yuan for
+   zh ("¥176"). Owner, 2026-11-17: the price outside Thailand is US$24.99 — the popups used to say "799 baht" to everyone,
+   which is not what the pricing page or the checkout of an English, Chinese, Japanese ... learner shows. The currency
+   symbol travels with the number, so the sentences below no longer name a currency word. */
+export function trialPriceFor(lang) { const c = currencyOf(lang); return c === "thb" ? fmtThb(PLAN_PRICE.premium) : fmtPrice(c, planPriceByCur(c, "premium")); }
+export function trialYearPriceFor(lang) { const c = currencyOf(lang); return c === "thb" ? fmtThb(yearPrice("premium")) : fmtPrice(c, yearPriceByCur(c, "premium")); }
 export function trialTierName(_plan) { return "Premium"; }
 /* The plan the closing CTA should open checkout for — the only sellable tier. */
 export function convCheckoutTier(_plan) { return "premium"; }
@@ -88,39 +95,40 @@ export function convCopyFor(lang, _plan) { return by(CONV_COPY, lang) || CONV_CO
    identical, because the promotion changes what the seven days are worth, not
    what the seven days are. */
 function copyTable(t) {
-  const { name, price, year, perks } = t;
+  const { name, perks } = t;
+  const price = t.price, year = t.year;   // { th, en, zh }: each language quotes its own currency (trialPriceFor)
   return {
     th: {
       bannerUrgent: `⏳ อีก {n} วัน — หลังจบ ${name} จะหมด: ${perks.th}`,
       bannerUrgentBtn: `ต่อ ${name}`,
       winbackAlt: "ดูทุกแพ็กเกจ",
       welcome: { ic: "🎓", title: "ครู TIGA AI มาแนะนำตัว", body: `ยินดีต้อนรับสู่ TIGA ALPHA!\n\n7 วันข้างหน้าคุณได้ ${name} เต็มรูปแบบ — ครู AI ไม่จำกัด ${perks.th} ผมจะพาเรียนทีละขั้นแบบครูตัวจริง`, cta: "🚀 เริ่มวันแรกกันเลย" },
-      closing: { ic: "⏳", title: "วันสุดท้ายของการทดลองเล่นฟรี 7 วัน", body: `วันนี้เป็นวันสุดท้ายของการใช้งานฟรี 7 วัน หากต้องการใช้ต่อ แพ็กเกจ ${name} ค่าใช้จ่ายจะอยู่ที่ ${price} บาทต่อเดือน หรือ ${year} บาทต่อปี`, loss: "ถ้าไม่จ่าย คุณจะเหลือแพ็กเกจฟรี และของทั้งหมดด้านล่างนี้จะใช้ไม่ได้อีกต่อไป", items: perks.items, cta: `💳 ต่อ ${name} ${price} บาท/เดือน`, alt: "ดูทุกแพ็กเกจ" },
+      closing: { ic: "⏳", title: "วันสุดท้ายของการทดลองเล่นฟรี 7 วัน", body: `วันนี้เป็นวันสุดท้ายของการใช้งานฟรี 7 วัน หากต้องการใช้ต่อ แพ็กเกจ ${name} ค่าใช้จ่ายจะอยู่ที่ ${price.th} บาทต่อเดือน หรือ ${year.th} บาทต่อปี`, loss: "ถ้าไม่จ่าย คุณจะเหลือแพ็กเกจฟรี และของทั้งหมดด้านล่างนี้จะใช้ไม่ได้อีกต่อไป", items: perks.items, cta: `💳 ต่อ ${name} ${price.th} บาท/เดือน`, alt: "ดูทุกแพ็กเกจ" },
       winback: { ic: "🧠", title: "ครู TIGA AI ยังจำคุณได้", body: "ทุกความก้าวหน้า ใบประกาศ และสถิติของคุณยังเก็บอยู่ครบถ้วน กลับมาเรียนต่อได้ทันทีเลย — ไม่มีอะไรหายไป", cta: "💙 กลับมาเรียนต่อ" },
       // v3 kinds — body is normally overridden by personalizedBody() with the
       // learner's own numbers; these bodies are the defensive generic fallback.
-      d7proof: { ic: "🏅", title: "พิสูจน์แล้วในสัปดาห์แรก", body: `คำแนะนำของครู TIGA ได้ผลจริงกับการซ้อมของคุณ\n\n${name} ต่อได้วันนี้ที่ ${price} บาท/เดือน`, cta: `⭐ ต่อ ${name} ${price} บาท/เดือน` },
-      proof: { ic: "📈", title: "ครูคนนี้ทำให้คุณดีขึ้นจริง", body: `จุดที่เคยติดของคุณดีขึ้นจากการซ้อมจริง\n\nเก็บครูคนนี้ไว้หลังทดลองจบ — ${name} ${price} บาท/เดือน`, cta: `⭐ ต่อ ${name} ไว้เลย` },
+      d7proof: { ic: "🏅", title: "พิสูจน์แล้วในสัปดาห์แรก", body: `คำแนะนำของครู TIGA ได้ผลจริงกับการซ้อมของคุณ\n\n${name} ต่อได้วันนี้ที่ ${price.th} บาท/เดือน`, cta: `⭐ ต่อ ${name} ${price.th} บาท/เดือน` },
+      proof: { ic: "📈", title: "ครูคนนี้ทำให้คุณดีขึ้นจริง", body: `จุดที่เคยติดของคุณดีขึ้นจากการซ้อมจริง\n\nเก็บครูคนนี้ไว้หลังทดลองจบ — ${name} ${price.th} บาท/เดือน`, cta: `⭐ ต่อ ${name} ไว้เลย` },
     },
     en: {
       bannerUrgent: `⏳ {n} days left — then ${name} ends: ${perks.en}`,
       bannerUrgentBtn: `Keep ${name}`,
       winbackAlt: "Browse all plans",
       welcome: { ic: "🎓", title: "Meet Teacher TIGA AI", body: `Welcome to TIGA ALPHA!\n\nFor the next 7 days you get the full ${name} plan — unlimited AI teacher, ${perks.en}. I'll guide you step by step like a real teacher.`, cta: "🚀 Start day one" },
-      closing: { ic: "⏳", title: "Last day of your 7-day free trial", body: `Today is the last day of your 7-day free trial. To keep the ${name} plan, it costs ${price} baht per month, or ${year} baht per year.`, loss: "If you don't pay, you are left on the Free plan — and everything listed below stops working.", items: perks.itemsEn, cta: `💳 Keep ${name} — ฿${price}/month`, alt: "Browse all plans" },
+      closing: { ic: "⏳", title: "Last day of your 7-day free trial", body: `Today is the last day of your 7-day free trial. To keep the ${name} plan, it costs ${price.en} per month, or ${year.en} per year.`, loss: "If you don't pay, you are left on the Free plan — and everything listed below stops working.", items: perks.itemsEn, cta: `💳 Keep ${name} — ${price.en}/month`, alt: "Browse all plans" },
       winback: { ic: "🧠", title: "Teacher TIGA AI still remembers you", body: "All your progress, certificates and stats are exactly where you left them. You can continue right where you stopped — nothing is lost.", cta: "💙 Continue learning" },
-      d7proof: { ic: "🏅", title: "Proven in week one", body: `Teacher TIGA's coaching is already working on your real practice.\n\nKeep ${name} from today at ${price} baht per month.`, cta: `⭐ Keep ${name} — ${price}฿/month` },
-      proof: { ic: "📈", title: "The coaching is working", body: `Your trouble spots are improving from real practice.\n\nKeep this teacher after the trial — ${name} at ${price} baht per month.`, cta: `⭐ Keep ${name}` },
+      d7proof: { ic: "🏅", title: "Proven in week one", body: `Teacher TIGA's coaching is already working on your real practice.\n\nKeep ${name} from today at ${price.en} per month.`, cta: `⭐ Keep ${name} — ${price.en}/month` },
+      proof: { ic: "📈", title: "The coaching is working", body: `Your trouble spots are improving from real practice.\n\nKeep this teacher after the trial — ${name} at ${price.en} per month.`, cta: `⭐ Keep ${name}` },
     },
     zh: {
       bannerUrgent: `⏳ 还剩 {n} 天 — 到期后 ${name} 结束：${perks.zh}`,
       bannerUrgentBtn: `续费 ${name}`,
       winbackAlt: "查看全部套餐",
       welcome: { ic: "🎓", title: "认识TIGA AI老师", body: `欢迎来到TIGA ALPHA！\n\n接下来7天你将获得完整 ${name} 套餐——AI老师不限次、${perks.zh}。我会像真正的老师一样一步步带你学。`, cta: "🚀 开始第一天" },
-      closing: { ic: "⏳", title: "7 天免费试用的最后一天", body: `今天是 7 天免费试用的最后一天。如需继续使用 ${name} 套餐，费用为每月 ${price} 泰铢，或每年 ${year} 泰铢。`, loss: "如果现在不付款，你将只剩免费套餐 —— 下面列出的所有功能都将无法继续使用。", items: perks.itemsZh, cta: `💳 续费 ${name} ฿${price}/月`, alt: "查看全部套餐" },
+      closing: { ic: "⏳", title: "7 天免费试用的最后一天", body: `今天是 7 天免费试用的最后一天。如需继续使用 ${name} 套餐，费用为每月 ${price.zh}，或每年 ${year.zh}。`, loss: "如果现在不付款，你将只剩免费套餐 —— 下面列出的所有功能都将无法继续使用。", items: perks.itemsZh, cta: `💳 续费 ${name} ${price.zh}/月`, alt: "查看全部套餐" },
       winback: { ic: "🧠", title: "TIGA AI老师还记得你", body: "你的全部进度、证书和统计都原样保存，随时可以接着学——什么都没有丢失。", cta: "💙 继续学习" },
-      d7proof: { ic: "🏅", title: "第一周已验证", body: `TIGA 老师的指导对你的真实练习已经见效。\n\n今天起以 ${price} 泰铢/月 继续使用 ${name}。`, cta: `⭐ 续费 ${name} ฿${price}/月` },
-      proof: { ic: "📈", title: "指导见效了", body: `你的薄弱点正在真实练习中改善。\n\n试用结束后保留这位老师——${name} ${price} 泰铢/月。`, cta: `⭐ 续费 ${name}` },
+      d7proof: { ic: "🏅", title: "第一周已验证", body: `TIGA 老师的指导对你的真实练习已经见效。\n\n今天起以 ${price.zh}/月 继续使用 ${name}。`, cta: `⭐ 续费 ${name} ${price.zh}/月` },
+      proof: { ic: "📈", title: "指导见效了", body: `你的薄弱点正在真实练习中改善。\n\n试用结束后保留这位老师——${name} ${price.zh}/月。`, cta: `⭐ 续费 ${name}` },
     },
   };
 }
@@ -133,8 +141,8 @@ function copyTable(t) {
    which is the one mistake here that would cost actual money. */
 export const CONV_COPY = copyTable({
   name: "Premium",
-  price: fmtThb(PLAN_PRICE.premium),
-  year: fmtThb(yearPrice("premium")),
+  price: { th: trialPriceFor("th"), en: trialPriceFor("en"), zh: trialPriceFor("zh") },
+  year: { th: trialYearPriceFor("th"), en: trialYearPriceFor("en"), zh: trialYearPriceFor("zh") },
   perks: {
     th: "เพลง Exclusive · สร้างเพลง AI · ทุกเกม",
     en: "every exclusive piece, AI song creation, every game",
@@ -330,8 +338,8 @@ export function convWinBack(profile, plan) {
    1,490฿ — the funnel and its own copy disagreed about what it was selling. */
 export function personalizedBody(popupKind, lang, proof, generic, plan) {
   const L = lang === "th" || lang === "zh" ? lang : "en";
-  const price = trialPriceThb(plan);
-  const year = trialYearPriceThb(plan);
+  const price = trialPriceFor(L);   // L is th, zh or en (the extra languages read the English copy): the price is in that language's currency
+  const year = trialYearPriceFor(L);
   const tier = trialTierName(plan);
   const hasProof = proof && proof.improvedCount >= 1 && proof.bestDelta != null;
   if (popupKind === "closing" && hasProof) {
@@ -339,22 +347,22 @@ export function personalizedBody(popupKind, lang, proof, generic, plan) {
     const sess = proof.sessions ? `${proof.sessions}${L === "th" ? " เซสชัน" : L === "zh" ? " 次练习" : " " + (isExtraLang(lang) ? xl(lang, "sessions") : "sessions")}, ` : "";
     return {
       th: `วันนี้เป็นวันสุดท้ายของการใช้งานฟรี 7 วัน — ของคุณที่จะหายไป: ${sess}ความจำ ${proof.improvedCount} จุดของครู (ดีขึ้น +${proof.bestDelta}%) และทุกสถิติที่สะสมมา\n\nหากต้องการใช้ต่อ แพ็กเกจ ${tier} ค่าใช้จ่ายจะอยู่ที่ ${price} บาทต่อเดือน หรือ ${year} บาทต่อปี`,
-      en: `Today is the last day of your 7-day free trial — what you'd lose: ${sess}a teacher who improved ${proof.improvedCount} of your weak spots (+${proof.bestDelta}%), and every stat you built.\n\nTo keep the ${tier} plan, it costs ${price} baht per month, or ${year} baht per year.`,
-      zh: `今天是 7 天免费试用的最后一天——你将失去：${sess}已改善 ${proof.improvedCount} 个薄弱点的 AI 老师（+${proof.bestDelta}%），以及所有累计数据。\n\n如需继续使用 ${tier} 套餐，费用为每月 ${price} 泰铢，或每年 ${year} 泰铢。`,
+      en: `Today is the last day of your 7-day free trial — what you'd lose: ${sess}a teacher who improved ${proof.improvedCount} of your weak spots (+${proof.bestDelta}%), and every stat you built.\n\nTo keep the ${tier} plan, it costs ${price} per month, or ${year} per year.`,
+      zh: `今天是 7 天免费试用的最后一天——你将失去：${sess}已改善 ${proof.improvedCount} 个薄弱点的 AI 老师（+${proof.bestDelta}%），以及所有累计数据。\n\n如需继续使用 ${tier} 套餐，费用为每月 ${price}，或每年 ${year}。`,
     }[L];
   }
   if (popupKind === "d7proof" && hasProof) {
     return {
       th: `สัปดาห์แรกพิสูจน์แล้ว — หลังครู TIGA แนะนำ คุณแม่นขึ้น +${proof.bestDelta}% ในจุดที่เคยติด${proof.improvedCount > 1 ? ` (รวม ${proof.improvedCount} จุด)` : ""}\n\n${tier} ต่อได้วันนี้ที่ ${price} บาท/เดือน — เท่าราคาแผน ${tier} ตามปกติ`,
-      en: `Proven in week one — after Teacher TIGA's coaching you improved +${proof.bestDelta}% on spots you used to miss${proof.improvedCount > 1 ? ` (${proof.improvedCount} spots)` : ""}.\n\nKeep ${tier} from today: ${price} baht per month, the normal ${tier} price.`,
-      zh: `第一周已验证——经 TIGA 老师指导，你在曾经常错的点上提升了 +${proof.bestDelta}%${proof.improvedCount > 1 ? `（共 ${proof.improvedCount} 个点）` : ""}。\n\n今天起续费 ${tier}：${price} 泰铢/月，即 ${tier} 套餐正常价格。`,
+      en: `Proven in week one — after Teacher TIGA's coaching you improved +${proof.bestDelta}% on spots you used to miss${proof.improvedCount > 1 ? ` (${proof.improvedCount} spots)` : ""}.\n\nKeep ${tier} from today: ${price} per month, the normal ${tier} price.`,
+      zh: `第一周已验证——经 TIGA 老师指导，你在曾经常错的点上提升了 +${proof.bestDelta}%${proof.improvedCount > 1 ? `（共 ${proof.improvedCount} 个点）` : ""}。\n\n今天起续费 ${tier}：${price}/月，即 ${tier} 套餐正常价格。`,
     }[L];
   }
   if (popupKind === "proof" && hasProof) {
     return {
       th: `คำแนะนำของครูได้ผลจริง — จุดที่เคยติดของคุณดีขึ้น +${proof.bestDelta}%\n\nครูคนนี้จำความก้าวหน้าของคุณได้ทุกจุด เก็บไว้หลังทดลองจบ (${tier} ${price} บาท/เดือน)`,
-      en: `The coaching is working — your trouble spot improved +${proof.bestDelta}%.\n\nThis teacher remembers every step of your progress. Keep it after the trial (${tier} at ${price} baht per month).`,
-      zh: `指导见效了——你的薄弱点提升了 +${proof.bestDelta}%。\n\n这位老师记得你进步的每一步。试用结束后保留（${tier} ${price} 泰铢/月）。`,
+      en: `The coaching is working — your trouble spot improved +${proof.bestDelta}%.\n\nThis teacher remembers every step of your progress. Keep it after the trial (${tier} at ${price} per month).`,
+      zh: `指导见效了——你的薄弱点提升了 +${proof.bestDelta}%。\n\n这位老师记得你进步的每一步。试用结束后保留（${tier} ${price}/月）。`,
     }[L];
   }
   return generic || null; // honest fallback: the original generic copy

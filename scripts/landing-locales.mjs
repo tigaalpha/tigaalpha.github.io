@@ -205,70 +205,70 @@ const SEO_NEW = {
   ja: seoBlock({
     blogDir: "ja", h1: "TIGA ALPHA AIピアノ学習アプリ",
     intro: "TIGA ALPHAは、タイで作られたピアノ学習アプリです。AI先生と一緒に、日本語・英語・タイ語・中国語・韓国語・ロシア語でピアノを学べます。創業者はAum先生で、20年のキャリアを持つピアノ講師です。",
-    price: "7日間無料、その後は月額799タイバーツ。", cta: "無料で始める", faqHead: "よくある質問", blog: "ブログ",
+    price: "7日間無料、その後は月額US$24.99。", cta: "無料で始める", faqHead: "よくある質問", blog: "ブログ",
     qa: [
       ["TIGA ALPHAとは", "AIがピアノを教えるアプリです。画面上の鍵盤、マイク、MIDIピアノで練習できます。"],
-      ["料金は", "7日間無料、その後は月額799タイバーツです。"],
+      ["料金は", "7日間無料、その後は月額US$24.99です。"],
       ["対応言語は", "日本語、英語、タイ語、中国語、韓国語、ロシア語です。"],
     ],
   }),
   ko: seoBlock({
     blogDir: "ko", h1: "TIGA ALPHA AI 피아노 학습 앱",
     intro: "TIGA ALPHA는 태국에서 만든 피아노 학습 앱이에요. AI 선생님과 함께 한국어, 영어, 태국어, 중국어, 일본어, 러시아어로 피아노를 배울 수 있어요. 창립자는 Aum 선생님으로, 20년 경력의 피아노 강사예요.",
-    price: "7일 무료, 이후 월 799바트.", cta: "무료로 시작하기", faqHead: "자주 묻는 질문", blog: "블로그",
+    price: "7일 무료, 이후 월 US$24.99.", cta: "무료로 시작하기", faqHead: "자주 묻는 질문", blog: "블로그",
     qa: [
       ["TIGA ALPHA는 무엇인가요", "AI로 피아노를 가르치는 앱이에요. 화면 건반, 마이크, MIDI 피아노로 연습할 수 있어요."],
-      ["요금은 얼마인가요", "7일 무료, 이후 월 799바트예요."],
+      ["요금은 얼마인가요", "7일 무료, 이후 월 US$24.99예요."],
       ["어떤 언어를 지원하나요", "한국어, 영어, 태국어, 중국어, 일본어, 러시아어를 지원해요."],
     ],
   }),
   ru: seoBlock({
     blogDir: "ru", h1: "TIGA ALPHA — приложение для обучения игре на пианино с ИИ",
     intro: "TIGA ALPHA — приложение для обучения игре на пианино, созданное в Таиланде. Учитесь с ИИ-учителем на русском, английском, тайском, китайском, японском и корейском. Основатель — преподаватель Aum, педагог-пианист с 20-летним опытом.",
-    price: "7 дней бесплатно, затем 799 THB в месяц.", cta: "Начать бесплатно", faqHead: "Частые вопросы", blog: "Блог",
+    price: "7 дней бесплатно, затем US$24.99 в месяц.", cta: "Начать бесплатно", faqHead: "Частые вопросы", blog: "Блог",
     qa: [
       ["Что такое TIGA ALPHA", "Приложение, в котором ИИ учит играть на пианино. Заниматься можно на экранной клавиатуре, с микрофоном или на MIDI-пианино."],
-      ["Сколько это стоит", "7 дней бесплатно, затем 799 THB в месяц."],
+      ["Сколько это стоит", "7 дней бесплатно, затем US$24.99 в месяц."],
       ["На каких языках можно учиться", "На русском, английском, тайском, китайском, японском и корейском."],
     ],
   }),
   hi: seoBlock({
     blogDir: "hi", h1: "TIGA ALPHA — AI से पियानो सिखाने वाला ऐप",
     intro: "TIGA ALPHA थाईलैंड में बना पियानो सिखाने वाला ऐप है। AI शिक्षक के साथ आप हिन्दी, अंग्रेज़ी, थाई, चीनी, जापानी, कोरियाई, रूसी, स्पेनिश, फ़्रेंच और अरबी में पियानो सीख सकते हैं। संस्थापक शिक्षक Aum हैं, जिन्हें पियानो सिखाने का 20 साल का अनुभव है।",
-    price: "7 दिन मुफ़्त, फिर 799 THB प्रति माह।", cta: "मुफ़्त शुरू करें", faqHead: "अक्सर पूछे जाने वाले सवाल", blog: "ब्लॉग",
+    price: "7 दिन मुफ़्त, फिर US$24.99 प्रति माह।", cta: "मुफ़्त शुरू करें", faqHead: "अक्सर पूछे जाने वाले सवाल", blog: "ब्लॉग",
     qa: [
       ["TIGA ALPHA क्या है?", "ऐसा ऐप जिसमें AI पियानो सिखाता है। आप ऑन-स्क्रीन कीबोर्ड, माइक्रोफ़ोन या MIDI पियानो से अभ्यास कर सकते हैं।"],
-      ["इसकी कीमत क्या है?", "7 दिन मुफ़्त, फिर 799 THB प्रति माह।"],
+      ["इसकी कीमत क्या है?", "7 दिन मुफ़्त, फिर US$24.99 प्रति माह।"],
       ["किन भाषाओं में सीख सकते हैं?", "हिन्दी, अंग्रेज़ी, थाई, चीनी, जापानी, कोरियाई, रूसी, स्पेनिश, फ़्रेंच और अरबी में।"],
     ],
   }),
   es: seoBlock({
     blogDir: "es", h1: "TIGA ALPHA — app para aprender piano con IA",
     intro: "TIGA ALPHA es una app para aprender piano creada en Tailandia. Aprende con un profesor IA en español, inglés, tailandés, chino, japonés, coreano, ruso, hindi, francés y árabe. Fue fundada por Aum, docente de piano con 20 años de experiencia.",
-    price: "7 días gratis, luego 799 THB al mes.", cta: "Empezar gratis", faqHead: "Preguntas frecuentes", blog: "Blog",
+    price: "7 días gratis, luego US$24.99 al mes.", cta: "Empezar gratis", faqHead: "Preguntas frecuentes", blog: "Blog",
     qa: [
       ["¿Qué es TIGA ALPHA?", "Una app en la que una IA te enseña piano. Puedes practicar con el teclado en pantalla, con el micrófono o con un piano MIDI."],
-      ["¿Cuánto cuesta?", "7 días gratis, luego 799 THB al mes."],
+      ["¿Cuánto cuesta?", "7 días gratis, luego US$24.99 al mes."],
       ["¿En qué idiomas puedo aprender?", "En español, inglés, tailandés, chino, japonés, coreano, ruso, hindi, francés y árabe."],
     ],
   }),
   fr: seoBlock({
     blogDir: "fr", h1: "TIGA ALPHA — l'application pour apprendre le piano avec un prof IA",
     intro: "TIGA ALPHA est une application pour apprendre le piano, conçue en Thaïlande. Apprenez avec un prof IA en thaï, en anglais, en chinois, en japonais, en coréen, en russe, en hindi, en espagnol, en français et en arabe. TIGA ALPHA a été fondée par Aum, professeur de piano avec 20\u00a0ans d'expérience.",
-    price: "7\u00a0jours d'essai gratuit, puis 799\u00a0THB par mois.", cta: "Commencer gratuitement", faqHead: "Questions fréquentes", blog: "Blog",
+    price: "7\u00a0jours d'essai gratuit, puis US$24.99 par mois.", cta: "Commencer gratuitement", faqHead: "Questions fréquentes", blog: "Blog",
     qa: [
       ["Qu'est-ce que TIGA ALPHA\u00a0?", "Une application où une IA enseigne le piano. Entraînez-vous sur le clavier à l'écran, avec le micro de votre appareil ou sur un piano MIDI."],
-      ["Combien ça coûte\u00a0?", "7\u00a0jours d'essai gratuit, puis 799\u00a0THB par mois."],
+      ["Combien ça coûte\u00a0?", "7\u00a0jours d'essai gratuit, puis US$24.99 par mois."],
       ["Dans quelles langues peut-on apprendre\u00a0?", "En thaï, en anglais, en chinois, en japonais, en coréen, en russe, en hindi, en espagnol, en français et en arabe."],
     ],
   }),
   ar: seoBlock({
     blogDir: "ar", h1: "TIGA ALPHA — تطبيق لتعلّم البيانو بالذكاء الاصطناعي",
     intro: "TIGA ALPHA تطبيق لتعلّم البيانو صُنع في تايلاند. يمكنك أن تتعلّم مع معلّم يعمل بالذكاء الاصطناعي بإحدى اللغات الآتية: العربية والإنجليزية والتايلندية والصينية واليابانية والكورية والروسية والهندية والإسبانية والفرنسية. تأسس التطبيق على يد Aum، وتمتد خبرة Aum في تدريس البيانو 20 عامًا.",
-    price: "7 أيام مجانًا، ثم 799 THB شهريًا.", cta: "ابدأ مجانًا", faqHead: "الأسئلة الشائعة", blog: "المدوّنة",
+    price: "7 أيام مجانًا، ثم US$24.99 شهريًا.", cta: "ابدأ مجانًا", faqHead: "الأسئلة الشائعة", blog: "المدوّنة",
     qa: [
       ["ما هو TIGA ALPHA؟", "تطبيق يعلّمك فيه الذكاء الاصطناعي العزف على البيانو. يمكنك التدرّب على المفاتيح التي تظهر على الشاشة، أو باستخدام الميكروفون، أو على بيانو MIDI."],
-      ["كم التكلفة؟", "7 أيام مجانًا، ثم 799 THB شهريًا."],
+      ["كم التكلفة؟", "7 أيام مجانًا، ثم US$24.99 شهريًا."],
       ["ما اللغات المتاحة للتعلّم؟", "العربية والإنجليزية والتايلندية والصينية واليابانية والكورية والروسية والهندية والإسبانية والفرنسية."],
     ],
   }),
@@ -301,36 +301,36 @@ for (const [lang, L] of Object.entries(LOCALES)) {
     article: `<article id="seo-copy">
       <h1>TIGA ALPHA AI钢琴教学App</h1>
       <p>TIGA ALPHA 是泰国团队做的钢琴教学App，可以用中文、英文和泰语跟 AI 老师学钢琴。创始人是 Aum 老师，有 20 年钢琴教学经验。</p>
-      <p>高级版免费 7 天，之后每月 799 泰铢。</p>
+      <p>高级版免费 7 天，之后每月 ¥176。</p>
       <p><a href="https://www.tigaalpha.com/">免费开始学</a></p>
       <h2>常见问题</h2>
       <h3>TIGA ALPHA 是什么</h3>
       <p>用 AI 教钢琴的应用，可以用屏幕键盘、麦克风或 MIDI 钢琴练习。</p>
       <h3>怎么收费</h3>
-      <p>高级版免费 7 天，之后每月 799 泰铢。</p>
+      <p>高级版免费 7 天，之后每月 ¥176。</p>
       <h3>有哪些语言</h3>
       <p>中文、英文和泰语。</p>
       <p><a href="https://www.tigaalpha.com/blog/zh/">博客</a> · <a href="https://www.tigaalpha.com/faq/zh/">更多问题</a> · <a href="https://www.tigastudio.net/">TIGA Studio</a></p>
     </article>`,
-    noscript: `<noscript><p>TIGA ALPHA AI钢琴教学App。高级版免费 7 天，之后每月 799 泰铢。<a href="https://www.tigaalpha.com/blog/zh/">博客</a></p></noscript>`,
-    faq: `<script type="application/ld+json">{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"TIGA ALPHA 是什么","acceptedAnswer":{"@type":"Answer","text":"用 AI 教钢琴的应用，可以用屏幕键盘、麦克风或 MIDI 钢琴练习。"}},{"@type":"Question","name":"怎么收费","acceptedAnswer":{"@type":"Answer","text":"高级版免费 7 天，之后每月 799 泰铢。"}},{"@type":"Question","name":"有哪些语言","acceptedAnswer":{"@type":"Answer","text":"中文、英文和泰语。"}}]}</script>`,
+    noscript: `<noscript><p>TIGA ALPHA AI钢琴教学App。高级版免费 7 天，之后每月 ¥176。<a href="https://www.tigaalpha.com/blog/zh/">博客</a></p></noscript>`,
+    faq: `<script type="application/ld+json">{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"TIGA ALPHA 是什么","acceptedAnswer":{"@type":"Answer","text":"用 AI 教钢琴的应用，可以用屏幕键盘、麦克风或 MIDI 钢琴练习。"}},{"@type":"Question","name":"怎么收费","acceptedAnswer":{"@type":"Answer","text":"高级版免费 7 天，之后每月 ¥176。"}},{"@type":"Question","name":"有哪些语言","acceptedAnswer":{"@type":"Answer","text":"中文、英文和泰语。"}}]}</script>`,
   } : {
     article: `<article id="seo-copy">
       <h1>TIGA ALPHA, the AI piano teaching app</h1>
       <p>TIGA ALPHA is a piano-teaching app made in Thailand. Learn piano with an AI teacher in English, Thai and Mandarin. The founder is Teacher Aum, a piano teacher with 20 years of experience.</p>
-      <p>Premium is free for 7 days, then 799 THB a month.</p>
+      <p>Premium is free for 7 days, then US$24.99 a month.</p>
       <p><a href="https://www.tigaalpha.com/">Start free</a></p>
       <h2>Questions</h2>
       <h3>What is TIGA ALPHA</h3>
       <p>An AI piano teaching app. Practise on the on-screen keys, a microphone, or a MIDI piano.</p>
       <h3>What does it cost</h3>
-      <p>Premium is free for 7 days, then 799 THB a month.</p>
+      <p>Premium is free for 7 days, then US$24.99 a month.</p>
       <h3>Which languages</h3>
       <p>English, Thai and Mandarin.</p>
       <p><a href="https://www.tigaalpha.com/blog/en/">Blog</a> · <a href="https://www.tigaalpha.com/faq/en/">More questions</a> · <a href="https://www.tigastudio.net/">TIGA Studio</a></p>
     </article>`,
-    noscript: `<noscript><p>TIGA ALPHA, the AI piano teaching app. Premium is free for 7 days, then 799 THB a month. <a href="https://www.tigaalpha.com/blog/en/">Blog</a></p></noscript>`,
-    faq: `<script type="application/ld+json">{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"What is TIGA ALPHA","acceptedAnswer":{"@type":"Answer","text":"An AI piano teaching app. Practise on the on-screen keys, a microphone, or a MIDI piano."}},{"@type":"Question","name":"What does it cost","acceptedAnswer":{"@type":"Answer","text":"Premium is free for 7 days, then 799 THB a month."}},{"@type":"Question","name":"Which languages","acceptedAnswer":{"@type":"Answer","text":"English, Thai and Mandarin."}}]}</script>`,
+    noscript: `<noscript><p>TIGA ALPHA, the AI piano teaching app. Premium is free for 7 days, then US$24.99 a month. <a href="https://www.tigaalpha.com/blog/en/">Blog</a></p></noscript>`,
+    faq: `<script type="application/ld+json">{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"What is TIGA ALPHA","acceptedAnswer":{"@type":"Answer","text":"An AI piano teaching app. Practise on the on-screen keys, a microphone, or a MIDI piano."}},{"@type":"Question","name":"What does it cost","acceptedAnswer":{"@type":"Answer","text":"Premium is free for 7 days, then US$24.99 a month."}},{"@type":"Question","name":"Which languages","acceptedAnswer":{"@type":"Answer","text":"English, Thai and Mandarin."}}]}</script>`,
   };
   out = out.replace(/<article id="seo-copy">[\s\S]*?<\/article>/, SEO.article);
   out = out.replace(/<noscript>[\s\S]*?<\/noscript>/, SEO.noscript);
