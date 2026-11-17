@@ -571,18 +571,21 @@ export function schoolReqAmount(r: { amount: any; charge_currency?: any; charge_
    behavioral consistency, but writes to a separate school_payment_requests table
    rather than touching the existing consumer `payments` table at all.
 
-   MONEY (2026-11-17): the CARD is charged in the buyer's language currency, the one rule of the pricing card and of stripe-checkout (currencyOf: baht for Thai, yuan for
-   Chinese, US dollars for every other language). The manual rails keep their own money: PromptPay and bank transfer are baht, Alipay / WeChat are yuan. So a number on
-   this screen always belongs to the method it sits next to: until a rail is chosen the headline is the card price, and a baht / yuan button that differs from it says so
-   on the button; after a rail is chosen the headline is that rail's own amount (chargeCur / chargeAmt, which come back from the row the database made). The amount itself
-   is never sent: the database prices the row from (tier, seats, cycle, currency) and school-stripe-checkout charges the row; `expect` below is only compared. ── */
+   MONEY (2026-11-17): ONLY THE CARD follows the language: it is charged in the buyer's language currency, the one rule of the pricing card and of stripe-checkout (currencyOf:
+   baht for Thai, yuan for Chinese, US dollars for every other language). EVERY manual rail keeps the money it always had (owner brief: "the manual channels stay in THB exactly
+   as today"): PromptPay, bank transfer, Alipay and WeChat are baht, through the original five-argument school_submit_payment_request, and the Alipay / WeChat QR line is the
+   one it always was (it prints the baht figure behind a yen sign; whether those two rails should ask for yuan is the owner's decision, see docs/agents-history.md, 2026-11-17
+   School currency, "Decisions the owner should know about"). So a number on this screen always belongs to a method the buyer can pick: until a rail is chosen the headline is
+   the card price while the card is offered, and the baht price of the rails that are offered when it is not (see headCur below); a baht button next to a dollar / yuan headline
+   says its own baht price on the button; after a rail is chosen the headline is that rail's own amount (chargeCur / chargeAmt, which come back from the row the database made).
+   The amount itself is never sent: the database prices the row from (tier, seats, cycle, currency) and school-stripe-checkout charges the row; `expect` below is only compared. ── */
 export function SchoolCheckoutModal({ lang, schoolCheckout, payCfg, session, onClose, playUi }) {
   const T = (th, en, zh) => pickT(lang, th, en, zh);
   const tier = schoolCheckout.tier === "plus" ? "school_plus" : "school_standard";
   const tierLabel = schoolCheckout.tier === "plus" ? "Plus" : "Standard";
   const cardCur = currencyOf(lang) || "thb";   // what the card is charged in; Thai: baht, as it always was
-  // the money each method is paid in: the card in cardCur, PromptPay / bank transfer in baht, Alipay / WeChat in yuan
-  const curOf = (method) => method === "stripe" ? cardCur : (method === "alipay" || method === "wechat") ? "cny" : "thb";
+  // the money each method is paid in: only the card is in cardCur; every manual rail (PromptPay, bank transfer, Alipay, WeChat) is baht, as before
+  const curOf = (method) => method === "stripe" ? cardCur : "thb";
   const uid = session && session.user && session.user.id;
 
   const [step, setStep] = useState("details"); // details | pay
@@ -609,11 +612,7 @@ export function SchoolCheckoutModal({ lang, schoolCheckout, payCfg, session, onC
 
   const unitIn = (c) => cycle === "year" ? b2bYearPriceByCur(c, schoolCheckout.tier) : b2bPriceByCur(c, schoolCheckout.tier);
   const totalIn = (c) => Math.round(unitIn(c) * (Number(seats) || 0) * 100) / 100;   // 2 decimals: dollars are cents
-  const totalPreview = totalIn(cardCur);   // the card price: the number on the pricing card times the seats
-  const sumCur = activeChan ? chargeCur : cardCur;                        // the headline: the card price until a rail is chosen, then that rail's own amount
-  const sumAmt = activeChan ? chargeAmt : totalPreview;
-  // a baht button next to a dollar headline says its own price; with baht on both sides (Thai) nothing is added
-  const thbNote = cardCur !== "thb" ? " · " + fmtPrice("thb", totalIn("thb")) : "";
+  const totalPreview = totalIn(cardCur);   // the card price: the number on the pricing card times the seats; it is what the card is asked for (`expect` below)
 
   const ppId = payCfg && payCfg.promptpay;
   const aliQr = (payCfg && payCfg.alipay_qr) || ALIPAY_QR;
@@ -710,6 +709,18 @@ export function SchoolCheckoutModal({ lang, schoolCheckout, payCfg, session, onC
   const showStripeBtn = payMode === "live";   // card works in every language
   const showPromptPay = (lang === "th" || lang === "en") && !!ppId;
   const showBank = (lang === "th" || lang === "en") && !!acct;
+  // THE HEADLINE BELONGS TO A METHOD THE BUYER CAN PICK. It is the card price (the number on the pricing card times the seats) while the card is, or is still expected to be,
+  // offered: "" is the Stripe mode probe not answered yet, the normal case a moment after the modal opens, and flipping it to baht and back would flicker. Once the probe has
+  // answered with anything but "live" (a test key, no key, no answer) the card button is not there, and a dollar / yuan headline over baht buttons would show a number that no
+  // button charges: the headline is then the baht price of the rails that ARE offered (PromptPay, bank transfer, Alipay, WeChat: every manual rail is baht). With no method
+  // offered at all (a card-only language whose card is off, or nothing configured) there is nothing to pick and the card price stays: it is what the pricing card said.
+  // A baht button next to a dollar / yuan headline (the card is offered) says its own baht price on the button; with baht on both sides (Thai, or the card off) nothing is added.
+  const cardExpected = payMode === "" || showStripeBtn;
+  const railsOffered = showPromptPay || showBank || lang === "zh";
+  const headCur = (cardExpected || !railsOffered) ? cardCur : "thb";
+  const sumCur = activeChan ? chargeCur : headCur;                        // after a rail is chosen the headline is that rail's own amount (from the row the database made)
+  const sumAmt = activeChan ? chargeAmt : totalIn(headCur);
+  const thbNote = headCur !== "thb" ? " · " + fmtPrice("thb", totalIn("thb")) : "";
 
   return (
     <div className="setov" onClick={onClose}>
@@ -737,7 +748,7 @@ export function SchoolCheckoutModal({ lang, schoolCheckout, payCfg, session, onC
               </div>
               <div className="paysum">
                 <span>{tierLabel} × {Number(seats) || 0} {T("ที่นั่ง", "seats", "席位")}</span>
-                <b className="prtier-price">{fmtPrice(cardCur, totalPreview)}<small>/{cycle === "year" ? T("ปี", "yr", "年") : T("เดือน", "mo", "月")}</small></b>
+                <b className="prtier-price">{fmtPrice(headCur, totalIn(headCur))}<small>/{cycle === "year" ? T("ปี", "yr", "年") : T("เดือน", "mo", "月")}</small></b>
               </div>
               {err && <div className="aicreate-err">{err}</div>}
               <button className="songbtn go" style={{ width: "100%", marginTop: 10 }} onClick={continueToPay}>{T("ถัดไป: เลือกวิธีชำระเงิน", "Next: choose payment method", "下一步：选择付款方式")}</button>
@@ -762,8 +773,8 @@ export function SchoolCheckoutModal({ lang, schoolCheckout, payCfg, session, onC
                   <button className="songbtn go" style={{ width: "100%", marginBottom: 6 }} disabled={busy} onClick={() => payWithQr("banktransfer")}>🏦 {T("โอนเข้าบัญชีธนาคาร", "Pay by bank transfer", "银行转账付款")}{thbNote}</button>
                 )}
                 {lang === "zh" && (<>
-                  <button className="songbtn go" style={{ width: "100%", marginBottom: 6 }} disabled={busy} onClick={() => { setZhTab("alipay"); payWithQr("alipay"); }}>🔵 {T("จ่ายผ่าน Alipay", "Pay via Alipay", "支付宝付款")}</button>
-                  <button className="songbtn go" style={{ width: "100%", marginBottom: 6 }} disabled={busy} onClick={() => { setZhTab("wechat"); payWithQr("wechat"); }}>🟢 {T("จ่ายผ่าน WeChat", "Pay via WeChat", "微信付款")}</button>
+                  <button className="songbtn go" style={{ width: "100%", marginBottom: 6 }} disabled={busy} onClick={() => { setZhTab("alipay"); payWithQr("alipay"); }}>🔵 {T("จ่ายผ่าน Alipay", "Pay via Alipay", "支付宝付款")}{thbNote}</button>
+                  <button className="songbtn go" style={{ width: "100%", marginBottom: 6 }} disabled={busy} onClick={() => { setZhTab("wechat"); payWithQr("wechat"); }}>🟢 {T("จ่ายผ่าน WeChat", "Pay via WeChat", "微信付款")}{thbNote}</button>
                 </>)}
                 {err && <div className="aicreate-err">{err}</div>}
                 <button className="songbtn ghost" style={{ width: "100%", marginTop: 4 }} onClick={() => setStep("details")}>‹ {T("กลับ", "Back", "返回")}</button>
@@ -809,10 +820,12 @@ export function SchoolCheckoutModal({ lang, schoolCheckout, payCfg, session, onC
               {(activeChan === "alipay" || activeChan === "wechat") && (
                 <>
                   <PayQrImg src={activeChan === "wechat" ? wxQr : aliQr} alt={activeChan === "wechat" ? "WeChat Pay QR" : "Alipay QR"} lang={lang} />
+                  {/* UNCHANGED ON PURPOSE (owner brief 2026-11-17: the manual rails stay as they are): `amount` is the BAHT list price of the row, so this line has always printed the
+                      baht figure behind a yen sign (¥13,800 for 15 seats, whose card price is ¥3,150). Moving Alipay / WeChat to yuan is the owner's decision, not this change's. */}
                   <p className="pr-sub" style={{ textAlign: "center" }}>
                     {activeChan === "wechat"
-                      ? `打开微信 → 扫一扫 → 支付 ¥${chargeAmt.toLocaleString()}`
-                      : `打开支付宝 → 扫一扫 → 支付 ¥${chargeAmt.toLocaleString()}`}
+                      ? `打开微信 → 扫一扫 → 支付 ¥${amount.toLocaleString()}`
+                      : `打开支付宝 → 扫一扫 → 支付 ¥${amount.toLocaleString()}`}
                   </p>
                   <p className="pr-sub" style={{ textAlign: "center", marginTop: 0 }}>付款后上传截图以确认订单</p>
                   <button className="songbtn go" style={{ width: "100%" }} disabled={st === "uploading"} onClick={() => fileRef.current && fileRef.current.click()}>

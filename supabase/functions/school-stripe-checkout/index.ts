@@ -19,6 +19,9 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
    fields is a baht row and is charged exactly as before. `amount` stays the baht list price (the books). The client may send `expect` (the figure
    it displayed) and `cur`; they are only compared, never used as the amount: a mismatch refuses the sale, the same rule stripe-checkout follows.
    The session metadata must never carry `plan` or `kind`: stripe-webhook fulfils any paid session that has a user_id and a plan.
+   A dollar / yuan session is a CARD session: payment_method_types is pinned to card for it (see the comment at the form), so a method the Stripe
+   dashboard has switched on that settles later (bank debit, vouchers) can never be offered for it: verify-school-payment only accepts a session that is
+   paid when the buyer comes back, and no webhook handles school sessions. A baht session is left exactly as it has always been.
 
    Secrets (owner sets in Supabase dashboard, never in code):
      STRIPE_SECRET_KEY — sk_live_... / sk_test_...
@@ -122,7 +125,13 @@ serve(async (req) => {
     form.set("metadata[seats]", String(row.seats));
     form.set("metadata[tier]", String(row.tier));
     form.set("metadata[amount_thb]", String(amount));
-    if (cur !== "thb") { form.set("metadata[currency]", cur); form.set("metadata[charge_amount]", String(charge)); }
+    if (cur !== "thb") {
+      form.set("metadata[currency]", cur); form.set("metadata[charge_amount]", String(charge));
+      // card only for a dollar / yuan session (the button says "Pay by card"). Without this the session offers whatever the Stripe dashboard has enabled for the
+      // currency, and a method that settles days later leaves payment_status "unpaid" at the redirect, which verify-school-payment answers with "unpaid" and no
+      // webhook ever completes. A baht session is NOT touched (byte for byte what it has always sent).
+      form.set("payment_method_types[0]", "card");
+    }
 
     const r = await fetch("https://api.stripe.com/v1/checkout/sessions", {
       method: "POST",

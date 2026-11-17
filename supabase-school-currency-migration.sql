@@ -5,32 +5,48 @@
 -- Why (owner, 2026-11-17: the School plan card says US$28.99 per seat for an English buyer and the checkout charges THB 920): the pricing card
 -- and the modal quote each language its own money (payment.tsx currencyOf: baht for Thai, yuan for Chinese, US dollars for every other
 -- language) but school_submit_payment_request() prices every request in baht and school-stripe-checkout opens every card session in baht.
--- One price rule from now on: the CARD is charged in the buyer's language currency; PromptPay and bank transfer stay baht; Alipay and WeChat
--- (Chinese only) are yuan.
+-- One price rule from now on: the CARD is charged in the buyer's language currency, and ONLY the card. Every manual rail (PromptPay, bank
+-- transfer, Alipay, WeChat) stays baht exactly as today (owner brief 2026-11-17: "the manual channels stay in THB exactly as today"): they keep
+-- using the five-argument school_submit_payment_request, and the database REFUSES to store a dollar / yuan charge on any row that is not a card row.
 --
 -- What it does, in ONE transaction, additive only:
 --   1. two columns on school_payment_requests: charge_currency (default 'thb') and charge_amount (null for baht rows). `amount` KEEPS ITS MEANING:
 --      the baht list price of the order ("THB, server-computed"): the books, the PromptPay QR, the bank transfer, and anything outside this repo
 --      that sums it. A dollar row is amount = THB list price + charge_currency 'usd' + charge_amount = what the card is asked for.
---      A table CHECK makes anything else impossible (a baht row has no charge_amount; a dollar / yuan row has a positive one, and only the card
---      takes dollars, only the card, Alipay and WeChat take yuan).
+--      A table CHECK makes anything else impossible (a baht row has no charge_amount; a dollar / yuan row has a positive one and is a CARD row,
+--      method = 'stripe': a PromptPay, bank transfer, Alipay or WeChat row can only be baht).
 --   2. _school_b2b_unit_price_cur(tier, cycle, currency): the server price table. baht -> the existing _school_b2b_unit_price (its one source),
 --      usd 28.99 / 334.99, cny 210 / 2,360 per seat (month / year). The same numbers as b2bPriceByCur / b2bYearPriceByCur in payment.tsx, for
 --      both tiers (b2bBaseTier pegs both to Premium); `npm run verify:school` fails when the two disagree.
 --      usd month ceil(24.99 * 1.15) - 0.01 = 28.99          usd year ceil(round(24.99 * 12 * 0.97, 2) * 1.15) - 0.01 = 334.99
 --      cny month ceil(176 * 1.15 / 10) * 10 = 210            cny year ceil(round(176 * 12 * 0.97) * 1.15 / 10) * 10    = 2360
---   3. school_submit_payment_request_v2(..., p_currency): the request for a dollar / yuan charge. The client never sends an amount: the amount
---      and the charge are computed here from (tier, seats, cycle, currency). A NEW NAME on purpose: a second school_submit_payment_request with a
---      defaulted sixth argument makes every five-argument call "not unique" (tried on Postgres 16), which would break every cached client.
+--   3. school_submit_payment_request_v2(..., p_currency): the request for a dollar / yuan CARD charge (p_method must be 'stripe'). The client never
+--      sends an amount: the amount and the charge are computed here from (tier, seats, cycle, currency). A NEW NAME on purpose: a second
+--      school_submit_payment_request with a defaulted sixth argument makes every five-argument call "not unique" (tried on Postgres 16), which
+--      would break every cached client.
 --   4. a self-check that raises (so nothing is committed) if a price is not the one payment.tsx shows or the five-argument function is missing.
 --
 -- NOT touched: school_submit_payment_request (5 arguments, keeps returning baht), school_attach_slip, admin_list_school_payment_requests (it
 -- returns the table's row type, so it carries the two new columns by itself), admin_review_school_payment, the RLS policies, every old row
 -- (they read as baht by the column default).
 --
--- DEPLOY ORDER (a misordered step degrades to today's baht checkout, it never undercharges): 1. this file, 2. verify-school-payment, then
--- school-stripe-checkout (both edge functions read charge_* and treat a row without it as baht), 3. the client commit. Do not push the client
--- before 1 and 2: Vercel builds main on every push, and an English buyer who reaches school_submit_payment_request_v2 before it exists gets an error.
+-- DEPLOY ORDER IS MANDATORY. A wrong order does NOT fall back to today's baht checkout, and it can charge a buyer something other than what he was shown.
+--   1. this file   2. verify-school-payment   3. school-stripe-checkout (verify_jwt true)   4. the client: pushing to main builds it on Vercel at once.
+-- Steps 1 to 3 do no harm in any order among themselves: both edge functions read the row with select=* and a row without charge_* is a baht row, so they work before this
+-- file is applied, and a cached old client keeps calling the five-argument function, which keeps returning baht. The CLIENT must come last. The two wrong orders, both
+-- reproduced against the real code (npm run verify:school: sections B7, C5, E):
+--   * the client BEFORE this file: a buyer whose card is dollars or yuan (every language but Thai) taps the card button, school_submit_payment_request_v2 does not exist, and the
+--     red line shows PostgREST's raw "Could not find the function public.school_submit_payment_request_v2(...) in the schema cache". Nothing is sent to Stripe, no row is made.
+--     Thai buyers and every manual rail (PromptPay, bank transfer, Alipay, WeChat) use the five-argument function and are not affected.
+--   * the client and this file BEFORE school-stripe-checkout: the buyer is shown US$434.85 (or ¥3,150) and the dollar / yuan row exists, but the OLD function (live v5) ignores
+--     `expect` and `cur` and charges the row's `amount`, the BAHT list price: Stripe's page asks THB 13,800, a currency and a number the buyer was never shown. If he pays, the OLD
+--     verify-school-payment (live v4) marks the row paid (it checks payment_status and the metadata pairing only), the NEW one answers 409 amount_mismatch and leaves the row
+--     pending while the money has been taken ("Couldn't confirm payment — contact us if you were charged"): staff have to reconcile that payment in the Stripe dashboard.
+--     (From a page on www.tigaalpha.com the live v5 function answers CORS with github.io, read from its source, so the browser blocks that call instead: "Stripe unavailable",
+--     nothing charged. The charge above is what a page on github.io gets.)
+-- The LIVE edge functions (school-stripe-checkout v5, verify-school-payment v4, both deployed 2026-09-11) are older than the repo copies, so deploying the repo copies also ships the
+-- commit 7c9d46793 changes (the www.tigaalpha.com and tigaalpha.com origins in CORS, and the return from Stripe to the domain the buyer paid from instead of always github.io):
+-- diff the live source against the base commit 9762c878e before deploying.
 --
 -- Safe to re-run: add column if not exists, drop constraint if exists + add, create or replace, revoke / grant.
 --
@@ -50,8 +66,7 @@ alter table public.school_payment_requests
 alter table public.school_payment_requests drop constraint if exists school_payment_requests_charge_ck;
 alter table public.school_payment_requests add constraint school_payment_requests_charge_ck check (
   (charge_currency = 'thb' and charge_amount is null)
-  or (charge_currency in ('usd','cny') and charge_amount is not null and charge_amount > 0
-      and (method = 'stripe' or (method in ('alipay','wechat') and charge_currency = 'cny')))
+  or (charge_currency in ('usd','cny') and charge_amount is not null and charge_amount > 0 and method = 'stripe')
 );
 
 comment on column public.school_payment_requests.amount is 'THB list price of the whole order (books, PromptPay, bank transfer). It is NOT what a dollar / yuan request charges: see charge_currency / charge_amount.';
@@ -77,9 +92,9 @@ begin
   if coalesce(p_tier, '') not in ('school_standard','school_plus') then raise exception 'invalid tier'; end if;
   if coalesce(p_cycle, '') not in ('month','year') then raise exception 'invalid cycle'; end if;
   if coalesce(p_currency, '') not in ('usd','cny') then raise exception 'invalid currency'; end if;
-  -- the card takes dollars or yuan; Alipay and WeChat are yuan rails; PromptPay and bank transfer are baht and use the five-argument function.
-  -- coalesce(.., false) so that a null method is refused here too, not left to the not-null constraint of the insert
-  if not coalesce((p_method = 'stripe' and p_currency in ('usd','cny')) or (p_method in ('alipay','wechat') and p_currency = 'cny'), false) then
+  -- only the CARD takes dollars or yuan. PromptPay, bank transfer, Alipay and WeChat are baht rails and use the five-argument function, as they always did.
+  -- "is distinct from" so that a null method is refused here too, not left to the not-null constraint of the insert
+  if p_method is distinct from 'stripe' then
     raise exception 'invalid method for this currency';
   end if;
   if coalesce(p_seats, 0) < 15 then raise exception 'minimum 15 seats'; end if;

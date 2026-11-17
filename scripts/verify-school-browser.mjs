@@ -11,7 +11,9 @@
    Nothing leaves the machine: dist/ is served from 127.0.0.1, every supabase.co call is answered by this script (a signed-in learner, the
    payment settings, the two RPCs, the two edge functions), the Stripe page is a stub, every other host is refused. The numbers the stubbed
    database returns are the migration's price table, so what is checked is what the PAGE does with them: it must show the price of the method
-   next to it, send the right RPC (the original five-argument one for baht, _v2 for dollars / yuan) and never an amount.
+   next to it, send the right RPC (the original five-argument one for baht, _v2 only for the dollar / yuan CARD) and never an amount.
+   Only the CARD follows the language; every manual rail (PromptPay, bank transfer, Alipay, WeChat) is baht, exactly as before. With the card
+   switched off (the Stripe probe says "test") the headline is the baht price of the rails that are offered, never the card price.
 
    Screenshots and summary.json (the text of every step, for comparing two builds) land in OUT (default node_modules/.cache/school).
    Needs Playwright + Chromium (preinstalled in the cloud containers); exits 1 with a clear message when they are not there, because
@@ -61,7 +63,7 @@ const cents = (n) => Math.round(n * 100) / 100;
 
 const browser = await pw.chromium.launch({ ...(EXE ? { executablePath: EXE } : {}), args: ["--autoplay-policy=no-user-gesture-required"] });
 
-async function open(lang, tag) {
+async function open(lang, tag, { stripe = "live" } = {}) {
   const ctx = await browser.newContext({ viewport: { width: 412, height: 915 }, deviceScaleFactor: 1.5, isMobile: true, hasTouch: true, serviceWorkers: "block" });
   const st = { rpc: [], edge: [], errors: [], stripePage: false };
   const profile = { id: UID, name: "Tester", onboarded: true, lang, exp: 400, coins: 50, gems: 0, is_admin: false, admin_tier: 0, banned: false, created_at: "2025-01-01T00:00:00Z", plan: "free", plan_until: null };
@@ -81,7 +83,7 @@ async function open(lang, tag) {
       return json(r, { id: "req-" + st.rpc.length, amount: UNIT.thb[body.p_cycle] * body.p_seats });
     }
     if (/\/functions\/v1\/school-stripe-checkout/.test(url)) { if (req.method() === "POST") { st.edge.push(body); return json(r, { url: "https://checkout.stripe.test/c/pay_1" }); } return r.fulfill({ status: 204 }); }
-    if (/\/functions\/v1\/stripe-checkout/.test(url)) return json(r, { mode: "live" });
+    if (/\/functions\/v1\/stripe-checkout/.test(url)) return json(r, { mode: stripe });   // the mode probe: live = the card button is there, test = it is hidden
     if (/\/functions\//.test(url)) return json(r, {}, 500);
     if (/\/rest\/v1\/profiles/.test(url) && req.method() === "GET") return json(r, profile);
     if (/\/rest\/v1\/app_settings/.test(url) && /key=eq\.payment/.test(url)) return json(r, { value: PAYCFG });
@@ -159,6 +161,9 @@ for (const lang of LANGS) {
     await next(s); await s.page.waitForTimeout(500);
     const head = await s.txt(".setcard .paysum"), btns = await buttons(s); await s.shot("3-methods");
     ok(head.includes(E.headline), `${lang}: the method screen's headline is ${E.headline}`, head);
+    // a baht button beside a dollar / yuan headline says its own baht price; with baht on both sides (Thai) nothing is added
+    const rails = btns.filter((b) => /PromptPay|bank transfer|โอนเข้าบัญชี|支付宝|微信/.test(b));
+    ok(rails.length === (lang === "th" ? 2 : lang === "en" ? 2 : lang === "zh" ? 2 : 0) && rails.every((b) => (lang === "th" ? !/฿/.test(b) : /· ฿13,800$/.test(b))), `${lang}: each baht rail ${lang === "th" ? "carries no price (the headline is already baht)" : "says its own price, · ฿13,800"}`, JSON.stringify(rails));
     summary[lang].methods = await s.txt(".setcard"); summary[lang].buttons = btns;
     ok(clean(s.st.errors).length === 0, `${lang}: no page error while opening the card and the modal`, clean(s.st.errors).join(" | "));
     await s.ctx.close();
@@ -187,15 +192,33 @@ for (const lang of LANGS) {
       await s.shot(`4-${method}`);
       const head = await s.txt(".setcard .paysum"), body = await s.txt(".setcard");
       const rpc = s.st.rpc[0];
-      const wantHead = { promptpay: "฿13,800", bank: "฿13,800", alipay: "¥3,150", wechat: "¥3,150" }[method];
-      ok(head.includes(wantHead), `${lang}/${method}: after choosing it the headline is its own amount, ${wantHead}`, head);
-      ok(!!rpc && rpc.name === (method === "alipay" || method === "wechat" ? "school_submit_payment_request_v2" : "school_submit_payment_request") && !("p_currency" in rpc.args && (method === "promptpay" || method === "bank")), `${lang}/${method}: the right RPC (${rpc && rpc.name})`, JSON.stringify(rpc));
-      if (method === "alipay" || method === "wechat") ok(/支付 ¥3,150/.test(body) && rpc && rpc.args.p_currency === "cny", `${lang}/${method}: the instruction says pay ¥3,150 (the old screen said ¥13,800), p_currency cny`, body.slice(-80));
+      // every manual rail is baht (owner brief 2026-11-17): the headline, the RPC and the instruction are what they were before this change
+      ok(head.includes("฿13,800"), `${lang}/${method}: after choosing it the headline is its own amount, ฿13,800`, head);
+      ok(!!rpc && rpc.name === "school_submit_payment_request" && !("p_currency" in rpc.args) && Object.keys(rpc.args).sort().join() === "p_cycle,p_institution_name,p_method,p_seats,p_tier", `${lang}/${method}: the ORIGINAL five-argument function, no currency (${rpc && rpc.name})`, JSON.stringify(rpc));
+      if (method === "alipay" || method === "wechat") ok(/支付 ¥13,800/.test(body) && !/支付 ¥3,150/.test(body), `${lang}/${method}: the instruction is the line it always was, 支付 ¥13,800 (the baht figure behind a yen sign: the owner's call to change, NOT changed here)`, body.slice(-80));
       if (method === "bank") ok(/฿13,800/.test(body), `${lang}/bank: the amount to transfer is ฿13,800`, body.slice(0, 160));
       summary[lang][method] = body;
     }
     if (method !== "card") summary[lang][method + "Button"] = btnText;
     ok(clean(s.st.errors).length === 0, `${lang}/${method}: no page error`, clean(s.st.errors).join(" | "));
+    await s.ctx.close();
+  }
+  // 3. the card switched off (the Stripe probe says "test"): the headline is the price of a method that is still there, never the card price over baht-only buttons
+  {
+    const s = await open(lang, "cardoff", { stripe: "test" });
+    await toSchoolCard(s); await toMethods(s);
+    const det = await s.txt(".setcard .paysum"); await s.shot("5-cardoff-details");
+    await next(s); await s.page.waitForTimeout(500);
+    const head = await s.txt(".setcard .paysum"), btns = await buttons(s); await s.shot("6-cardoff-methods");
+    const rails = lang === "th" || lang === "en" || lang === "zh";
+    const wantHead = rails ? "฿13,800" : E.headline;   // a card-only language has nothing at all to pick: the card price stays
+    ok(det.includes(wantHead), `${lang}, card off: the details headline is ${wantHead}`, det);
+    ok(head.includes(wantHead), `${lang}, card off: the method screen's headline is ${wantHead}`, head);
+    ok(!btns.some((b) => /💳/.test(b)), `${lang}, card off: there is no card button`, JSON.stringify(btns));
+    ok(btns.filter((b) => /PromptPay|bank transfer|โอนเข้าบัญชี|支付宝|微信/.test(b)).every((b) => !/฿/.test(b)), `${lang}, card off: the baht rails add no baht note (the headline already is baht)`, JSON.stringify(btns));
+    ok(rails ? btns.length >= 4 : btns.length === 2, `${lang}, card off: ${rails ? "the baht rails are there" : "nothing at all is offered (close and back only)"}`, JSON.stringify(btns));
+    summary[lang].cardOff = { details: det, headline: head, buttons: btns };
+    ok(clean(s.st.errors).length === 0, `${lang}, card off: no page error`, clean(s.st.errors).join(" | "));
     await s.ctx.close();
   }
   if (lang === "ar") {

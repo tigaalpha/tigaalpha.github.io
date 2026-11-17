@@ -10,9 +10,17 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
    names this request id. That pairing is what stops someone replaying any
    other paid session id against their own unpaid request.
 
-   CURRENCY (2026-11-17): paid is not enough. The session must also be exactly what the request asked for: Stripe's own `currency` and
-   `amount_total` (smallest unit: satang, cents, fen) are compared with the row's charge_currency / charge_amount (a row without them is a baht
+   CURRENCY (2026-11-17): paid is not enough. The session must also be exactly what the request asked for: Stripe's own currency and
+   amount_total (smallest unit: satang, cents, fen) are compared with the row's charge_currency / charge_amount (a row without them is a baht
    row: amount x 100 in thb). Any difference, an unknown currency included, leaves the row unpaid, logs the pair and answers 409 "mismatch".
+   What is compared is the price in the currency the session was OPENED in. Adaptive Pricing is a setting of the Stripe account (this code never
+   turns it on): it sells in the buyer's own currency. On an account whose API version is older than 2025-03-31 the session then reports the buyer's
+   local currency and amount at the top level and the price we asked for in `currency_conversion` (`source_currency`, `amount_total`), as Stripe's API
+   reference describes it. So `currency_conversion` is read when the session has one and the top level otherwise: the same price is compared, and a
+   buyer who legitimately paid in his own currency is not stranded. NOT checked against a live Stripe account (no Stripe call was allowed when this was
+   written): a session that is in another currency at the top level and carries no `currency_conversion` is refused (409, the row stays pending, one log
+   line with both pairs) and staff approve it by hand. Anything else that does not add up (a missing field, another currency, one satang more or
+   less) is refused the same way.
 
    Secrets (owner sets in Supabase dashboard, never in code):
      STRIPE_SECRET_KEY — sk_live_... / sk_test_...
@@ -69,13 +77,14 @@ serve(async (req) => {
       return new Response(JSON.stringify({ status: "unpaid" }), { headers });
     }
 
-    // the session must be what this request asked for: same currency, same amount in the smallest unit
+    // the session must be what this request asked for: same currency, same amount in the smallest unit, read in the currency the session was OPENED in
     const cur = String(row.charge_currency || "thb").toLowerCase();
     const want = MINOR[cur] ? Math.round((cur === "thb" ? Number(row.amount) : Number(row.charge_amount)) * MINOR[cur]) : NaN;
-    const gotCur = String(s.currency || "").toLowerCase();
-    const gotAmt = Number(s.amount_total);
+    const conv = s.currency_conversion && typeof s.currency_conversion === "object" ? s.currency_conversion : null;   // Adaptive Pricing on an API version before 2025-03-31
+    const gotCur = String((conv ? conv.source_currency : s.currency) || "").toLowerCase();
+    const gotAmt = Number(conv ? conv.amount_total : s.amount_total);
     if (!Number.isFinite(want) || want <= 0 || gotCur !== cur || gotAmt !== want) {
-      console.error("school payment mismatch " + JSON.stringify({ requestId, sessionId, wantCurrency: cur, want, gotCurrency: gotCur, got: gotAmt }));
+      console.error("school payment mismatch " + JSON.stringify({ requestId, sessionId, wantCurrency: cur, want, gotCurrency: gotCur, got: gotAmt, sessionCurrency: s.currency, sessionAmount: s.amount_total, converted: !!conv }));
       return new Response(JSON.stringify({ status: "mismatch", error: "amount_mismatch" }), { status: 409, headers });
     }
 
