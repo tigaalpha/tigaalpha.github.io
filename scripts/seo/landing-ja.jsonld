@@ -69,28 +69,28 @@
           "@type": "Offer",
           "name": "7日間無料トライアル",
           "price": "0",
-          "priceCurrency": "THB",
+          "priceCurrency": "USD",
           "eligibleDuration": {
             "@type": "QuantitativeValue",
             "value": 7,
             "unitCode": "DAY"
           },
-          "description": "7日間無料、その後は月額799タイバーツ",
+          "description": "7日間無料、その後は月額US$24.99",
           "url": "https://www.tigaalpha.com/",
           "availability": "https://schema.org/InStock"
         },
         {
           "@type": "Offer",
           "name": "月額プラン",
-          "price": "799",
-          "priceCurrency": "THB",
-          "description": "7日間無料、その後は月額799タイバーツ",
+          "price": "24.99",
+          "priceCurrency": "USD",
+          "description": "7日間無料、その後は月額US$24.99",
           "url": "https://www.tigaalpha.com/",
           "availability": "https://schema.org/InStock",
           "priceSpecification": {
             "@type": "UnitPriceSpecification",
-            "price": "799",
-            "priceCurrency": "THB",
+            "price": "24.99",
+            "priceCurrency": "USD",
             "billingDuration": "P1M",
             "unitCode": "MON",
             "referenceQuantity": {

@@ -73,28 +73,28 @@
           "@type": "Offer",
           "name": "7 दिन का मुफ़्त ट्रायल",
           "price": "0",
-          "priceCurrency": "THB",
+          "priceCurrency": "USD",
           "eligibleDuration": {
             "@type": "QuantitativeValue",
             "value": 7,
             "unitCode": "DAY"
           },
-          "description": "7 दिन मुफ़्त, फिर 799 THB प्रति माह",
+          "description": "7 दिन मुफ़्त, फिर US$24.99 प्रति माह",
           "url": "https://www.tigaalpha.com/",
           "availability": "https://schema.org/InStock"
         },
         {
           "@type": "Offer",
           "name": "मासिक सब्सक्रिप्शन",
-          "price": "799",
-          "priceCurrency": "THB",
-          "description": "7 दिन मुफ़्त, फिर 799 THB प्रति माह",
+          "price": "24.99",
+          "priceCurrency": "USD",
+          "description": "7 दिन मुफ़्त, फिर US$24.99 प्रति माह",
           "url": "https://www.tigaalpha.com/",
           "availability": "https://schema.org/InStock",
           "priceSpecification": {
             "@type": "UnitPriceSpecification",
-            "price": "799",
-            "priceCurrency": "THB",
+            "price": "24.99",
+            "priceCurrency": "USD",
             "billingDuration": "P1M",
             "unitCode": "MON",
             "referenceQuantity": {

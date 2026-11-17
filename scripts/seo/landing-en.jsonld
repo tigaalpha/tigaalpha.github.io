@@ -66,28 +66,28 @@
           "@type": "Offer",
           "name": "Premium (7-day free trial)",
           "price": "0",
-          "priceCurrency": "THB",
+          "priceCurrency": "USD",
           "eligibleDuration": {
             "@type": "QuantitativeValue",
             "value": 7,
             "unitCode": "DAY"
           },
-          "description": "Premium free for 7 days, then 799 THB per month",
+          "description": "Premium free for 7 days, then US$24.99 per month",
           "url": "https://www.tigaalpha.com/",
           "availability": "https://schema.org/InStock"
         },
         {
           "@type": "Offer",
           "name": "Premium",
-          "price": "799",
-          "priceCurrency": "THB",
-          "description": "Premium free for 7 days, then 799 THB per month",
+          "price": "24.99",
+          "priceCurrency": "USD",
+          "description": "Premium free for 7 days, then US$24.99 per month",
           "url": "https://www.tigaalpha.com/",
           "availability": "https://schema.org/InStock",
           "priceSpecification": {
             "@type": "UnitPriceSpecification",
-            "price": "799",
-            "priceCurrency": "THB",
+            "price": "24.99",
+            "priceCurrency": "USD",
             "billingDuration": "P1M",
             "unitCode": "MON",
             "referenceQuantity": {

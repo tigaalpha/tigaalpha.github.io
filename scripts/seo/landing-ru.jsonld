@@ -69,28 +69,28 @@
           "@type": "Offer",
           "name": "7 дней бесплатного пробного периода",
           "price": "0",
-          "priceCurrency": "THB",
+          "priceCurrency": "USD",
           "eligibleDuration": {
             "@type": "QuantitativeValue",
             "value": 7,
             "unitCode": "DAY"
           },
-          "description": "7 дней бесплатно, затем 799 THB в месяц",
+          "description": "7 дней бесплатно, затем US$24.99 в месяц",
           "url": "https://www.tigaalpha.com/",
           "availability": "https://schema.org/InStock"
         },
         {
           "@type": "Offer",
           "name": "Ежемесячная подписка",
-          "price": "799",
-          "priceCurrency": "THB",
-          "description": "7 дней бесплатно, затем 799 THB в месяц",
+          "price": "24.99",
+          "priceCurrency": "USD",
+          "description": "7 дней бесплатно, затем US$24.99 в месяц",
           "url": "https://www.tigaalpha.com/",
           "availability": "https://schema.org/InStock",
           "priceSpecification": {
             "@type": "UnitPriceSpecification",
-            "price": "799",
-            "priceCurrency": "THB",
+            "price": "24.99",
+            "priceCurrency": "USD",
             "billingDuration": "P1M",
             "unitCode": "MON",
             "referenceQuantity": {

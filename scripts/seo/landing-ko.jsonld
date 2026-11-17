@@ -69,28 +69,28 @@
           "@type": "Offer",
           "name": "7일 무료 체험",
           "price": "0",
-          "priceCurrency": "THB",
+          "priceCurrency": "USD",
           "eligibleDuration": {
             "@type": "QuantitativeValue",
             "value": 7,
             "unitCode": "DAY"
           },
-          "description": "7일 무료, 이후 월 799바트",
+          "description": "7일 무료, 이후 월 US$24.99",
           "url": "https://www.tigaalpha.com/",
           "availability": "https://schema.org/InStock"
         },
         {
           "@type": "Offer",
           "name": "월 구독",
-          "price": "799",
-          "priceCurrency": "THB",
-          "description": "7일 무료, 이후 월 799바트",
+          "price": "24.99",
+          "priceCurrency": "USD",
+          "description": "7일 무료, 이후 월 US$24.99",
           "url": "https://www.tigaalpha.com/",
           "availability": "https://schema.org/InStock",
           "priceSpecification": {
             "@type": "UnitPriceSpecification",
-            "price": "799",
-            "priceCurrency": "THB",
+            "price": "24.99",
+            "priceCurrency": "USD",
             "billingDuration": "P1M",
             "unitCode": "MON",
             "referenceQuantity": {

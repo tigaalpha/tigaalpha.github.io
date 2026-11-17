@@ -66,28 +66,28 @@
           "@type": "Offer",
           "name": "高级版 (7-day free trial)",
           "price": "0",
-          "priceCurrency": "THB",
+          "priceCurrency": "CNY",
           "eligibleDuration": {
             "@type": "QuantitativeValue",
             "value": 7,
             "unitCode": "DAY"
           },
-          "description": "高级版免费使用7天，之后每月799泰铢",
+          "description": "高级版免费使用7天，之后每月¥176",
           "url": "https://www.tigaalpha.com/",
           "availability": "https://schema.org/InStock"
         },
         {
           "@type": "Offer",
           "name": "高级版",
-          "price": "799",
-          "priceCurrency": "THB",
-          "description": "高级版免费使用7天，之后每月799泰铢",
+          "price": "176",
+          "priceCurrency": "CNY",
+          "description": "高级版免费使用7天，之后每月¥176",
           "url": "https://www.tigaalpha.com/",
           "availability": "https://schema.org/InStock",
           "priceSpecification": {
             "@type": "UnitPriceSpecification",
-            "price": "799",
-            "priceCurrency": "THB",
+            "price": "176",
+            "priceCurrency": "CNY",
             "billingDuration": "P1M",
             "unitCode": "MON",
             "referenceQuantity": {

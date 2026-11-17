@@ -73,28 +73,28 @@
           "@type": "Offer",
           "name": "7\u00a0jours d'essai gratuit",
           "price": "0",
-          "priceCurrency": "THB",
+          "priceCurrency": "USD",
           "eligibleDuration": {
             "@type": "QuantitativeValue",
             "value": 7,
             "unitCode": "DAY"
           },
-          "description": "7\u00a0jours gratuits, puis 799\u00a0THB par mois",
+          "description": "7\u00a0jours gratuits, puis US$24.99 par mois",
           "url": "https://www.tigaalpha.com/",
           "availability": "https://schema.org/InStock"
         },
         {
           "@type": "Offer",
           "name": "Abonnement mensuel",
-          "price": "799",
-          "priceCurrency": "THB",
-          "description": "7\u00a0jours gratuits, puis 799\u00a0THB par mois",
+          "price": "24.99",
+          "priceCurrency": "USD",
+          "description": "7\u00a0jours gratuits, puis US$24.99 par mois",
           "url": "https://www.tigaalpha.com/",
           "availability": "https://schema.org/InStock",
           "priceSpecification": {
             "@type": "UnitPriceSpecification",
-            "price": "799",
-            "priceCurrency": "THB",
+            "price": "24.99",
+            "priceCurrency": "USD",
             "billingDuration": "P1M",
             "unitCode": "MON",
             "referenceQuantity": {
