@@ -481,7 +481,7 @@ function bakePlanet(P, cw, ch, k, high) {
   let fog = null;
   if (high) fog = layer(tileW, ch, (x, w, h) => { const base = GROUND * k; for (let i = 0; i < 6; i++) { const cx = (i + 0.5) / 6 * w, g = x.createRadialGradient(cx, base - 8 * k, 0, cx, base - 8 * k, 160 * k); g.addColorStop(0, `rgba(${rgb},.16)`); g.addColorStop(1, `rgba(${rgb},0)`); x.save(); x.translate(0, base); x.scale(1, 0.18); x.translate(0, -base); x.fillStyle = g; x.beginPath(); x.arc(cx, base - 8 * k, 160 * k, 0, 7); x.fill(); x.restore(); } });
   const glows = { green: glowSprite(rgb, 40 * k), pink: glowSprite(acc, 40 * k), white: glowSprite("255,255,255", 30 * k), red: glowSprite("255,70,90", 40 * k) };
-  return { sky, far, mid, near, ground, fog, glows };
+  return { sky, far, mid, near, ground, fog, glows, hi: null as any };   // hi: the graphics-round-3 extras, filled in by adv-hi2d.ts (a dynamic import, High only) once it has arrived
 }
 
 /* ── the three monsters, drawn from a few shapes each (cheap: no gradients built per frame) ── */
@@ -1537,12 +1537,14 @@ const Run = memo(function Run({ net = null, onReward = null, getNext = null, onN
     const ctx = cv.getContext("2d", { alpha: false }); if (!ctx) return undefined;
     const dprCap = () => (HI() ? 2 : 1);
     let cw = 0, ch = 0, k = 1, dpr = 1, bake: any = null, camX = 0, vw = 0;
+    let hxOn = true;   // false once the frame watchdog finds the graphics-round-3 extras too heavy (they drop first; the older High look and Lite stay). Declared before resize(): it reads it
     const resize = () => {
       dpr = Math.min(dprCap(), window.devicePixelRatio || 1);
       const r = cv.getBoundingClientRect(); const w = Math.max(320, Math.round(r.width)), h = Math.max(200, Math.round(r.height));
       cv.width = Math.round(w * dpr); cv.height = Math.round(h * dpr);
       cw = cv.width; ch = cv.height; k = ch / VH; vw = cw / k;
       bake = bakePlanet(P, cw, ch, k, HI());
+      if (HI() && hxOn) { const b0 = bake, k0 = k; import("./adv-hi2d").then((m) => { if (bake !== b0 || !HI() || !hxOn) return; try { b0.hi = m.bakeHigh(P, cw, ch, k0, b0, { layer, rnd, GROUND, TILE }); } catch (e) { b0.hi = null; } }).catch(() => {}); }   // High only: the depth / light / ground extras come from their own chunk (Lite never fetches it); until it arrives, and if anything in it throws, the older High look stays
     };
     // phase 3.0: where do players leave, how does it run on a real phone? one cheap row per event, no migration (usage_events kind "adv")
     // who is fighting decides how it sounds and how its attacks look (fx-voice.ts): per robot id + class, per pet element
@@ -1620,6 +1622,7 @@ const Run = memo(function Run({ net = null, onReward = null, getNext = null, onN
     const TAPMAP = !!P.survival || CAPM;   // energy-harvest maps: the beacons are energy taps, a right answer feeds the harvest (owner, 2026-10-12)
     const beacons: any[] = (P.survival ? [1000, 2300, 3600] : [1300, 2650, 3950]).map(x => ({ x, used: false, tap: TAPMAP }));   // knowledge beacons: review questions from what the learner has studied
     const petSt = { x: NaN, px: 0, vs: 0, ph: 0, face: 1 };
+    const scorch: any[] = [];   // High only: burn marks left on the ground by big explosions (draw-side bookkeeping, nothing in the simulation reads it)
     const gradeRef: any = { c: null, k: "" };   // one cached grade layer (key light, haze, vignette): a single drawImage per frame
     const maxParts = HI() ? 140 : 26;
     const addPart = (x, y, vx, vy, life, col, sz) => { if (parts.length < maxParts) parts.push({ x, y, vx, vy, life, max: life, col, sz }); };
@@ -2137,9 +2140,13 @@ const Run = memo(function Run({ net = null, onReward = null, getNext = null, onN
       ctx.setTransform(1, 0, 0, 1, 0, 0);
       ctx.drawImage(bake.sky, sx, sy);
       const tile = (img, f, a = 1) => { const w = img.width, off = -((camX * f * k) % w + w) % w; if (a !== 1) ctx.globalAlpha = a; for (let x0 = off + sx; x0 < cw; x0 += w) ctx.drawImage(img, x0, sy); if (a !== 1) ctx.globalAlpha = 1; };
+      const HX = HI() && hxOn ? bake.hi : null;   // the High extras of this frame (null in Lite: the lines below are then exactly the old ones)
+      const tileBand = (b: any, f: number) => { const w = b.c.width, off = -((camX * f * k) % w + w) % w; for (let x0 = off + sx; x0 < cw; x0 += w) ctx.drawImage(b.c, x0, b.y + sy); };
+      if (HX) tileBand(HX.haze, 0.07);
       tile(bake.far, 0.15); tile(bake.mid, 0.4);
+      if (HX) tileBand(HX.hills, 0.7);
       if (bake.fog) tile(bake.fog, 0.55);
-      tile(bake.ground, 1);
+      tile(HX ? HX.ground : bake.ground, 1);
       // world layer
       ctx.setTransform(k, 0, 0, k, -camX * k + sx, sy);
       // fireflies
@@ -2157,6 +2164,20 @@ const Run = memo(function Run({ net = null, onReward = null, getNext = null, onN
       if (MINE || DYS) { const gx = PAD_X; if (gx > camX - 80 && gx < camX + vw + 80) { spotTag(ctx, tm, gx, GROUND, GROUND - 120, "🚀 " + T3(lang, "ส่งขึ้นยาน", "LAUNCH", "发射"), "rgb(110,255,170)"); ctx.fillStyle = "#3a4a5a"; ctx.fillRect(gx - 50, GROUND - 6, 100, 8); ctx.fillStyle = (DYS ? dframes.every(q => q.built) : cargo >= ORE_NEED) ? "#7dffa8" : "#ffb070"; ctx.fillRect(gx - 50, GROUND - 8, 100, 3);
         const ry = launched > 0 ? launched * launched * 220 : 0; ctx.save(); ctx.translate(gx, GROUND - 30 - ry); ctx.fillStyle = "#e8edf3"; ctx.fillRect(-9, -26, 18, 44); ctx.fillStyle = "#ff4d6d"; ctx.beginPath(); ctx.moveTo(-9, -26); ctx.lineTo(0, -44); ctx.lineTo(9, -26); ctx.closePath(); ctx.fill(); if (launched > 0) { ctx.globalCompositeOperation = "lighter"; ctx.fillStyle = "rgba(255,170,60,.8)"; ctx.fillRect(-6, 18, 12, 30 + Math.random() * 20); ctx.globalCompositeOperation = "source-over"; } ctx.restore(); } }
       for (const q of stations) { if (q.x < camX - 100 || q.x > camX + vw + 100) continue; const f = q.p / CAP_T; if (!q.done) spotTag(ctx, tm, q.x, GROUND, GROUND - 150, "⚡ " + T3(lang, "ยึดจุดนี้", "HOLD HERE", "占领"), "rgb(255,210,80)"); ctx.fillStyle = q.done ? "#ffd23f" : "#3a3a4a"; ctx.fillRect(q.x - 8, GROUND - 90, 16, 90); ctx.fillStyle = q.done ? "#fff6c0" : "#5a5a6a"; ctx.beginPath(); ctx.arc(q.x, GROUND - 98, 16, 0, 7); ctx.fill(); ctx.strokeStyle = "rgba(255,210,80,.95)"; ctx.lineWidth = 5; ctx.beginPath(); ctx.arc(q.x, GROUND - 98, 24, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * f); ctx.stroke(); ctx.globalCompositeOperation = "lighter"; ctx.fillStyle = "rgba(255,210,80," + (q.done ? 0.25 : 0.08 + f * 0.2) + ")"; ctx.beginPath(); ctx.arc(q.x, GROUND - 40, 170, Math.PI, 0); ctx.fill(); ctx.globalCompositeOperation = "source-over"; }
+      // High only: soft contact shadows under the actors and the light they throw on the ground (additive pools), drawn before them so they sit on the ground
+      let hxDone = false;
+      if (HX) { try {
+        const sh = (x: number, w: number, a: number) => { ctx.globalAlpha = a; ctx.drawImage(HX.shadow, x - w / 2, GROUND - w * 0.13 + 2, w, w * 0.26); };
+        for (const m of mons) { if (m.dead || m.x < camX - 100 || m.x > camX + vw + 100) continue; const w = (MON[m.type] ? MON[m.type].w : 46) * 1.7; sh(m.x, w, Math.max(0.25, 1 - m.y / 160)); }
+        if (boss.active && !boss.dead && boss.x > camX - 200 && boss.x < camX + vw + 200) sh(boss.x, 250, 1);
+        sh(pl.x, 74 - Math.min(18, pl.y * 0.08), Math.max(0.3, 1 - pl.y / 140));
+        for (let i = scorch.length - 1; i >= 0; i--) { const q = scorch[i], age = tm - q.t; if (age > 7 || age < 0) { scorch.splice(i, 1); continue; } if (q.x < camX - 300 || q.x > camX + vw + 300) continue; ctx.globalAlpha = Math.min(1, (7 - age) / 4) * 0.85; ctx.drawImage(HX.shadow, q.x - q.r, GROUND - q.r * 0.13 + 1, q.r * 2, q.r * 0.52); }
+        ctx.globalAlpha = 1; ctx.globalCompositeOperation = "lighter";
+        ctx.globalAlpha = 0.8; ctx.drawImage(HX.pool, pl.x - 110, GROUND - 22, 220, 56);
+        for (const b of blasts) { if (b.r < 90 || b.y > 120) continue; const k4 = Math.max(0, b.life / b.max), w2 = b.r * 2.6; ctx.globalAlpha = Math.min(0.9, k4 * (b.flash ? 0.9 : 0.6)); ctx.drawImage(HX.pool, b.x - w2 / 2, GROUND - w2 * 0.1, w2, w2 * 0.255); }
+        let np = 0; for (const b of bolts) { if (np++ > 10 || b.x < camX - 60 || b.x > camX + vw + 60) continue; const a = 0.4 * Math.max(0, 1 - b.y / 150); if (a > 0.02) { ctx.globalAlpha = a; ctx.drawImage(HX.pool, b.x - 60, GROUND - 14, 120, 30); } }
+        ctx.globalAlpha = 1; ctx.globalCompositeOperation = "source-over"; hxDone = true;
+      } catch (_) { ctx.globalAlpha = 1; ctx.globalCompositeOperation = "source-over"; } }
       // monsters
       for (const m of mons) { if (m.dead || m.x < camX - 80 || m.x > camX + vw + 80) continue; drawMonster(ctx, m, tm, k, GROUND);
         if (m.tele > 0) { ctx.fillStyle = "#ff4d6d"; ctx.font = "900 22px system-ui,sans-serif"; ctx.textAlign = "center"; ctx.fillText("!", m.x, GROUND - m.y - (TALL.has(m.type) ? 128 : 74)); }
@@ -2164,7 +2185,13 @@ const Run = memo(function Run({ net = null, onReward = null, getNext = null, onN
       if (boss.active && !boss.dead && boss.x > camX - 160 && boss.x < camX + vw + 160) drawBoss(ctx, boss, tm, P);
       for (const f of fires) { ctx.globalCompositeOperation = "lighter"; for (let q = -100; q <= 100; q += 14) { const hh = 10 + Math.abs(Math.sin(tm * 9 + q)) * 18 * Math.min(1, f.life); ctx.fillStyle = "rgba(255,120,30,.55)"; ctx.fillRect(f.x + q - 5, GROUND - hh, 10, hh); ctx.fillStyle = "rgba(255,220,100,.5)"; ctx.fillRect(f.x + q - 2, GROUND - hh * 0.5, 4, hh * 0.5); } ctx.globalCompositeOperation = "source-over"; }
       // smoke first (behind the missiles), then the missiles, then the fireballs
-      for (const q of smoke) { const a = Math.max(0, q.life / q.max); ctx.fillStyle = `rgba(${150 + 60 * (1 - a) | 0},${140 + 50 * (1 - a) | 0},${130 + 40 * (1 - a) | 0},${0.5 * a})`; ctx.beginPath(); ctx.arc(q.x, GROUND - q.y, q.r, 0, 7); ctx.fill(); }
+      let smokeDone = false;
+      if (HX) { try {   // High: soft billowing puffs, and the ones close to a live explosion are lit warm by it
+        for (const q of smoke) { const a = Math.max(0, q.life / q.max), rr = q.r * 1.8; let heat = 0; for (const b of blasts) { if (b.flash) continue; const d = Math.hypot(q.x - b.x, q.y - b.y), R2 = b.r * 1.3; if (d < R2) heat = Math.max(heat, (1 - d / R2) * (b.life / b.max)); } q.hx = heat; ctx.globalAlpha = 0.62 * a; ctx.drawImage(HX.puff, q.x - rr, GROUND - q.y - rr, rr * 2, rr * 2); }
+        ctx.globalCompositeOperation = "lighter"; for (const q of smoke) { if (!(q.hx > 0.04)) continue; const a = Math.max(0, q.life / q.max), rr = q.r * 1.8; ctx.globalAlpha = Math.min(0.8, q.hx * a * 1.1); ctx.drawImage(HX.puffHot, q.x - rr, GROUND - q.y - rr, rr * 2, rr * 2); }
+        ctx.globalAlpha = 1; ctx.globalCompositeOperation = "source-over"; smokeDone = true;
+      } catch (_) { ctx.globalAlpha = 1; ctx.globalCompositeOperation = "source-over"; } }
+      if (!smokeDone) for (const q of smoke) { const a = Math.max(0, q.life / q.max); ctx.fillStyle = `rgba(${150 + 60 * (1 - a) | 0},${140 + 50 * (1 - a) | 0},${130 + 40 * (1 - a) | 0},${0.5 * a})`; ctx.beginPath(); ctx.arc(q.x, GROUND - q.y, q.r, 0, 7); ctx.fill(); }
       for (const r of rockets) {
         const ry = GROUND - r.y, ang = Math.atan2(-r.vy, r.vx), big = r.k !== "bomblet", SCL = r.sc || 1, L = (big ? 36 : 20) * SCL, W2 = (big ? 4.2 : 2.6) * SCL;
         ctx.save(); ctx.translate(r.x, ry); ctx.rotate(ang);
@@ -2183,6 +2210,9 @@ const Run = memo(function Run({ net = null, onReward = null, getNext = null, onN
       for (const b of blasts) { const k4 = Math.max(0, b.life / b.max), q = 1 - k4; ctx.globalCompositeOperation = "lighter"; const R = b.r * (b.flash ? 1 : 0.35 + q * 0.75);
         const g2 = ctx.createRadialGradient(b.x, GROUND - b.y, 0, b.x, GROUND - b.y, R); g2.addColorStop(0, `rgba(255,255,235,${0.95 * k4})`); g2.addColorStop(0.3, `rgba(255,200,80,${0.8 * k4})`); g2.addColorStop(0.7, `rgba(255,90,30,${0.4 * k4})`); g2.addColorStop(1, "rgba(255,60,20,0)"); ctx.fillStyle = g2; ctx.beginPath(); ctx.arc(b.x, GROUND - b.y, R, 0, 7); ctx.fill();
         if (!b.flash) { ctx.strokeStyle = `rgba(255,220,160,${0.7 * k4})`; ctx.lineWidth = 3 * k4 + 1; ctx.beginPath(); ctx.arc(b.x, GROUND - b.y, R * 1.15, 0, 7); ctx.stroke(); } ctx.globalCompositeOperation = "source-over"; }
+      if (HX) { try { for (const b of blasts) { if (b.r < 120 || b.y > 120) continue; const k4 = Math.max(0, b.life / b.max), q = 1 - k4;
+        if (!b.flash) { ctx.save(); ctx.globalCompositeOperation = "lighter"; ctx.strokeStyle = `rgba(255,214,160,${0.5 * k4})`; ctx.lineWidth = 3 * k4 + 1; const rx = b.r * (0.25 + q * 1.1); ctx.beginPath(); ctx.ellipse(b.x, GROUND + 2, rx, rx * 0.16, 0, 0, 7); ctx.stroke(); ctx.restore(); }
+        if (!b.hx) { b.hx = 1; if (!b.flash && b.r >= 200 && !scorch.some((z: any) => Math.abs(z.x - b.x) < 50 && tm - z.t < 1)) scorch.push({ x: b.x, t: tm, r: Math.min(190, b.r * 0.5) }); } } } catch (_) { ctx.globalCompositeOperation = "source-over"; } }
       for (const b of beams) { const k4 = Math.max(0, b.life / b.max); ctx.save(); ctx.globalCompositeOperation = "lighter"; ctx.lineCap = "round"; for (const [wm, al, c] of [[3.2, 0.18, `rgba(${b.col},1)`], [1.6, 0.5, `rgba(${b.col},1)`], [0.55, 1, "#fff"]] as any[]) { ctx.strokeStyle = c; ctx.globalAlpha = k4 * al; ctx.lineWidth = b.w * wm * (0.6 + 0.4 * k4); ctx.beginPath(); ctx.moveTo(b.x1, b.y1); ctx.lineTo(b.x2, b.y2); ctx.stroke(); } ctx.restore(); }
       for (const a of arcs) drawLightning(ctx, a, HI());
       for (const b of bolts) {
@@ -2252,14 +2282,23 @@ const Run = memo(function Run({ net = null, onReward = null, getNext = null, onN
       }
       // particles (glow in HI() mode)
       ctx.globalCompositeOperation = "lighter";
-      for (const p of parts) { ctx.globalAlpha = Math.max(0, p.life / p.max); ctx.fillStyle = `rgb(${p.col})`; ctx.fillRect(p.x - p.sz / 2, p.y - p.sz / 2 + 0, p.sz, p.sz); }
+      let partsDone = false;
+      if (HX) { try {   // High: sparks are streaks along their own velocity (they arc under gravity) with a soft glow on the bigger ones, no hard squares
+        let ng = 0; ctx.save(); ctx.lineCap = "round";
+        for (const p of parts) { const a = Math.max(0, p.life / p.max), sp = Math.hypot(p.vx, p.vy), L = Math.min(30, sp * 0.024), cs = p.cs || (p.cs = "rgb(" + p.col + ")"); ctx.globalAlpha = a;
+          if (L > 2) { ctx.strokeStyle = cs; ctx.lineWidth = Math.max(1, p.sz * 0.7); ctx.beginPath(); ctx.moveTo(p.x - p.vx / sp * L, p.y - p.vy / sp * L); ctx.lineTo(p.x, p.y); ctx.stroke(); }
+          else { ctx.fillStyle = cs; ctx.beginPath(); ctx.arc(p.x, p.y, p.sz * 0.6, 0, 7); ctx.fill(); }
+          if (p.sz >= 2.5 && a > 0.25 && ng++ < 36) { ctx.globalAlpha = a * 0.32; ctx.drawImage(bake.glows.white, p.x - p.sz * 2.4, p.y - p.sz * 2.4, p.sz * 4.8, p.sz * 4.8); } }
+        ctx.restore(); partsDone = true;
+      } catch (_) { ctx.restore(); ctx.globalAlpha = 1; } }
+      if (!partsDone) for (const p of parts) { ctx.globalAlpha = Math.max(0, p.life / p.max); ctx.fillStyle = `rgb(${p.col})`; ctx.fillRect(p.x - p.sz / 2, p.y - p.sz / 2 + 0, p.sz, p.sz); }
       ctx.globalAlpha = 1; ctx.globalCompositeOperation = "source-over";
       // damage numbers
       ctx.textAlign = "center"; ctx.font = "800 15px system-ui,sans-serif";
       for (const p of pops) { ctx.globalAlpha = Math.min(1, p.life * 2); ctx.fillStyle = "#000"; ctx.fillText(p.txt, p.x + 1, p.y + 1); ctx.fillStyle = p.col; ctx.fillText(p.txt, p.x, p.y); }
       ctx.globalAlpha = 1;
       // the shadow under the robot
-      ctx.fillStyle = "rgba(0,0,0,.35)"; ctx.beginPath(); ctx.ellipse(pl.x, GROUND + 3, 26 - Math.min(10, pl.y * 0.05), 5, 0, 0, 7); ctx.fill();
+      if (!hxDone) { ctx.fillStyle = "rgba(0,0,0,.35)"; ctx.beginPath(); ctx.ellipse(pl.x, GROUND + 3, 26 - Math.min(10, pl.y * 0.05), 5, 0, 0, 7); ctx.fill(); }
       for (const b of beacons) { if (b.x < camX - 40 || b.x > camX + vw + 40) continue; if (P.id === "kindred" || P.id === "darkforge") { paintKindred(ctx, b.x, GROUND, tm, b.used); continue; } const a = b.used ? 0.25 : 0.55 + 0.25 * Math.sin(tm * 3);
         ctx.globalCompositeOperation = "lighter"; const bg = ctx.createLinearGradient(0, GROUND - 150, 0, GROUND); bg.addColorStop(0, `rgba(255,224,138,0)`); bg.addColorStop(1, `rgba(255,224,138,${a * 0.5})`); ctx.fillStyle = bg; ctx.fillRect(b.x - 14, GROUND - 150, 28, 150); ctx.globalCompositeOperation = "source-over";
         ctx.fillStyle = b.used ? "#3a4a52" : b.tap ? "#8de8ff" : "#ffe08a"; ctx.beginPath(); ctx.moveTo(b.x - 9, GROUND); ctx.lineTo(b.x - 4, GROUND - 46); ctx.lineTo(b.x + 4, GROUND - 46); ctx.lineTo(b.x + 9, GROUND); ctx.closePath(); ctx.fill();
@@ -2279,7 +2318,7 @@ const Run = memo(function Run({ net = null, onReward = null, getNext = null, onN
       // the warp gate at the end of the map (it glows and says WARP once the goal is done)
       { const gx = WORLD - 90; if ((NOBOSS ? finished : boss.dead) && gx > camX - 120 && gx < camX + vw + 120) { ctx.save(); ctx.fillStyle = "#fff"; ctx.font = "900 15px system-ui"; ctx.textAlign = "center"; ctx.fillText("WARP ▶", gx, GROUND - 140 + Math.sin(tm * 5) * 4); ctx.restore(); } if (gx > camX - 60 && gx < camX + vw + 60) { ctx.strokeStyle = `rgba(${P.acc},.9)`; ctx.lineWidth = 4; ctx.beginPath(); ctx.ellipse(gx, GROUND - 60, 26, 62, 0, 0, 7); ctx.stroke(); ctx.globalCompositeOperation = "lighter"; ctx.fillStyle = `rgba(${P.acc},${0.18 + 0.1 * Math.sin(tm * 3)})`; ctx.beginPath(); ctx.ellipse(gx, GROUND - 60, 24, 60, 0, 0, 7); ctx.fill(); ctx.globalCompositeOperation = "source-over"; } }
       ctx.setTransform(1, 0, 0, 1, 0, 0);
-      tile(bake.near, 1.25);
+      if (HX && (NEAR_STYLE[P.id] === undefined || NEAR_STYLE[P.id] === "wisp")) { const sk = Math.sin(tm * 0.85 + camX * 0.003) * 0.022 + Math.sin(tm * 2.3 + camX * 0.011) * 0.008; ctx.setTransform(1, 0, sk, 1, -sk * GROUND * k, 0); tile(bake.near, 1.25); ctx.setTransform(1, 0, 0, 1, 0, 0); } else tile(bake.near, 1.25);   // High: the soft plants (ferns, wisps) lean slowly in the wind, rooted at the ground line
       if (P.survival && !surv.done) { const bw = Math.min(cw * 0.6, 420 * k), bx = (cw - bw) / 2, by = 56 * k; ctx.fillStyle = "rgba(0,0,0,.6)"; ctx.fillRect(bx, by, bw, 9 * k); ctx.fillStyle = "#ffbe6e"; ctx.fillRect(bx, by, bw * Math.min(1, surv.t / SURV_T), 9 * k); ctx.fillStyle = "#fff"; ctx.font = `800 ${11 * k}px system-ui,sans-serif`; ctx.textAlign = "center"; ctx.fillText(T3(lang, "พลังงาน ", "ENERGY ", "能量 ") + Math.round(Math.min(1, surv.t / SURV_T) * 100) + "% · " + T3(lang, "คลื่น ", "wave ", "波 ") + surv.wave, cw / 2, by - 4 * k); }
       if ((MINE || CAPM || DYS) && !finished) { const bw = Math.min(cw * 0.6, 420 * k), bx = (cw - bw) / 2, by = 56 * k; const cur = stations.find(q => !q.done), fr = MINE || DYS ? cargo / CARGO_CAP : (cur ? cur.p / CAP_T : 1); ctx.fillStyle = "rgba(0,0,0,.6)"; ctx.fillRect(bx, by, bw, 9 * k); ctx.fillStyle = MINE || DYS ? "#7fd8ff" : "#ffd23f"; ctx.fillRect(bx, by, bw * Math.min(1, fr), 9 * k); ctx.fillStyle = "#fff"; ctx.font = `800 ${11 * k}px system-ui,sans-serif`; ctx.textAlign = "center";
         ctx.fillText(DYS ? T3(lang, "แร่ ", "ORE ", "矿 ") + cargo + "/" + CARGO_CAP + " · " + T3(lang, PARTS[0] + " ", xl(lang, PARTS[1]).toUpperCase() + " ", PARTS[2]) + dframes.filter(q => q.built).length + "/4" : MINE ? T3(lang, "แร่ ", "ORE ", "矿 ") + cargo + "/" + CARGO_CAP + " · " + T3(lang, "ส่งที่แท่นขวาสุด ≥ ", "deliver at the far-right pad ≥ ", "送到最右平台 ≥ ") + ORE_NEED : T3(lang, "สถานี ", "STATION ", "采集站 ") + (stations.filter(q => q.done).length + (cur ? 1 : 0)) + "/3 · " + Math.round(Math.min(1, fr) * 100) + "%", cw / 2, by - 4 * k); }
@@ -2333,11 +2372,11 @@ const Run = memo(function Run({ net = null, onReward = null, getNext = null, onN
       }
     };
 
-    let wdN = 0, wdSum = 0, wdLast = 0, loadLogged = false;
+    let wdN = 0, wdSum = 0, wdLast = 0, loadLogged = false;   // hxOn (declared above the frame functions) is the first rung of the watchdog ladder: the graphics-round-3 extras go before the older High look does
     const loop = (now) => {
       raf = requestAnimationFrame(loop); frames++;
       if (!loadLogged) { loadLogged = true; try { const t0 = (window as any).__advTap; if (t0) logUsage("adv", "load:" + P.id + ":" + Math.round(performance.now() - t0) + "ms"); } catch (e) {} }
-      if (HI() && wdLast) { const fd = now - wdLast; if (fd < 250) { wdSum += fd; wdN++; if (wdN >= 90) { if (wdSum / wdN > 31) { highRef.current = false; try { localStorage.setItem("tg_adv_gfx", "standard"); } catch (e) {} window.dispatchEvent(new Event("tg:adv-lite")); logUsage("adv", "auto-lite:" + P.id + ":" + Math.round(1000 / (wdSum / wdN)) + "fps"); } wdN = 0; wdSum = 0; } } } wdLast = now;
+      if (HI() && wdLast) { const fd = now - wdLast; if (fd < 250) { wdSum += fd; wdN++; if (wdN >= 90) { if (hxOn && wdSum / wdN > 27) { hxOn = false; try { bake = bakePlanet(P, cw, ch, k, true); } catch (e) {} logUsage("adv", "hx-off:" + P.id + ":" + Math.round(1000 / (wdSum / wdN)) + "fps"); } else if (wdSum / wdN > 31) { highRef.current = false; try { localStorage.setItem("tg_adv_gfx", "standard"); } catch (e) {} window.dispatchEvent(new Event("tg:adv-lite")); logUsage("adv", "auto-lite:" + P.id + ":" + Math.round(1000 / (wdSum / wdN)) + "fps"); } wdN = 0; wdSum = 0; } } } wdLast = now;
       let dt = Math.min(0.1, (now - last) / 1000); last = now;
       if (hitStop > 0) { hitStop -= dt; dt = 0; }
       if (slowT > 0) { slowT -= dt; dt *= 0.35; }   // a brief slow-motion on a boss kill (High only)
