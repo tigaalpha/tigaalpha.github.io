@@ -143,8 +143,8 @@ function groundLayer(X: HiCtx, SH: Shared): Layer[] {
   const wrap = (x: number, y: number, r: number, f: (ox: number, oy: number) => void) => { for (const ox of [-512, 0, 512]) for (const oy of [-512, 0, 512]) { if (x + ox + r < 0 || x + ox - r > 512 || y + oy + r < 0 || y + oy - r > 512) continue; f(x + ox, y + oy); } };
   // the roughness map: dark = glossy. A base value, soft wet patches (or, on ice, dull frost patches) and a fine grain; tiles seamlessly, repeated twice over the arena
   const [rc, rg] = mk2d(512, 512), bv = Math.round(P.base * 255); rg.fillStyle = `rgb(${bv},${bv},${bv})`; rg.fillRect(0, 0, 512, 512);
-  for (let i = 0; i < 34; i++) {
-    const x = rnd() * 512, y = rnd() * 512, r = 22 + rnd() * 60, v = P.frost ? Math.round(150 + rnd() * 90) : Math.round(bv * (0.4 + rnd() * 0.45)), a = P.frost ? 0.7 : 0.75;
+  for (let i = 0, nb = P.frost ? 11 : 34; i < nb; i++) {
+    const x = rnd() * 512, y = rnd() * 512, r = (P.frost ? 16 : 22) + rnd() * (P.frost ? 34 : 60), v = P.frost ? Math.round(150 + rnd() * 90) : Math.round(bv * (0.4 + rnd() * 0.45)), a = P.frost ? 0.7 : 0.75;
     wrap(x, y, r, (px, py) => { const gr = rg.createRadialGradient(px, py, 0, px, py, r); gr.addColorStop(0, `rgba(${v},${v},${v},${a})`); gr.addColorStop(0.6, `rgba(${v},${v},${v},${a * 0.45})`); gr.addColorStop(1, `rgba(${v},${v},${v},0)`); rg.fillStyle = gr; rg.fillRect(px - r, py - r, r * 2, r * 2); });
   }
   for (let i = 0; i < 5200; i++) { const v = rnd() < 0.5 ? 0 : 255; rg.fillStyle = `rgba(${v},${v},${v},${0.05 + rnd() * 0.08})`; rg.fillRect(rnd() * 512, rnd() * 512, 1 + rnd() * 2, 1 + rnd() * 2); }
@@ -156,7 +156,7 @@ function groundLayer(X: HiCtx, SH: Shared): Layer[] {
     for (let i = 0; i < 30; i++) {
       let x = rnd() * 512, y = rnd() * 512, a = rnd() * 6.28; const pts: number[][] = [[x, y]], n = 7 + Math.floor(rnd() * 8);
       for (let k = 0; k < n; k++) { a += (rnd() - 0.5) * 1.5; x += Math.cos(a) * (18 + rnd() * 34); y += Math.sin(a) * (18 + rnd() * 34); pts.push([x, y]); }
-      for (const [w, col] of [[9, "rgba(255,70,10,.16)"], [4.2, "rgba(255,120,30,.55)"], [1.6, "rgba(255,225,140,.95)"]] as [number, string][]) { cg.lineWidth = w; cg.strokeStyle = col; for (const ox of [-512, 0, 512]) for (const oy of [-512, 0, 512]) { cg.beginPath(); pts.forEach((p, k) => (k ? cg.lineTo(p[0] + ox, p[1] + oy) : cg.moveTo(p[0] + ox, p[1] + oy))); cg.stroke(); } }
+      for (const [w, col] of [[8, "rgba(255,70,10,.14)"], [3.6, "rgba(255,110,26,.5)"], [1.4, "rgba(255,205,120,.85)"]] as [number, string][]) { cg.lineWidth = w; cg.strokeStyle = col; for (const ox of [-512, 0, 512]) for (const oy of [-512, 0, 512]) { cg.beginPath(); pts.forEach((p, k) => (k ? cg.lineTo(p[0] + ox, p[1] + oy) : cg.moveTo(p[0] + ox, p[1] + oy))); cg.stroke(); } }
     }
     crack = new THREE.CanvasTexture(cc); crack.wrapS = crack.wrapT = THREE.RepeatWrapping; crack.repeat.set(2, 2); crack.colorSpace = THREE.SRGBColorSpace;
   }
@@ -167,11 +167,11 @@ function groundLayer(X: HiCtx, SH: Shared): Layer[] {
       if (b) {
         saved = { rm: gm.roughnessMap, r: gm.roughness, em: gm.emissiveMap, ei: gm.emissiveIntensity, e: gm.emissive.clone(), env: gm.envMap, ev: gm.envMapIntensity };
         gm.roughnessMap = rough; gm.roughness = 1; if (SH.env) { gm.envMap = SH.env; gm.envMapIntensity = P.frost ? 1.4 : 0.9; }
-        if (crack) { gm.emissiveMap = crack; gm.emissive.set(0xffffff); gm.emissiveIntensity = 1.3; }
+        if (crack) { gm.emissiveMap = crack; gm.emissive.set(0xffffff); gm.emissiveIntensity = 0.95; }
       } else if (saved) { gm.roughnessMap = saved.rm; gm.roughness = saved.r; gm.emissiveMap = saved.em; gm.emissiveIntensity = saved.ei; gm.emissive.copy(saved.e); gm.envMap = saved.env; gm.envMapIntensity = saved.ev; saved = null; }
       gm.needsUpdate = true;
     },
-    update: crack ? (_dt, _s, t) => { gm.emissiveIntensity = 1.25 + 0.3 * Math.sin(t * 1.3); } : undefined,
+    update: crack ? (_dt, _s, t) => { gm.emissiveIntensity = 0.9 + 0.2 * Math.sin(t * 1.3); } : undefined,
     dispose() { rough.dispose(); if (crack) crack.dispose(); },
   };
   const out: Layer[] = [ground];
@@ -278,14 +278,14 @@ function particleLayer(X: HiCtx): { layer: Layer; burst: (x: number, y: number, 
   let on = false; const fwd = new THREE.Vector3();
   const burst = (x: number, y: number, z: number, n: number, col: number, spd: number): boolean => {
     if (!on) return false;
-    const cr = (col >> 16) & 255, cg = (col >> 8) & 255, cb = col & 255, mx = Math.max(cr, cg, cb), mn = Math.min(cr, cg, cb), gray = mx - mn < 30 && mx < 225, goo = cg > cr * 1.05 && cg > cb * 1.2 && spd <= 7;
+    const cr = (col >> 16) & 255, cg = (col >> 8) & 255, cb = col & 255, mx = Math.max(cr, cg, cb), mn = Math.min(cr, cg, cb), gray = mx - mn < 30 && mx < 225, goo = cg > cr * 1.05 && cg > cb * 1.2 && spd <= 7, kill = goo && n >= 16;
     for (let i = 0; i < n; i++) {
       const a = rnd() * 6.283, u = rnd();
-      if (goo) { const h = spd * (0.35 + rnd() * 0.8), cj = 0.55 + rnd() * 0.4; alp.emit(x, y, z, Math.cos(a) * h, spd * (0.2 + u * 0.65), Math.sin(a) * h, 0.03 + rnd() * 0.05, 0, cr * cj, cg * cj, cb * cj, 0.95, 0.4 + rnd() * 0.4, 14, 0.4, 0.8); }   // droplets: short soft streaks along their flight
+      if (goo) { const h = spd * (0.35 + rnd() * 0.8), cj = 0.6 + rnd() * 0.5; alp.emit(x, y, z, Math.cos(a) * h, spd * (0.2 + u * 0.65), Math.sin(a) * h, (0.03 + rnd() * 0.05) * (kill ? 1.9 : 1) + (kill && i < 5 ? 0.05 : 0), 0, cr * cj, cg * cj, cb * cj, 0.95, 0.4 + rnd() * 0.4, 14, 0.4, kill ? 0.5 : 0.8); }   // droplets: short soft streaks along their flight
       else if (gray) { alp.emit(x + (rnd() - 0.5) * 0.3, y, z + (rnd() - 0.5) * 0.3, Math.cos(a) * spd * 0.3, 0.3 + rnd() * 0.9, Math.sin(a) * spd * 0.3, 0.1 + rnd() * 0.2, 2.2, cr * 0.9 + 18, cg * 0.9 + 18, cb * 0.9 + 20, 0.3, 0.55 + rnd() * 0.5, -0.4, 1.4, 0); }
       else { const sp = spd * (0.55 + rnd() * 0.7), el = (rnd() - 0.3) * 1.2; add.emit(x, y, z, Math.cos(a) * sp * Math.cos(el), sp * Math.sin(el) + spd * 0.25, Math.sin(a) * sp * Math.cos(el), 0.012 + rnd() * 0.02, -0.3, Math.min(255, cr * 1.5 + 40), Math.min(255, cg * 1.5 + 40), Math.min(255, cb * 1.5 + 40), 1, 0.16 + rnd() * 0.3, 9, 0.7, 2.6); }
     }
-    if (goo && n >= 8) alp.emit(x, y, z, 0, 0.5, 0, 0.3, 1.5, cr * 0.8, cg * 0.9, cb * 0.7, 0.2, 0.55, 0, 2, 0);   // an ichor mist hanging in the air
+    if (goo && n >= 8) alp.emit(x, y, z, 0, 0.5, 0, kill ? 0.55 : 0.3, kill ? 2 : 1.5, cr * 0.8, cg * 0.9, cb * 0.7, kill ? 0.34 : 0.2, kill ? 0.8 : 0.55, 0, 2, 0);   // an ichor mist hanging in the air
     return true;
   };
   return {
@@ -300,7 +300,7 @@ function particleLayer(X: HiCtx): { layer: Layer; burst: (x: number, y: number, 
           alp.emit(m.x + fwd.x * 0.05, m.y + 0.02, m.z + fwd.z * 0.05, fwd.x * 0.7 + (rnd() - 0.5) * 0.25, 0.35 + rnd() * 0.3, fwd.z * 0.7 + (rnd() - 0.5) * 0.25, 0.035 + rnd() * 0.03, 3.2, 205, 200, 195, 0.15, 0.6 + rnd() * 0.3, -0.15, 1.6, 0);
         } else if (e.k === "kill" || e.k === "head") {   // a pop of light where it died, and a swelling cloud of ichor
           const x = e.x as number, z = e.z as number, hd = e.k === "head";
-          add.emit(x, 0.9, z, 0, 0, 0, 0.34, 1.3, hd ? 255 : 170, hd ? 215 : 255, 90, 0.32, 0.14, 0, 0, 0); alp.emit(x, 0.7, z, 0, 0.35, 0, 0.45, 1.8, 70, 120, 30, 0.35, 0.8, 0, 1.2, 0);
+          add.emit(x, 0.9, z, 0, 0, 0, 0.5, 1.3, hd ? 255 : 170, hd ? 215 : 255, 90, 0.36, 0.16, 0, 0, 0); alp.emit(x, 0.7, z, 0, 0.35, 0, 0.7, 1.8, 70, 120, 30, 0.45, 0.9, 0, 1.2, 0);
         }
       },
       dispose() { add.dispose(); alp.dispose(); tex.dispose(); },

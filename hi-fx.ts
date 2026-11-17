@@ -43,7 +43,8 @@ export function hiTier(): number {
 export type HiFx = { render: (dt?: number) => void; setSize: (w: number, h: number, pr: number) => void; dispose: () => void; ok: () => boolean; tier: () => number; setKit: (k: string) => void; noAO: (...o: THREE.Object3D[]) => void };
 
 export function createHiFx(renderer: THREE.WebGLRenderer, scene: THREE.Scene, getCam: () => THREE.Camera, opts: { bloom?: number; radius?: number; threshold?: number; kit?: string } = {}): HiFx {
-  const skipAO: THREE.Object3D[] = [];
+  const skipAO: THREE.Object3D[] = [], skipVis: boolean[] = []; let aoWrapped = false;
+  let noAOFn: (...o: THREE.Object3D[]) => void = () => {};
   let composer: EffectComposer | null = null, bloom: UnrealBloomPass | null = null, grade: ShaderPass | null = null, good = true, t = 0, rp: RenderPass | null = null, ao: GTAOPass | null = null, smaa: SMAAPass | null = null, tr = hiTier(), slow = 0, fr = 0;
   try {
     const rt = new THREE.WebGLRenderTarget(4, 4, { type: THREE.HalfFloatType, samples: tr >= 3 ? 4 : 2 });
@@ -56,12 +57,14 @@ export function createHiFx(renderer: THREE.WebGLRenderer, scene: THREE.Scene, ge
     if (tr >= 3) { try { smaa = new SMAAPass(); composer.addPass(smaa); } catch (e) { smaa = null; } }
     if (grade && opts.kit) setKitGrade(opts.kit);
     /* GTAO draws every mesh with a normal material to learn the depth and the normals; big soft additive shapes (light shafts, mist, sprite systems) would be read as solid walls and darken the picture round them.
-       Anything registered through noAO() is hidden for that one pass only. */
-    if (ao) { const r0 = ao.render.bind(ao); (ao as any).render = (...a: any[]) => { const vis = skipAO.map(o => o.visible); for (const o of skipAO) o.visible = false; try { (r0 as any)(...a); } finally { skipAO.forEach((o, i) => { o.visible = vis[i]; }); } }; }
+       Anything registered through noAO() is hidden for that one pass only. The wrapper is put on GTAO's render() at the first registration, so a caller that never registers
+       (the cockpit, other modes) runs GTAO exactly as before, and it allocates nothing per frame. */
+    const wrapAO = () => { if (aoWrapped || !ao) return; aoWrapped = true; const g = ao as any, r0 = g.render.bind(g); g.render = (a: any, b: any, c: any, d: any, e: any) => { const n = skipAO.length; for (let i = 0; i < n; i++) { skipVis[i] = skipAO[i].visible; skipAO[i].visible = false; } try { r0(a, b, c, d, e); } finally { for (let i = 0; i < n; i++) skipAO[i].visible = skipVis[i]; } }; };
+    noAOFn = (...o: THREE.Object3D[]) => { for (const x of o) if (x && !skipAO.includes(x)) { skipAO.push(x); skipVis.push(true); } wrapAO(); };
   } catch (e) { good = false; composer = null; }
   function setKitGrade(k: string) { const g = KIT_GRADE[k]; if (!g || !grade) return; grade.uniforms.uTint.value.set(g[0], g[1], g[2]); grade.uniforms.uSat.value = g[3]; grade.uniforms.uCon.value = g[4]; }
   return {
-    tier: () => tr, setKit: setKitGrade, noAO: (...o: THREE.Object3D[]) => { for (const x of o) if (x && !skipAO.includes(x)) skipAO.push(x); },
+    tier: () => tr, setKit: setKitGrade, noAO: (...o: THREE.Object3D[]) => noAOFn(...o),
     ok: () => good && !!composer,
     render(dt = 0.016) {
       if (!composer || !good) { renderer.render(scene, getCam()); return; }

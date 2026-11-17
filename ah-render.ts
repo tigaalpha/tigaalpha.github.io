@@ -3,10 +3,14 @@
 import * as THREE from "three";
 import { createHiFx, HiFx, hiTier } from "./hi-fx";
 import type { HiLayers } from "./ah-hi";   // type only: the file itself is fetched with import() while Graphics is High
+import { gfxHigh } from "./adv-gfx";
 import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js";
 import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import { LEVELS, type Level } from "./ah-levels";
 import { ARENA, EYE, ALIENS, ALIEN_SCALE, WEAPONS, behOf, type State, type Enemy, type AlienKind, type Ev } from "./ah-engine";
+/* High only: start fetching the extra layers (ah-hi.ts) as soon as this file is loaded (the map and ready screens give the download seconds), so a level opens with the new look from its first frame and
+   not a moment later. Lite asks for nothing; hiStart() asks again (from the module cache) and logs if this early request failed. */
+try { if (gfxHigh()) void import("./ah-hi").catch(() => { /* hiStart() retries */ }); } catch (e) { /* */ }
 const WCOL: Record<string, number> = Object.fromEntries(Object.entries(WEAPONS).map(([k, v]) => [k, v.col]));
 
 const MAT = (c: number, o: any = {}) => new THREE.MeshStandardMaterial({ color: c, roughness: 0.7, metalness: 0.15, ...o });
