@@ -37,7 +37,7 @@ import { convCopyFor, convCheckoutTier, convPopupFor, convWinBack, convSeen, mar
 import { EDU_COPY, eduTipFor, eduSeen, markEduSeen, pvpLossCopy } from "./use-educate";
 import { queuedUntilTiga, useTiga, tigaNow, preloadTigamodelOnInteraction, tigaLongTermValue } from "./tiga-gateway";   // tigamodel loads LAZY (plan v3 1.5) — nothing static from it in the main chunk
 import { buildParentReport, buildParentReportData } from "./use-practice-coach";
-import { weightedStruggles, topNoteMisses, decideStrategy, strategyHint, validateTip, learnerTone, openAdvice, recordTipAction, readAutoTeachOutcomes, readAdviceMarks, markAdviceDelivered, adviceDeliveredToday, adviceRepeatBlocked } from "./use-autoteach";
+import { weightedStruggles, topNoteMisses, decideStrategy, strategyHint, validateTip, learnerTone, openAdvice, recordTipAction, readAutoTeachOutcomes, readAdviceMarks, markAdviceDelivered, adviceDeliveredToday, adviceQuota, adviceRepeatBlocked } from "./use-autoteach";
 /* แผน 18 §P1: หน่วยตัดสินใจเดียวของครู — pure, ไม่มี localStorage/network.
    ทั้งหน้า Daily Mentor และป๊อปอัป Auto Teaching อ่านจากที่นี่ที่เดียว
    (skillScoresOf = กติกาเดิมของ computeSkillScores · weightedStrugglesOf = กติกา
@@ -11937,7 +11937,9 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     if (deliver === "defer") { atipPendingRef.current = true; return; }
     /* โควตา: แผนได้ไม่จำกัด · ฟรี 2 ครั้ง/วัน (เจ้าของตัดสิน 2026-10-02) แล้วชี้ไปแผน */
     const allow = autoTeachAllowed();
-    if (!allow.ok) { setAutoTeachUpsellHint(allow); return; }
+    /* only a REAL spent allowance shows the "used today's free tips" line; a failed quota read
+       (why "error") shows nothing instead of telling a learner with 0 tips used that they used 2 */
+    if (!allow.ok) { if (allow.why === "quota") setAutoTeachUpsellHint(allow); return; }
     /* คำเดียวในที่เดียว: ถ้าการ์ดในหน้า Mentor (หรือป๊อปอัปก่อนหน้านี้) พูดเรื่องเดียวกัน
        ไปแล้วใน 24 ชม. ไม่ยิงซ้ำ — ผู้เรียนไม่ควรเจอคำเดียวกันสองที่ */
     let decision = null;

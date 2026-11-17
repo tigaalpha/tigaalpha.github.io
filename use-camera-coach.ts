@@ -177,9 +177,17 @@ export function useCameraCoach({ lang, premium, setPricingOpen, onReward }) {
     // TIGA teaching loop as real vision observations (spec §18/§21) — the
     // loop's diagnosis/KB tip can then reference actual posture issues.
     // Best-effort: camera coach must keep working even if the loop fails.
+    // (visionObservationsFromWindow lives in the lazily loaded tigamodel, so it is called on the
+    // module handed to queuedUntilTiga: a bare call here was a ReferenceError that the catch below
+    // swallowed, and the bridge never ran. scripts/check-undefined-names.mjs now fails the build on that.)
     try {
-      const obs = visionObservationsFromWindow(camSignalWindowRef.current);
-      if (obs && obs.length) queuedUntilTiga(m => { try { m.runTeachingLoopForPractice(null, { observations: obs }); } catch (e) {} });
+      const win = (camSignalWindowRef.current || []).slice();   // the window as it is at the tap, not as it is when the model lands
+      queuedUntilTiga(m => {
+        try {
+          const obs = m.visionObservationsFromWindow(win);
+          if (obs && obs.length) m.runTeachingLoopForPractice(null, { observations: obs });
+        } catch (e) {}
+      });
     } catch (e) {}
     getAC(); // unlock audio inside this tap gesture (iOS Safari) — the TTS call itself happens later, after the reply arrives
     setCamCoach({ loading: true });
