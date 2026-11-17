@@ -1,7 +1,7 @@
 // On-demand blog HTML. Reads published rows only. Never writes a post, a slug, or a queue.
 import fs from "node:fs";
 import { articleHtml, feedXml, indexHtml, relatedPosts } from "./build-blog-pages.mjs";
-import { BLOG_LANGS, STATIC_BLOG_LANGS, fromQuery, notFoundHtml, pickPost, sitemapBlogXml } from "./blog-paths.mjs";
+import { BLOG_LANGS, STATIC_BLOG_LANGS, fromQuery, notFoundHtml, pickPost, sitemapBlogBuild } from "./blog-paths.mjs";
 
 const src = fs.readFileSync(new URL("../supabase-client.ts", import.meta.url), "utf8");
 export const BLOG_API_URL = (/SUPABASE_URL = "([^"]+)"/.exec(src) || [])[1];
@@ -24,36 +24,89 @@ export async function fetchSlug(slug, fetchImpl) {
   return data;
 }
 
-export async function fetchLangRows(lang, fetchImpl) {
-  const page = 500;
-  let off = 0, all = [];
-  for (let guard = 0; guard < 40; guard++) {
-    const url = `${BLOG_API_URL}/rest/v1/blog_posts?select=slug,lang,title,excerpt,category,created_at,updated_at,published&published=eq.true&lang=eq.${encodeURIComponent(lang)}&order=created_at.desc,id.asc&limit=${page}&offset=${off}`;
-    const r = await fetchImpl(url, { headers: { apikey: BLOG_API_KEY, Authorization: "Bearer " + BLOG_API_KEY, Accept: "application/json" } });
-    if (!r.ok) throw new Error("blog list " + r.status);
-    const data = await r.json();
-    if (!Array.isArray(data)) throw new Error("blog list shape");
+/* Reading a list of rows. With ~11,000 translated articles (rows flagged live_only: no static file, served from here) the table holds 15,000+ published rows, so a list is read in pages of 500
+   and the pages are fetched TOGETHER, not one after the other (sequentially the sitemap alone was ~30 round trips, about 10 s, close to what a Vercel function may take).
+   The first page asks PostgREST for the total ("Prefer: count=exact" answers "Content-Range: 0-499/15234"); with the total known the other pages go out six at a time. An answer without
+   a Content-Range total (a test double has no headers at all) falls back to the old sequential loop, which stops at the first short page. The guard is 200 pages = 100,000 rows (it was 40 pages = 20,000). */
+const LIST_COLS = "slug,lang,title,excerpt,category,created_at,updated_at,published";
+const META_COLS = "slug,lang,published,created_at,updated_at";
+const LIST_PAGE = 500, LIST_MAX_PAGES = 200, LIST_PARALLEL = 6;
+
+// "0-499/15234" -> 15234. null when there is no header object, no Content-Range, or no number after the slash ("0-499/*").
+export function totalFromContentRange(r) {
+  try {
+    const raw = r && r.headers && typeof r.headers.get === "function" ? r.headers.get("content-range") : null;
+    const m = raw ? /\/(\d+)\s*$/.exec(String(raw)) : null;
+    return m ? Number(m[1]) : null;
+  } catch { return null; }
+}
+
+async function readListPage(url, fetchImpl, wantTotal) {
+  const headers = { apikey: BLOG_API_KEY, Authorization: "Bearer " + BLOG_API_KEY, Accept: "application/json" };
+  if (wantTotal) headers.Prefer = "count=exact";
+  const r = await fetchImpl(url, { headers });
+  if (!r.ok) throw new Error("blog list " + r.status);
+  const data = await r.json();
+  if (!Array.isArray(data)) throw new Error("blog list shape");
+  return { data, total: wantTotal ? totalFromContentRange(r) : null };
+}
+
+// fn(item) for every item, `limit` at a time; the results come back in the order of the items. The first failure stops new work and rejects.
+async function mapLimit(items, limit, fn) {
+  const out = new Array(items.length);
+  let next = 0, failed = false;
+  const worker = async () => {
+    while (!failed && next < items.length) {
+      const i = next++;
+      try { out[i] = await fn(items[i]); } catch (e) { failed = true; throw e; }
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker));
+  return out;
+}
+
+// pageUrl(offset) -> the URL of the page that starts at that offset. Throws like the old loops did ("blog list <status>" / "blog list shape").
+export async function fetchAllPages(pageUrl, fetchImpl, opts = {}) {
+  const page = opts.page || LIST_PAGE, maxPages = opts.maxPages || LIST_MAX_PAGES, parallel = opts.parallel || LIST_PARALLEL;
+  const first = await readListPage(pageUrl(0), fetchImpl, true);
+  if (first.data.length < page) return first.data;
+  if (first.total != null) {
+    const pages = Math.min(Math.ceil(first.total / page), maxPages), offsets = [];
+    for (let i = 1; i < pages; i++) offsets.push(i * page);
+    const rest = await mapLimit(offsets, parallel, async (off) => (await readListPage(pageUrl(off), fetchImpl, false)).data);
+    return [].concat(first.data, ...rest);
+  }
+  let all = first.data;
+  for (let n = 1; n < maxPages; n++) {
+    const { data } = await readListPage(pageUrl(n * page), fetchImpl, false);
     all = all.concat(data);
     if (data.length < page) break;
-    off += page;
   }
   return all;
 }
 
-export async function fetchPublishedMeta(fetchImpl) {
-  const page = 500;
-  let off = 0, all = [];
-  for (let guard = 0; guard < 40; guard++) {
-    const url = `${BLOG_API_URL}/rest/v1/blog_posts?select=slug,lang,published,created_at,updated_at&published=eq.true&order=created_at.desc,id.asc&limit=${page}&offset=${off}`;
-    const r = await fetchImpl(url, { headers: { apikey: BLOG_API_KEY, Authorization: "Bearer " + BLOG_API_KEY, Accept: "application/json" } });
-    if (!r.ok) throw new Error("blog list " + r.status);
-    const data = await r.json();
-    if (!Array.isArray(data)) throw new Error("blog list shape");
-    all = all.concat(data);
-    if (data.length < page) break;
-    off += page;
-  }
-  return all;
+export function fetchLangRows(lang, fetchImpl) {
+  return fetchAllPages((off) => `${BLOG_API_URL}/rest/v1/blog_posts?select=${LIST_COLS}&published=eq.true&lang=eq.${encodeURIComponent(lang)}&order=created_at.desc,id.asc&limit=${LIST_PAGE}&offset=${off}`, fetchImpl);
+}
+
+export function fetchPublishedMeta(fetchImpl) {
+  return fetchAllPages((off) => `${BLOG_API_URL}/rest/v1/blog_posts?select=${META_COLS}&published=eq.true&order=created_at.desc,id.asc&limit=${LIST_PAGE}&offset=${off}`, fetchImpl);
+}
+
+/* The "related articles" box of ONE article page must not download the whole language (a language holds ~1,300 rows once the translations are in). At most two small queries of 8 rows:
+   the newest published articles of the same language and category (not this one), and, only when fewer than 6 came back, the newest of the other categories. relatedPosts() stays the arranger
+   (same category first, newest first, at most 5), so the page has the same shape as before; this only decides which rows it gets to choose from. A failure of the first query throws (the caller
+   falls back to the catalog), a failure of the second keeps the first answer. */
+const RELATED_LIMIT = 8, RELATED_ENOUGH = 6;
+export async function fetchRelated(lang, category, slug, fetchImpl) {
+  const base = `${BLOG_API_URL}/rest/v1/blog_posts?select=${LIST_COLS}&published=eq.true&lang=eq.${encodeURIComponent(lang)}&slug=neq.${encodeURIComponent(slug)}`;
+  const tail = `&order=created_at.desc,id.asc&limit=${RELATED_LIMIT}`;
+  const get = async (url) => (await readListPage(url, fetchImpl, false)).data;
+  const same = category ? await get(`${base}&category=eq.${encodeURIComponent(category)}${tail}`) : [];
+  if (same.length >= RELATED_ENOUGH) return same;
+  let others = [];
+  try { others = await get(`${base}${category ? `&category=neq.${encodeURIComponent(category)}` : ""}${tail}`); } catch { /* the same-category rows are an answer already */ }
+  return same.concat(others);
 }
 
 /* ja / ko / ru / hi / es / fr / ar articles that shipped in blog-src/ (STATIC_BLOG_LANGS) are real HTML files, so Vercel serves /blog/<lang>/<slug>.html before this function.
@@ -123,7 +176,7 @@ function redirectToFile(lang, slug) {
 }
 function siblingSet(rows, post, catalog) {
   const set = {};
-  for (const row of rows || []) if (row && row.slug === post.slug && BLOG_LANGS.includes(row.lang)) set[row.lang] = row;
+  for (const row of rows || []) if (row && row.slug === post.slug && BLOG_LANGS.includes(row.lang) && row.published !== false) set[row.lang] = row;
   for (const c of catalog || []) if (c && c.slug === post.slug && BLOG_LANGS.includes(c.lang) && !set[c.lang]) set[c.lang] = c;
   if (!set[post.lang]) set[post.lang] = post;
   return set;
@@ -171,7 +224,7 @@ export async function serveBlog(query, fetchImpl, opts) {
   }
   const set = siblingSet(rows, post, catalog);
   let related = [];
-  try { related = relatedPosts(rowsForLang(post.lang, await fetchLangRows(post.lang, fetchImpl), catalog), post); }
+  try { related = relatedPosts(rowsForLang(post.lang, await fetchRelated(post.lang, post.category, post.slug, fetchImpl), catalog), post); }
   catch { related = relatedPosts(rowsForLang(post.lang, [], catalog), post); }
   const html = articleHtml(post, set, related);
   return result(200, html, {
@@ -186,11 +239,18 @@ export async function serveBlogSitemap(fetchImpl, opts) {
   const catalog = activeCatalog(opts);
   try {
     const posts = mergeLiveRows(await fetchPublishedMeta(fetchImpl), catalog);
-    return result(200, sitemapBlogXml(posts, BLOG_SITE), {
+    const built = sitemapBlogBuild(posts, BLOG_SITE, opts && opts.sitemapLimits);
+    const headers = {
       "content-type": "application/xml; charset=utf-8",
       "cache-control": "public, max-age=120, s-maxage=120",
       "x-blog-source": "live",
-    });
+    };
+    if (built.dropped) {
+      // the file would pass the 50,000-url / 50 MB limit of one sitemap: the oldest articles are left out (see sitemapBlogBuild) and the function log says so
+      headers["x-blog-sitemap-dropped"] = String(built.dropped);
+      console.warn(`blog-sitemap: ${built.dropped} of ${built.total} article urls left out (limit ${built.maxUrls} urls / ${built.maxBytes} bytes in one file); split sitemap-blog.xml into parts`);
+    }
+    return result(200, built.xml, headers);
   } catch {
     return result(503, "", { "content-type": "text/plain; charset=utf-8", "cache-control": "no-store", "x-blog-source": "live" });
   }

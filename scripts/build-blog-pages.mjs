@@ -3,6 +3,7 @@
 // Japanese, Korean and Russian (owner 2026-11-11), then Hindi, Spanish, French and Arabic (owner 2026-11-13) are ALSO read from committed source files, blog-src/<lang>/<slug>.json (see readStaticPosts):
 // the table does not allow those languages until supabase-blog-ja-ko-ru-migration.sql / supabase-blog-hi-es-fr-ar-migration.sql are applied, so the articles must be able to ship without them.
 // A database row wins over a source file with the same (lang, slug). A language whose blog-src folder is missing or empty is simply skipped. Arabic is right-to-left: its pages carry dir="rtl".
+// A row flagged live_only = true (the translation queue, owner 2026-11-17) is NOT written here at all: it is served from the database by scripts/blog-live.mjs (see isLiveOnly and the filter right after mergeStatic in writeBlog).
 // Run by `npm run build` after build-song-pages.mjs (it appends to that script's sitemap.xml). SITE_URL overrides the domain.
 import fs from "node:fs"; import path from "node:path"; import { fileURLToPath } from "node:url";
 import { STATIC_BLOG_LANGS as STATIC_LANGS } from "./blog-paths.mjs";
@@ -65,6 +66,10 @@ export function mergeStatic(dbPosts, staticPosts) {
   const have = new Set((dbPosts || []).map(p => p.lang + "/" + p.slug));
   return (dbPosts || []).concat((staticPosts || []).filter(p => !have.has(p.lang + "/" + p.slug)));
 }
+// live_only (supabase-blog-translation-queue-migration.sql, owner 2026-11-17): a row with this flag is served from the database by the on-demand function (scripts/blog-live.mjs) and gets NO static file anywhere,
+// because ~11,000 translated articles written as files would add ~340 MB to blog/, the git repo, the Vercel deployment and the OTA zip. Only a real `true` counts: a row from blog-src/ has no such field,
+// and false / null / a database without the column all mean "static, exactly as before".
+export const isLiveOnly = (p) => !!p && p.live_only === true;
 function inline(s) {
   return esc(s).replace(/!\[([^\]]*)\]\((https:\/\/[^)\s]+)\)/g, (_, a, u) => `<img src="${u}" alt="${a}" loading="lazy">`)
     .replace(/\[([^\]]+)\]\((https:\/\/[^)\s]+)\)/g, (_, t, u) => `<a href="${u}" rel="noopener">${t}</a>`).replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
@@ -363,7 +368,12 @@ else try {
 } catch (e) { console.log("build-blog-pages: skipped (" + (e && e.message) + ")"); }
 // The source files (ja / ko / ru / hi / es / fr / ar) are read whether or not the database answered: they are committed, so a build with no network (this sandbox) still emits those pages, indexes and feeds.
 const statics = readStaticPosts();
-const posts = mergeStatic(dbPosts, statics);
+// The live_only rows are taken out ONCE, here, right after the merge (a database row still wins over a blog-src file of the same (lang, slug), flagged or not), so everything below that reads `posts` sees static rows only:
+// the article pages, the index pages and feeds of the source-file languages, blog/sitemap-static.xml, the sitemap.xml appends, the hreflang sets (bySlug) and the related lists. With no flagged row `posts` is the merged list itself.
+const merged = mergeStatic(dbPosts, statics);
+const liveOnly = merged.filter(isLiveOnly);
+const posts = liveOnly.length ? merged.filter(p => !isLiveOnly(p)) : merged;
+if (liveOnly.length) console.log(`build-blog-pages: ${liveOnly.length} live-only rows served from the database (no static file)`);
 setIndexLangs(STATIC_LANGS.filter(l => posts.some(p => p.lang === l)));
 if (fetched) fs.rmSync(OUT, { recursive: true, force: true });
 else console.log("build-blog-pages: fetch failed, leaving the existing blog pages in place");
@@ -437,14 +447,16 @@ console.log(`build-blog-pages: ${posts.length} posts (${statics.length} from blo
 // Titles of the committed source-file articles (ja / ko / ru / hi / es / fr / ar), for the on-demand index / feed / sitemap. Bodies stay in the HTML files.
 // Written only by a real build (BLOG_OUT is the test door): Vercel bundles api/blog-live-catalog.json into the function.
 if (!process.env.BLOG_OUT) {
-  const cat = liveCatalogRows(statics);
+  // the catalog names the blog-src files that got a page: one shadowed by a live-only database row (the row wins, and it has no file) is not listed
+  const shadowed = new Set(liveOnly.map(p => p.lang + "/" + p.slug));
+  const cat = liveCatalogRows(shadowed.size ? statics.filter(p => !shadowed.has(p.lang + "/" + p.slug)) : statics);
   fs.mkdirSync(path.join(ROOT, "api"), { recursive: true });
   fs.writeFileSync(path.join(ROOT, "api/blog-live-catalog.json"), JSON.stringify(cat));
   console.log(`build-blog-pages: live catalog ${cat.length} static rows`);
 }
 }
 export function liveCatalogRows(posts) {
-  return (posts || []).filter(p => STATIC_LANGS.includes(p.lang) && p && p.slug && p.published !== false).map(p => ({
+  return (posts || []).filter(p => STATIC_LANGS.includes(p.lang) && p && p.slug && p.published !== false && !isLiveOnly(p)).map(p => ({
     lang: p.lang, slug: p.slug, title: p.title || "", excerpt: typeof p.excerpt === "string" ? p.excerpt : "",
     category: p.category || "tips", published: true, created_at: p.created_at, updated_at: p.updated_at || p.created_at,
   }));

@@ -94,27 +94,52 @@ export function notFoundHtml(lang) {
 
 const HTML_LANG = { th: "th", en: "en", zh: "zh-Hans", ja: "ja", ko: "ko", ru: "ru", hi: "hi", es: "es", fr: "fr", ar: "ar" };
 
-export function sitemapBlogXml(posts, site) {
+/* One sitemap file may hold 50,000 urls and 50 MB (52,428,800 bytes). sitemap-blog.xml is ONE file (the root sitemap.xml lists it once, and a sitemap index may not list another index), so the function
+   keeps itself under 45,000 urls and 45,000,000 bytes: article urls past that are left out, never a file the crawlers would reject. The newest articles are kept (the rows arrive newest first), a slug stays whole
+   (all its languages or none), and the ten language index urls are always kept. The caller logs what was left out (sitemapBlogBuild returns the numbers). The row count today is ~15,000, a third of the limit;
+   past it, the file has to be split into parts that the root sitemap.xml lists one by one. */
+export const SITEMAP_MAX_URLS = 45000, SITEMAP_MAX_BYTES = 45000000;
+
+export function sitemapBlogBuild(posts, site, limits) {
+  const maxUrls = (limits && limits.maxUrls) || SITEMAP_MAX_URLS, maxBytes = (limits && limits.maxBytes) || SITEMAP_MAX_BYTES;
   const list = (posts || []).filter(p => p && p.published !== false && SLUG.test(p.slug || "") && LANGS.has(p.lang));
   const by = {};
   for (const p of list) (by[p.slug] = by[p.slug] || {})[p.lang] = p;
-  const lines = [];
-  for (const slug of Object.keys(by)) {
-    const set = by[slug];
-    const xd = set.en ? "en" : Object.keys(set)[0];
-    for (const lang of Object.keys(set)) {
-      const p = set[lang];
-      const loc = `${site}/blog/${lang}/${encodeURIComponent(slug)}.html`;
-      const day = String(p.updated_at || p.created_at || "").slice(0, 10);
-      const alts = Object.keys(set).map(l => `<xhtml:link rel="alternate" hreflang="${HTML_LANG[l]}" href="${site}/blog/${l}/${encodeURIComponent(slug)}.html"/>`).join("");
-      lines.push(`<url><loc>${loc}</loc>${/^\d{4}-\d{2}-\d{2}$/.test(day) ? `<lastmod>${day}</lastmod>` : ""}${alts}<xhtml:link rel="alternate" hreflang="x-default" href="${site}/blog/${xd}/${encodeURIComponent(slug)}.html"/></url>`);
-    }
-  }
+  const tail = [];
   for (const lang of BLOG_LANGS) {
     const rows = list.filter(p => p.lang === lang);
     if (!rows.length) continue;
     const newest = rows.map(p => String(p.updated_at || p.created_at || "").slice(0, 10)).filter(d => /^\d{4}-\d{2}-\d{2}$/.test(d)).sort().pop();
-    lines.push(`<url><loc>${site}/blog/${lang}/</loc>${newest ? `<lastmod>${newest}</lastmod>` : ""}</url>`);
+    tail.push(`<url><loc>${site}/blog/${lang}/</loc>${newest ? `<lastmod>${newest}</lastmod>` : ""}</url>`);
   }
-  return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">\n${lines.join("\n")}\n</urlset>\n`;
+  let urlsLeft = maxUrls - tail.length, bytesLeft = maxBytes - 1024 - tail.reduce((n, l) => n + l.length + 1, 0);   // 1,024 bytes for the xml header and the closing tag
+  const lines = [];
+  let total = 0, full = false;
+  for (const slug of Object.keys(by)) {
+    const set = by[slug], langs = Object.keys(set);
+    total += langs.length;
+    if (full) continue;   // the budget ran out on an earlier slug: only count what is left out
+    const xd = set.en ? "en" : langs[0];
+    const group = langs.map(lang => {
+      const p = set[lang];
+      const loc = `${site}/blog/${lang}/${encodeURIComponent(slug)}.html`;
+      const day = String(p.updated_at || p.created_at || "").slice(0, 10);
+      const alts = langs.map(l => `<xhtml:link rel="alternate" hreflang="${HTML_LANG[l]}" href="${site}/blog/${l}/${encodeURIComponent(slug)}.html"/>`).join("");
+      return `<url><loc>${loc}</loc>${/^\d{4}-\d{2}-\d{2}$/.test(day) ? `<lastmod>${day}</lastmod>` : ""}${alts}<xhtml:link rel="alternate" hreflang="x-default" href="${site}/blog/${xd}/${encodeURIComponent(slug)}.html"/></url>`;
+    });
+    const bytes = group.reduce((n, l) => n + l.length + 1, 0);
+    if (group.length > urlsLeft || bytes > bytesLeft) { full = true; continue; }
+    for (const l of group) lines.push(l);
+    urlsLeft -= group.length; bytesLeft -= bytes;
+  }
+  const kept = lines.length;
+  for (const l of tail) lines.push(l);
+  return {
+    xml: `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">\n${lines.join("\n")}\n</urlset>\n`,
+    total, kept, dropped: total - kept, urls: lines.length, maxUrls, maxBytes,
+  };
+}
+
+export function sitemapBlogXml(posts, site, limits) {
+  return sitemapBlogBuild(posts, site, limits).xml;
 }
