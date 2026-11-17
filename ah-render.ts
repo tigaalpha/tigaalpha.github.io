@@ -2,10 +2,15 @@
    High = shadows, device pixel ratio up to 2, more particles; Lite = no shadows, pixel ratio 1, fewer lights. Everything is drawn from code, nothing is downloaded. */
 import * as THREE from "three";
 import { createHiFx, HiFx, hiTier } from "./hi-fx";
+import type { HiLayers } from "./ah-hi";   // type only: the file itself is fetched with import() while Graphics is High
+import { gfxHigh } from "./adv-gfx";
 import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js";
 import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import { LEVELS, type Level } from "./ah-levels";
 import { ARENA, EYE, ALIENS, ALIEN_SCALE, WEAPONS, behOf, type State, type Enemy, type AlienKind, type Ev } from "./ah-engine";
+/* High only: start fetching the extra layers (ah-hi.ts) as soon as this file is loaded (the map and ready screens give the download seconds), so a level opens with the new look from its first frame and
+   not a moment later. Lite asks for nothing; hiStart() asks again (from the module cache) and logs if this early request failed. */
+try { if (gfxHigh()) void import("./ah-hi").catch(() => { /* hiStart() retries */ }); } catch (e) { /* */ }
 const WCOL: Record<string, number> = Object.fromEntries(Object.entries(WEAPONS).map(([k, v]) => [k, v.col]));
 
 const MAT = (c: number, o: any = {}) => new THREE.MeshStandardMaterial({ color: c, roughness: 0.7, metalness: 0.15, ...o });
@@ -1859,10 +1864,11 @@ export function createRender(host: HTMLElement, startHigh: boolean, lv = 0, lvOb
   const core = new THREE.Mesh(new THREE.SphereGeometry(9, 16, 10), GLOW(0xff7a3a)); core.position.y = -6; core.scale.y = 0.5; ship.add(core);
   ship.position.set(-30, 62, -110); scene.add(ship);
   if (KIT) ship.visible = false;   // a Robot Adventure 3D level has its own sky
+  let planetG: THREE.Mesh | null = null, planetR: THREE.Mesh | null = null;   // Luma's gas giant and its ring (High repaints them)
   if (JUNGLE) {   // Luma: no Harvester ship; a pale ringed gas giant hangs in the sky instead
     ship.visible = false;
-    const giant = new THREE.Mesh(new THREE.SphereGeometry(30, 28, 18), new THREE.MeshBasicMaterial({ fog: false, map: canvasTex(256, 128, g => { const gr = g.createLinearGradient(0, 0, 0, 128); gr.addColorStop(0, "#9ad8c8"); gr.addColorStop(0.5, "#5aa89a"); gr.addColorStop(1, "#2a6a68"); g.fillStyle = gr; g.fillRect(0, 0, 256, 128); for (let i = 0; i < 9; i++) { g.fillStyle = "rgba(255,255,255," + (0.05 + (i % 3) * 0.04) + ")"; g.fillRect(0, 8 + i * 13, 256, 4 + (i % 4)); } }) })); giant.position.set(-60, 55, -140); scene.add(giant);
-    const rg = new THREE.Mesh(new THREE.RingGeometry(40, 58, 48), new THREE.MeshBasicMaterial({ color: 0xbff0e0, side: THREE.DoubleSide, transparent: true, opacity: 0.35, fog: false })); rg.rotation.x = 1.25; rg.rotation.y = 0.3; rg.position.copy(giant.position); scene.add(rg);
+    const giant = new THREE.Mesh(new THREE.SphereGeometry(30, 28, 18), new THREE.MeshBasicMaterial({ fog: false, map: canvasTex(256, 128, g => { const gr = g.createLinearGradient(0, 0, 0, 128); gr.addColorStop(0, "#9ad8c8"); gr.addColorStop(0.5, "#5aa89a"); gr.addColorStop(1, "#2a6a68"); g.fillStyle = gr; g.fillRect(0, 0, 256, 128); for (let i = 0; i < 9; i++) { g.fillStyle = "rgba(255,255,255," + (0.05 + (i % 3) * 0.04) + ")"; g.fillRect(0, 8 + i * 13, 256, 4 + (i % 4)); } }) })); giant.position.set(-60, 55, -140); scene.add(giant); planetG = giant;
+    const rg = new THREE.Mesh(new THREE.RingGeometry(40, 58, 48), new THREE.MeshBasicMaterial({ color: 0xbff0e0, side: THREE.DoubleSide, transparent: true, opacity: 0.35, fog: false })); rg.rotation.x = 1.25; rg.rotation.y = 0.3; rg.position.copy(giant.position); scene.add(rg); planetR = rg;
   }
   const stars = new THREE.Points(new THREE.BufferGeometry().setAttribute("position", new THREE.Float32BufferAttribute(Array.from({ length: 600 }, () => 0).map((_, i) => (i % 3 === 1 ? 20 + Math.random() * 150 : (Math.random() - 0.5) * 340)), 3)), new THREE.PointsMaterial({ color: 0xffffff, size: 0.7, fog: false, sizeAttenuation: false })); scene.add(stars);
 
@@ -1950,7 +1956,8 @@ export function createRender(host: HTMLElement, startHigh: boolean, lv = 0, lvOb
   for (let i = 0; i < NDEC; i++) { const m = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshBasicMaterial({ map: glowTex, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, opacity: 0 })); m.rotation.x = -Math.PI / 2; m.position.y = 0.03; m.visible = false; hiGrp.add(m); decals.push({ m, age: 99 }); }
   const decal = (x: number, z: number, col: number, size: number, op: number) => { if (!high) return; const d = decals[decI++ % NDEC]; d.age = 0; d.m.position.x = x; d.m.position.z = z; d.m.rotation.z = Math.random() * 6; d.m.scale.setScalar(size); (d.m.material as THREE.MeshBasicMaterial).color.setHex(col); d.m.userData.op = op; d.m.visible = true; };
   const shaftMat = new THREE.MeshBasicMaterial({ color: TH ? TH.sun : 0xffd9b0, transparent: true, opacity: 0.05, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide, fog: false });
-  for (let i = 0; i < 4; i++) { const a2 = i / 4 * Math.PI * 2 + 0.4, c = new THREE.Mesh(new THREE.ConeGeometry(3.2, 12, 14, 1, true), shaftMat); c.position.set(Math.cos(a2) * 18, 6, Math.sin(a2) * 18); hiGrp.add(c); }
+  const shaftCones: THREE.Mesh[] = [];
+  for (let i = 0; i < 4; i++) { const a2 = i / 4 * Math.PI * 2 + 0.4, c = new THREE.Mesh(new THREE.ConeGeometry(3.2, 12, 14, 1, true), shaftMat); c.position.set(Math.cos(a2) * 18, 6, Math.sin(a2) * 18); hiGrp.add(c); shaftCones.push(c); }
   /* High only (owner 2026-10-23: "most beautiful possible"): drifting dust and embers in the level's light, lit by the sun colour */
   const NMOTE = 420, moteGeo = new THREE.BufferGeometry(), motePos = new Float32Array(NMOTE * 3), moteSeed = new Float32Array(NMOTE);
   for (let i = 0; i < NMOTE; i++) { motePos[i * 3] = (Math.random() - 0.5) * ARENA * 2; motePos[i * 3 + 1] = Math.random() * 9; motePos[i * 3 + 2] = (Math.random() - 0.5) * ARENA * 2; moteSeed[i] = Math.random() * 6.28; }
@@ -1961,6 +1968,17 @@ export function createRender(host: HTMLElement, startHigh: boolean, lv = 0, lvOb
   hiGrp.visible = high;
   const flare = (x: number, y: number, z: number, col: number, size: number) => { const f = flares.find(q => q.life <= 0); if (!f) return; f.life = 0.16; f.m.position.set(x, y, z); f.m.userData.sz = size; (f.m.material as THREE.MeshBasicMaterial).color.setHex(col); f.m.visible = true; };
 
+  /* High only (2026-11-17): the extra layers (painted sky, light made from that sky, ...) live in ah-hi.ts and are fetched only while Graphics is High; any failure there leaves the older High look */
+  let hiL: HiLayers | null = null, hiState = 0, gone = false;
+  const hiStart = () => {
+    if (!high || hiL || hiState === 1 || gone) return; hiState = 1;
+    import("./ah-hi").then(m => {
+      hiState = 2; if (!high || gone || hiL) return;
+      try { hiL = m.createHiLayers({ renderer, scene, cam, sky, stars, sun, ground, boxMat, levelGroup, hiGrp, hold, guns, mflash, mflash2, mstreak, hand, fore, fogSheet, shaftCones, giant: planetG, giantRing: planetR, TH, KIT, arena: ARENA, levelId: LV ? LV.id : 0, muzzle: (w: string) => { hold.updateWorldMatrix(true, true); return hold.localToWorld(new THREE.Vector3(0, 0, GUN_MUZZLE[w] || -0.7)); }, envBase: () => envTex, noAO: (...o: THREE.Object3D[]) => { if (hifx && hifx.noAO) hifx.noAO(...o); } }); hiL.on(true); }
+      catch (e) { hiL = null; try { console.warn("HIFX ah-hi " + (e as any).message); } catch (_) { /* */ } }
+    }).catch(e => { hiState = 0; try { console.warn("HIFX ah-hi import " + (e && e.message)); } catch (_) { /* */ } });
+  };
+
   /* effects pools */
   const tracers: { m: THREE.Mesh; life: number }[] = [];
   const trM = new THREE.MeshBasicMaterial({ color: 0xffe9a0, transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending, depthWrite: false, fog: false });
@@ -1968,7 +1986,7 @@ export function createRender(host: HTMLElement, startHigh: boolean, lv = 0, lvOb
   const NP = high ? 160 : 70; type P = { m: THREE.Mesh; v: THREE.Vector3; life: number; g: number };
   const parts: P[] = []; const pgeo = new THREE.SphereGeometry(0.05, 5, 4);
   for (let i = 0; i < NP; i++) { const m = new THREE.Mesh(pgeo, new THREE.MeshBasicMaterial({ color: 0x88ff44, fog: false })); m.visible = false; scene.add(m); parts.push({ m, v: new THREE.Vector3(), life: 0, g: 9 }); }
-  const burst = (x: number, y: number, z: number, n: number, col: number, spd: number) => { let k = 0; for (const p of parts) { if (p.life > 0) continue; if (k++ >= n) break; (p.m.material as THREE.MeshBasicMaterial).color.setHex(col); p.m.position.set(x, y, z); p.v.set((Math.random() - 0.5) * spd, Math.random() * spd * 0.8, (Math.random() - 0.5) * spd); p.life = 0.5 + Math.random() * 0.4; p.m.visible = true; p.m.scale.setScalar(0.6 + Math.random()); } };
+  const burst = (x: number, y: number, z: number, n: number, col: number, spd: number) => { if (hiL && hiL.softBurst(x, y, z, n, col, spd)) return; let k = 0; for (const p of parts) { if (p.life > 0) continue; if (k++ >= n) break; (p.m.material as THREE.MeshBasicMaterial).color.setHex(col); p.m.position.set(x, y, z); p.v.set((Math.random() - 0.5) * spd, Math.random() * spd * 0.8, (Math.random() - 0.5) * spd); p.life = 0.5 + Math.random() * 0.4; p.m.visible = true; p.m.scale.setScalar(0.6 + Math.random()); } };
   const arcs: { m: THREE.Mesh[]; life: number }[] = []; const arcMat = new THREE.MeshBasicMaterial({ color: 0xbfe8ff, transparent: true, opacity: 0.95, blending: THREE.AdditiveBlending, depthWrite: false, fog: false });
   for (let i = 0; i < 3; i++) { const segs: THREE.Mesh[] = []; for (let j = 0; j < 24; j++) { const m = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 1, 4), arcMat); m.visible = false; scene.add(m); segs.push(m); } arcs.push({ m: segs, life: 0 }); }
   const pkMeshes = new Map<number, THREE.Group>(); const pkGeo = new THREE.OctahedronGeometry(0.42);
@@ -2013,6 +2031,7 @@ export function createRender(host: HTMLElement, startHigh: boolean, lv = 0, lvOb
     canvas, shake: 0,
     events(ev) {
       for (const e of ev) {
+        if (hiL) hiL.event(e);
         if (e.k === "strike") { curShake = Math.max(curShake, 3); flashT = 0.5; flash.color.setHex(0xfff0c0); flash.intensity = 40; flash.position.copy(cam.position); }
         else if (e.k === "dig") burst(e.x as number, 0.8, e.z as number, high ? 14 : 6, 0x9adfff, 4);
         else if (e.k === "shot") { mfT = 0.05; flashT = 0.06; gunFx(e.w as string); { const c = WCOL[e.w as string] || 0xffd080; flash.color.setHex(c); (mflash.material as THREE.MeshBasicMaterial).color.setHex(c); } const t = e.w === "arc" || e.w === "rpg" || e.w === "salvo" || e.w === "launcher" ? null : tracers.find(q => q.life <= 0); if (t) { t.life = e.w === "rail" ? 0.32 : 0.11; t.m.visible = true; { const c = WCOL[e.w as string] || 0xffe9a0; (t.m.material as THREE.MeshBasicMaterial).color.setHex(0xffffff); ((t.m.children[0] as THREE.Mesh).material as THREE.MeshBasicMaterial).color.setHex(c); const th = e.w === "nova" ? 3.2 : e.w === "rail" ? 2.2 : e.w === "beam" || e.w === "cryo" ? 1.4 : e.w === "storm" || e.w === "laser" ? 1.1 : 1.6; t.m.userData.th = th; } const from = new THREE.Vector3(0.2, -0.17, -0.7).applyMatrix4(cam.matrixWorld), dir = new THREE.Vector3(0, 0, -1).applyQuaternion(cam.quaternion), to = from.clone().addScaledVector(dir, e.w === "rail" ? 90 : 36); const mid = from.clone().add(to).multiplyScalar(0.5); t.m.position.copy(mid); t.m.scale.set(t.m.userData.th || 1, from.distanceTo(to), t.m.userData.th || 1); t.m.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir); } }
@@ -2103,17 +2122,18 @@ export function createRender(host: HTMLElement, startHigh: boolean, lv = 0, lvOb
         g.position.x += (m.x - g.position.x) * Math.min(1, dt * 8); g.position.z += (m.z - g.position.z) * Math.min(1, dt * 8); g.rotation.y = m.yaw; g.children[3].position.y = 2.7 + Math.sin(now * 3) * 0.12; }
       for (const [id, g] of mateMeshes) if (!mateList.some(m => m.id === id)) { scene.remove(g); mateMeshes.delete(id); }
       api.shake = curShake;
+      if (high && hiL) hiL.update(dt, s);
       if (high && hifx && hifx.ok()) hifx.render(dt); else renderer.render(scene, cam);
     },
     resize() {
       const w = host.clientWidth || 800, h = host.clientHeight || 450; renderer.setPixelRatio(high ? Math.min(2, window.devicePixelRatio || 1) : 1); renderer.setSize(w, h, false); if (hifx) hifx.setSize(w, h, high ? Math.min(2, window.devicePixelRatio || 1) : 1); canvas.style.width = "100%"; canvas.style.height = "100%";
       cam.aspect = w / h; cam.updateProjectionMatrix();
     },
-    setHigh(h) { high = h; if (h && !hifx) hifx = createHiFx(renderer, scene, () => cam, { bloom: 0.6, radius: 0.55, threshold: 0.8, kit: KIT }); renderer.shadowMap.enabled = h; sun.castShadow = h; envOn(h); surfOn(h); hiGrp.visible = h; api.resize(); scene.traverse(o => { const m = (o as THREE.Mesh).material as any; if (m && m.needsUpdate !== undefined) m.needsUpdate = true; }); },
+    setHigh(h) { high = h; if (h && !hifx) hifx = createHiFx(renderer, scene, () => cam, { bloom: 0.6, radius: 0.55, threshold: 0.8, kit: KIT }); renderer.shadowMap.enabled = h; sun.castShadow = h; if (!h && hiL) hiL.on(false); envOn(h); surfOn(h); hiGrp.visible = h; if (h) { if (hiL) hiL.on(true); else hiStart(); } api.resize(); scene.traverse(o => { const m = (o as THREE.Mesh).material as any; if (m && m.needsUpdate !== undefined) m.needsUpdate = true; }); },
     mates(list) { mateList = list; },
-    info: () => ({ mates: mateMeshes.size, calls: renderer.info.render.calls, tris: renderer.info.render.triangles, high, rigs: rigs.size }),
-    dispose() { renderer.dispose(); scene.traverse(o => { const m = o as THREE.Mesh; if (m.isMesh) { m.geometry.dispose(); const mt: any = m.material; (Array.isArray(mt) ? mt : [mt]).forEach(x => x && x.dispose && x.dispose()); } }); if (canvas.parentNode) canvas.parentNode.removeChild(canvas); },
+    info: () => ({ mates: mateMeshes.size, calls: renderer.info.render.calls, tris: renderer.info.render.triangles, high, rigs: rigs.size, geo: renderer.info.memory.geometries, tex: renderer.info.memory.textures, prog: (renderer.info.programs || []).length }),
+    dispose() { gone = true; if (hiL) { try { hiL.dispose(); } catch (e) { /* */ } hiL = null; } if (hifx) { try { hifx.dispose(); } catch (e) { /* */ } } renderer.dispose(); scene.traverse(o => { const m = o as THREE.Mesh; if (m.isMesh) { m.geometry.dispose(); const mt: any = m.material; (Array.isArray(mt) ? mt : [mt]).forEach(x => x && x.dispose && x.dispose()); } }); if (canvas.parentNode) canvas.parentNode.removeChild(canvas); },
   };
-  api.resize(); guns[gun].visible = true;
+  api.resize(); guns[gun].visible = true; hiStart();
   return api;
 }
