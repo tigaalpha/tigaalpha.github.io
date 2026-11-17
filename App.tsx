@@ -68,7 +68,7 @@ import {
   PLAN_PRICE, CURRENCY_BY_LANG, PLAN_LABEL,
   yearPrice, planPriceByCur, yearPriceByCur, fmtPrice,
   b2bPriceByCur, b2bYearPriceByCur,
-  effectivePlan, trialDaysLeft, planBadge, isTrialPlan, CheckoutModal, SchoolCheckoutModal,
+  effectivePlan, trialDaysLeft, planBadge, isTrialPlan, CheckoutModal, SchoolCheckoutModal, schoolReqAmount,
 } from "./payment";
 import {
   NF, KEYS_12, CHROMA, LESSON_MODE,
@@ -9453,7 +9453,7 @@ function AdminSchools({ lang, viewerTier }) {
           {payReqs.map(r => (
             <div key={r.id} style={{ background: "var(--card3)", borderRadius: 10, padding: "10px 12px", marginBottom: 8 }}>
               <div className="admstu-row-nm">{r.institution_name} <span className="adminpay-badge approved">{r.fulfilled_at ? T("จัดเตรียมแล้ว", "PROVISIONED", "已开通") : r.status.toUpperCase()}</span></div>
-              <div className="admstu-row-meta">{r.tier.replace("school_", "")} × {r.seats} {T("ที่นั่ง", "seats", "席位")} · {r.cycle === "year" ? T("รายปี", "yearly", "年付") : T("รายเดือน", "monthly", "月付")} · ฿{Number(r.amount).toLocaleString()} · {r.method}</div>
+              <div className="admstu-row-meta">{r.tier.replace("school_", "")} × {r.seats} {T("ที่นั่ง", "seats", "席位")} · {r.cycle === "year" ? T("รายปี", "yearly", "年付") : T("รายเดือน", "monthly", "月付")} · {schoolReqAmount(r)} · {r.method}</div>
               <div className="admstu-row-sub">{r.contact_email}</div>
               {tier >= 3 && !r.fulfilled_at && (r.status === "pending" || r.status === "paid") && (
                 <div style={{ display: "flex", gap: 8, marginTop: 8 }}>

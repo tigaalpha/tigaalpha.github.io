@@ -4217,6 +4217,7 @@ const cat: Record<string, string> = {
   "This map ran into a problem": "이 지도에 문제가 생겼어요",
   "This needs a real account": "정식 계정이 필요해요",
   "This one is free, and you choose it once. Every other model is bought on the Robot skins shelf.": "이 모델은 무료이고, 한 번만 고를 수 있어요. 다른 모델은 모두 로봇 스킨 코너에서 구매해야 해요.",
+  "This order is over the limit for one card payment — please contact us": "주문 금액이 카드 1회 결제 한도를 넘었어요. 문의해 주세요.",
   "This page doesn't look like it's open in Safari — open this link in Safari first, then follow the steps below.": "이 페이지가 Safari에서 열려 있지 않은 것 같아요 — 먼저 이 링크를 Safari에서 연 다음 아래 단계를 따라 하세요.",
   "This part could not be shown": "이 부분을 표시할 수 없어요",
   "This part has a problem, but the app still works normally — tap close to hide this box": "이 부분에 문제가 있지만 앱은 정상적으로 작동해요. 닫기를 눌러 이 상자를 숨기세요",
