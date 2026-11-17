@@ -187,7 +187,7 @@ export function create(S: any, cv: HTMLCanvasElement, FXC: any) {
     try {
       if (washes.length >= 6) washes.shift();
       const p = Math.min(1.8, power);
-      washes.push({ x, y, g: glowOf(rgbOf(colour)), p: 0, dur: 0.3 + 0.18 * p, a: Math.min(0.4, 0.14 * p), r: S.w * (0.26 + 0.14 * p), big: p > 1.15 });
+      washes.push({ x, y, g: glowOf(rgbOf(colour)), p: 0, dur: 0.3 + 0.18 * p, a: Math.min(0.3, 0.1 * p), r: S.w * (0.26 + 0.14 * p), big: p > 1.15 });
     } catch (e) { fail(); }                            // called from the fight's own effects: a throw here must never reach them
   }
 
@@ -228,7 +228,7 @@ export function create(S: any, cv: HTMLCanvasElement, FXC: any) {
     ctx.save();
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.globalCompositeOperation = "lighter";
-    ctx.globalAlpha = 0.5;
+    ctx.globalAlpha = 0.3;   // was 0.5: the first art review found a big hit washed out at tier 3
     ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = "high";
     ctx.drawImage(bc, 0, 0, canvas.width, canvas.height);
     ctx.restore();
