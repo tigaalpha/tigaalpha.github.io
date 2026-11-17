@@ -64,6 +64,16 @@ if a device already has a build installed from *before* this fix, that one
 install still needs an uninstall-then-reinstall once — every build after
 that stays consistent.
 
+**Second one-time reinstall (2026-11-17, versionCode restarted at 1).** Android
+never installs a build whose `versionCode` is LOWER than the installed one, and
+the numbering was deliberately restarted before the first Play upload
+(`android/app/build.gradle`: `(major-13)*10_000_000 + (minor-7)*100_000 +
+(patch-1099)`, so 13.7.1100 is 1; the old numbers were 13,00x,xxx). A device
+that still has a debug APK built before that change shows a plain "App not
+installed" when the new one is installed over it: uninstall the old app once,
+then install the new APK. Builds after that update normally again. Play Store
+installs are not affected (nothing had been uploaded yet).
+
 ## Already done
 
 - `capacitor.config.ts` — appId `com.tigaalpha.tigaai`, bundled `webDir`

@@ -6,43 +6,41 @@ apply plugin: 'com.android.application'
 // for Play Store / over-the-top installs to accept an update.
 def appVersion = new groovy.json.JsonSlurper().parseText(file("../../package.json").text).version
 
-/* versionCode, in a form that CANNOT go backwards.
+/* versionCode: it COUNTS FROM 1 and can only go up.
+   (owner, 2026-11-17: "change the formula before the first upload, start again from 1")
 
-   It used to be major*10000 + minor*100 + patch, which quietly assumes the
-   patch number stays under 100. It is not: the OTA bot ships roughly hourly, so
-   the patch is already in the hundreds (13.7.526), and at that point the
-   formula overflows into the minor's slot AND, worse, the next minor release
-   produces a SMALLER number than the patch it follows:
+   Nothing has been uploaded to Play yet, so the numbering can be reset, and it had to be:
+     • 1st scheme, major*10000 + minor*100 + patch, broke at patch 100 (13.7.526 -> 131226, 13.8.0 -> 130800);
+     • 2nd scheme, major*1_000_000 + minor*1_000 + patch, broke at patch 1000: the patch is already past 999
+       (13.7.1101 -> 13,008,101) and 13.8.0 would have been 13,008,000, LOWER, which Play rejects with
+       "version code already exists / must be greater" on the one upload that matters.
 
-       13.7.526 -> 131226        (minor 7, patch 526, overflowed to "12.26")
-       13.8.0   -> 130800        LOWER — Play rejects the update outright
+   The code is the distance from a base version, each part with its own room:
 
-   That is not a cosmetic risk. It is the "this version has already been
-   uploaded" error on the one upload that matters, and it would surface only
-   after the store listing is live.
+       versionCode = (major - 13) * 10_000_000 + (minor - 7) * 100_000 + (patch - 1099)
 
-   Each component now gets its own digit budget wide enough for the numbers this
-   project actually produces — patch in the thousands, minor in the hundreds —
-   so a bump in any one component always raises the total:
+   BASE is 13.7.1099 = code 0 (never shipped as an app bundle). 13.7.1100 = 1, 13.7.1101 = 2, ...
+     patch  up to 99,999   (the OTA bot ships a few times a day: decades of room, and a minor bump resets it to 0)
+     minor  up to 99       (13.8.0 is always ABOVE 13.7.99999, because 100,000 > 99,999)
+     major  up to 223      (Play's ceiling is 2,100,000,000)
+   The build STOPS (it never wraps silently) when a part is out of range or the version is not newer than BASE.
+   scripts/smoke-android-play-store.mjs (npm run verify:android) re-implements this and pins every step.
 
-       major * 1_000_000 + minor * 1_000 + patch
-
-   Verified against the real sequence (scripts/smoke-android-play-store.mjs pins
-   it): 13.7.526 -> 13,007,526, and every realistic next step — 13.7.527,
-   13.8.0, 13.10.0, 14.0.0 — increases.
-
-   The one thing this cannot express is a patch of 1000+ ALONGSIDE a higher
-   minor: 13.7.1000 and 13.8.0 both land near 13,008,000. No positional
-   encoding can, and it is not a near-term problem: the patch only climbs when
-   the OTA bot ships, roughly hourly, so reaching 1000 is about six weeks of
-   unbroken releases. The test pins that boundary explicitly rather than
-   leaving it to be discovered as a rejected upload.
-
-   Play's ceiling is 2,100,000,000, which this reaches only at major 2100. */
+   AFTER THE FIRST PLAY UPLOAD NEVER CHANGE THE BASE OR THE FORMULA: a lower code is refused for ever. */
+def BASE_MAJOR = 13
+def BASE_MINOR = 7
+def BASE_PATCH = 1099
 def vmaj = appVersion.tokenize(".")[0] as int
 def vmin = appVersion.tokenize(".")[1] as int
 def vpat = appVersion.tokenize(".")[2] as int
-def versionCodeValue = vmaj * 1000000 + vmin * 1000 + vpat
+if (vmin > 99 || vpat > 99999) {
+    throw new GradleException("versionCode: version ${appVersion} is outside the numbering (minor <= 99, patch <= 99999); see the comment in android/app/build.gradle")
+}
+def versionCodeLong = (vmaj - BASE_MAJOR) * 10000000L + (vmin - BASE_MINOR) * 100000L + (vpat - BASE_PATCH)
+if (versionCodeLong < 1L || versionCodeLong > 2100000000L) {
+    throw new GradleException("versionCode ${versionCodeLong} for version ${appVersion} is outside 1..2,100,000,000 (it counts from ${BASE_MAJOR}.${BASE_MINOR}.${BASE_PATCH}); see the comment in android/app/build.gradle")
+}
+def versionCodeValue = versionCodeLong as int
 
 android {
     namespace = "com.tigaalpha.tigaai"

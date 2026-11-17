@@ -52,7 +52,10 @@ should keep the Capacitor project buildable, and Play Store rules are pinned by
 checks exist because they were false once — the versionCode formula and the
 signing-key ignore rule. Read `PLAY_STORE_GUIDE.md` before touching release
 config; it names what is still the owner's to do (the $25 account, the release
-keystore, the first upload).
+keystore, the first upload). `versionCode` counts from 1 at 13.7.1100
+(`(major-13)*10_000_000 + (minor-7)*100_000 + (patch-1099)`, owner 2026-11-17):
+once the first bundle is on Play, NEVER change the BASE numbers or the formula —
+Play refuses a lower code for ever.
 
 `git push` regularly needs a merge first. The OTA auto-release bot commits to
 `main` about every hour, so a push from a long task session is usually rejected

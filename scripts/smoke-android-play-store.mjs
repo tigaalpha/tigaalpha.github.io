@@ -19,6 +19,18 @@
    listing, and unrecoverable from the console afterwards. This test pins the
    arithmetic against the versions this project actually produces.
 
+   Round two (2026-11-17): the fix above (major*1_000_000 + minor*1_000 + patch)
+   had the same flaw one digit later. The patch passed 999 (13.7.1101 ->
+   13,008,101) and 13.8.0 would have been 13,008,000 — lower again. Nothing had
+   been uploaded, so the owner chose to restart the numbering at 1:
+
+       versionCode = (major-13)*10_000_000 + (minor-7)*100_000 + (patch-1099)
+
+   13.7.1100 is 1. The BASE numbers are read out of build.gradle below, so this
+   test follows them; what it pins is that EVERY realistic next version is
+   higher, that the build stops (GradleException) outside the numbering instead
+   of wrapping, and that the numbering stays under Play's 2,100,000,000.
+
    It also pins the store-build rules that are easy to break by accident and
    that the Play review would catch: OTA must be OFF in a store build (Play
    forbids self-updating outside its own channel), release signing must come
@@ -36,24 +48,35 @@ const MANIFEST = readFileSync("android/app/src/main/AndroidManifest.xml", "utf8"
 const VARS = readFileSync("android/variables.gradle", "utf8");
 const CAP = readFileSync("capacitor.config.ts", "utf8");
 
-// ══ 1. versionCode must never go backwards ══════════════════════════════════
+// ══ 1. versionCode counts from 1 and must never go backwards ════════════════
 // Re-implements the formula from build.gradle rather than importing it, so the
-// test fails if the two ever disagree in the other direction.
+// test fails if the two ever disagree in the other direction. The three BASE
+// numbers are read from the gradle file (they are the one thing that file owns).
+const baseOf = (n) => Number((new RegExp("def " + n + " = (\\d+)").exec(GRADLE) || [])[1]);
+const BASE = [baseOf("BASE_MAJOR"), baseOf("BASE_MINOR"), baseOf("BASE_PATCH")];
+ok(BASE.every(Number.isInteger), `build.gradle names BASE_MAJOR / BASE_MINOR / BASE_PATCH (${BASE.join(".")})`);
 const codeOf = (v) => {
   const [a, b, c] = v.split(".").map(Number);
-  return a * 1000000 + b * 1000 + c;
+  return (a - BASE[0]) * 10000000 + (b - BASE[1]) * 100000 + (c - BASE[2]);
 };
 
-ok(/versionCodeValue/.test(GRADLE), "build.gradle computes versionCode once, into a named value");
-ok(!/tokenize\("\."\)\.with \{ \(it\[0\]/.test(GRADLE),
-  "the old major*10000+minor*100+patch formula is gone (it overflowed at patch 100)");
-ok(/versionCode versionCodeValue/.test(GRADLE), "defaultConfig uses that value");
+ok(/def versionCodeLong = \(vmaj - BASE_MAJOR\) \* 10000000L \+ \(vmin - BASE_MINOR\) \* 100000L \+ \(vpat - BASE_PATCH\)/.test(GRADLE),
+  "build.gradle computes the code as (major-BASE) * 10_000_000 + (minor-BASE) * 100_000 + (patch-BASE), in a long");
+ok(/def versionCodeValue = versionCodeLong as int/.test(GRADLE) && /versionCode versionCodeValue/.test(GRADLE),
+  "defaultConfig uses that value (one named value, computed once)");
+ok(!/tokenize\("\."\)\.with \{ \(it\[0\]/.test(GRADLE) && !/vmaj \* 1000000 \+ vmin \* 1000 \+ vpat/.test(GRADLE),
+  "both older formulas are gone (major*10000+minor*100+patch overflowed at patch 100; major*1e6+minor*1e3+patch at patch 1000)");
+ok(/throw new GradleException/.test(GRADLE) && /vmin > 99 \|\| vpat > 99999/.test(GRADLE) && /versionCodeLong < 1L \|\| versionCodeLong > 2100000000L/.test(GRADLE),
+  "the build STOPS (GradleException) when minor > 99, patch > 99999, the code is below 1 or above Play's ceiling — it never wraps silently");
 
 const pkgVersion = readFileSync("package.json", "utf8").match(/"version":\s*"([\d.]+)"/)[1];
 ok(pkgVersion.split(".").length === 3, `package.json version has three parts (${pkgVersion})`);
 
 const now = codeOf(pkgVersion);
-ok(now > 0, `the shipped version maps to a positive versionCode (${now})`);
+ok(now >= 1, `the shipped version maps to a versionCode of at least 1 (${pkgVersion} -> ${now})`);
+ok(codeOf(`${BASE[0]}.${BASE[1]}.${BASE[2]}`) === 0 && codeOf(`${BASE[0]}.${BASE[1]}.${BASE[2] + 1}`) === 1,
+  "the base version is 0 (never shipped) and the next one is versionCode 1");
+ok(now < 100000, `and it is still a small number now (${now}), not the old 13,00x,xxx`);
 
 /* Every step the release train actually takes FROM THE CURRENT VERSION.
 
@@ -65,12 +88,14 @@ ok(now > 0, `the shipped version maps to a positive versionCode (${now})`);
 const [maj, vmin, pat] = pkgVersion.split(".").map(Number);
 const bump = (M, m, p) => `${M}.${m}.${p}`;
 const upcoming = [
-  bump(maj, vmin, pat + 1),      // the hourly OTA patch bump — the common case
+  bump(maj, vmin, pat + 1),      // the OTA patch bump — the common case
   bump(maj, vmin, pat + 2),
-  bump(maj, vmin, 999),          // the end of this minor's patch range
-  bump(maj, vmin + 1, 0),        // THE CASE THAT USED TO REGRESS
+  bump(maj, vmin, 1999),         // the patch range the old scheme ran out of ...
+  bump(maj, vmin, 99999),        // ... and the end of the new one
+  bump(maj, vmin + 1, 0),        // THE CASE THAT USED TO REGRESS (13.8.0 under 13.7.1101)
   bump(maj, vmin + 1, 12),
-  bump(maj, vmin + 3, 0),        // a two-digit minor, which overflowed the old formula
+  bump(maj, vmin + 3, 0),        // a two-digit minor, which overflowed the first formula
+  bump(maj, 99, 99999),          // the end of this major
   bump(maj + 1, 0, 0),
 ];
 let prev = now;
@@ -79,17 +104,20 @@ for (const v of upcoming) {
   ok(c > prev, `${v} -> ${c} is greater than the previous (${prev})`);
   prev = c;
 }
+ok(codeOf(bump(maj + 1, 0, 0)) - codeOf(bump(maj, 99, 99999)) >= 1, "even the tightest step (the last version of a major to the next major) goes up");
 
-/* The regression, stated in terms of the REAL current version so it stays true
-   however far the bot has bumped: the old formula put the next minor BELOW the
-   patch it follows. If this ever stops failing, the canary has rotted. */
+/* The regressions, stated in terms of the REAL current version so they stay true
+   however far the bot has bumped. If either stops failing, the canary has rotted. */
 const oldOf = (v) => { const [a, b, c] = v.split(".").map(Number); return a * 10000 + b * 100 + c; };
 ok(oldOf(bump(maj, vmin + 1, 0)) < oldOf(pkgVersion),
-  `confirmed: the old formula regresses at ${bump(maj, vmin + 1, 0)} (this is the bug, kept as a canary)`);
+  `confirmed: the FIRST formula regresses at ${bump(maj, vmin + 1, 0)} (kept as a canary)`);
+const secondOf = (v) => { const [a, b, c] = v.split(".").map(Number); return a * 1000000 + b * 1000 + c; };
+ok(secondOf(bump(maj, vmin + 1, 0)) < secondOf(bump(maj, vmin, 1101)),
+  `confirmed: the SECOND formula regresses past patch 999 — 13.8.0 -> ${secondOf(bump(maj, vmin + 1, 0))} is below 13.7.1101 -> ${secondOf(bump(maj, vmin, 1101))} (kept as a canary)`);
 
 // Play's hard ceiling
-ok(codeOf("2100.0.0") <= 2100000000, "major 2100 is still inside Play's versionCode ceiling");
-ok(codeOf("2101.0.0") > 2100000000, "and past it we would notice, years before it happens");
+ok(codeOf(bump(222, 99, 99999)) <= 2100000000, "major 222 (end of range) is still inside Play's versionCode ceiling");
+ok(codeOf(bump(224, 0, 0)) > 2100000000, "and past it the build refuses (the gradle guard), years before it happens");
 
 // ══ 2. a store build must not update itself ════════════════════════════════
 ok(/VITE_OTA_ENABLED/.test(readFileSync("native-updater.ts", "utf8")),
