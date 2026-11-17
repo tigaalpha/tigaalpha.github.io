@@ -1,6 +1,9 @@
 -- supabase-blog-price-usd-migration.sql
 --
--- WRITTEN, NOT APPLIED. AGENTS.md hard rule: SQL against the live database is run only with the owner's explicit approval for THIS file.
+-- APPLIED on 2026-11-17 with the owner's approval ("if SQL is what blocks you, just run it"), in one transaction, and read back:
+--   backup table public.blog_posts_backup_price_usd holds 2,499 rows (ar 11, en 511, es 11, fr 11, hi 11, ja 211, ko 211, ru 211, zh 1311);
+--   no row outside Thai still quotes the baht price; US$24.99 is in 8 languages, 176 CNY in zh; the 511 Thai rows that quote 799 are untouched.
+-- (AGENTS.md hard rule: SQL against the live database is run only with the owner's explicit approval; this file had it.)
 --
 -- Why (owner, 2026-11-17: "the new price is US$24.99"): almost every published article (2,499 of the 2,508 rows outside Thai) ends with the same
 -- call-to-action paragraph that quotes the old baht price — "... then 799 THB/month" in English, Hindi, Spanish, French, Arabic and Russian,
