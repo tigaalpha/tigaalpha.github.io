@@ -9,6 +9,7 @@ export function startHubSky(host: HTMLElement, stage: HTMLElement | null): () =>
   const cv = document.createElement("canvas"); cv.className = "ra-sky"; cv.setAttribute("aria-hidden", "true"); cv.style.cssText = "position:absolute;inset:0;width:100%;height:100%;pointer-events:none;display:block";
   host.insertBefore(cv, host.firstChild);
   const ctx = cv.getContext("2d"); if (!ctx) { cv.remove(); return () => {}; }
+  host.setAttribute("data-sky", "1");   // the CSS hides the old drifting dots only while this sky is really running, so a failure leaves the previous High look
   const reduced = (() => { try { return !!(window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches); } catch (e) { return false; } })();
   let alive = true, raf = 0, last = 0, W = 0, H = 0, tick = 0;
   /* layout size (clientWidth), not a bounding box: the map is turned a quarter in portrait and a bounding box would swap the two */
@@ -41,5 +42,5 @@ export function startHubSky(host: HTMLElement, stage: HTMLElement | null): () =>
     if (reduced && nebDone) { alive = false; cancelAnimationFrame(raf); }   // one still frame is enough
   };
   raf = requestAnimationFrame(draw);
-  return () => { alive = false; cancelAnimationFrame(raf); if (ro) ro.disconnect(); try { cv.remove(); } catch (e) { /* */ } };
+  return () => { alive = false; cancelAnimationFrame(raf); if (ro) ro.disconnect(); try { cv.remove(); host.removeAttribute("data-sky"); } catch (e) { /* */ } };
 }

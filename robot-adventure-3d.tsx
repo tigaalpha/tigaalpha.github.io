@@ -210,7 +210,7 @@ const CSS = `
 .ra-hub.hi .ra-orb img{box-shadow:inset -8px -10px 18px #000a,inset 5px 6px 14px #fff3,0 0 16px color-mix(in srgb,var(--c) 55%,transparent),0 8px 18px #0008}
 .ra-hub.hi .ra-orb:after{content:"";position:absolute;inset:6% 38% 40% 8%;border-radius:50%;background:radial-gradient(closest-side,#fff5,transparent);pointer-events:none}
 .ra-hub.hi .ra-stars.s1{animation-duration:90s}
-.ra-hub.hi .ra-stars,.ra-hub.hi .ra-neb{display:none}
+.ra-hub[data-sky] .ra-stars,.ra-hub[data-sky] .ra-neb{display:none}
 .ra-orb b{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:18px;background:#0008;border-radius:50%}.ra-orb em{position:absolute;right:-4px;top:-4px;width:20px;height:20px;border-radius:50%;background:#2ecf7a;color:#fff;font-style:normal;font-size:13px;font-weight:900;display:flex;align-items:center;justify-content:center}
 @keyframes ra-bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-7px)}}
 .ra-nm{font-size:10px;font-weight:800;text-align:center;line-height:1.15;text-shadow:0 1px 6px #000;max-width:76px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.ra-pl u{font-size:9px;text-decoration:none;font-weight:900;letter-spacing:.5px;padding:1px 7px;border-radius:9px;background:#ffffff1a;opacity:.75}.ra-pl u.g{background:#2ecf7a;color:#03140c;opacity:1}
