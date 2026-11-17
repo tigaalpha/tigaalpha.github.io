@@ -19,7 +19,7 @@ export function startHubSky(host: HTMLElement, stage: HTMLElement | null): () =>
   /* the nebula: 256 x 128 of layered noise (teal and violet, the map's own colours), painted 3 ms at a time, drawn stretched over the sky */
   const NW = 256, NH = 128, neb = document.createElement("canvas"); neb.width = NW; neb.height = NH; const nx = neb.getContext("2d")!, img = nx.createImageData(NW, NH); let ny = 0, nebDone = false, nebFade = 0;
   const paintRows = (ms: number) => { const t0 = performance.now(); while (ny < NH && performance.now() - t0 < ms) { for (let k = 0; k < 2 && ny < NH; k++, ny++) for (let x = 0; x < NW; x++) { const u = x / NW, v = ny / NH, a = fbm(u, v, 3, 701, 4), b = fbm(u + 0.4, v, 5, 711, 4), c = fbm(u + 0.8, v, 9, 721, 3), d1 = sm(0.44, 0.84, a) * (0.5 + 0.5 * (1 - v)), d2 = sm(0.5, 0.88, b) * (0.3 + 0.7 * v), dust = sm(0.55, 0.8, c);
-      const i = (ny * NW + x) * 4, k2 = 1 - 0.6 * dust; img.data[i] = Math.min(255, (14 * d1 + 70 * d2 + 4) * k2); img.data[i + 1] = Math.min(255, (92 * d1 + 24 * d2 + 8) * k2); img.data[i + 2] = Math.min(255, (84 * d1 + 120 * d2 + 12) * k2); img.data[i + 3] = 255; } }
+      const i = (ny * NW + x) * 4, k2 = 1 - 0.6 * dust; img.data[i] = Math.min(255, (18 * d1 + 90 * d2 + 4) * k2); img.data[i + 1] = Math.min(255, (120 * d1 + 30 * d2 + 8) * k2); img.data[i + 2] = Math.min(255, (108 * d1 + 150 * d2 + 12) * k2); img.data[i + 3] = 255; } }
     if (ny >= NH) { nx.putImageData(img, 0, 0); nebDone = true; } };
 
   /* stars: three depths; unit coordinates so a resize keeps the sky */
@@ -31,7 +31,7 @@ export function startHubSky(host: HTMLElement, stage: HTMLElement | null): () =>
     if (!alive) return; raf = requestAnimationFrame(draw); if (document.hidden || now - last < 50) return; const dt = last ? Math.min(0.2, (now - last) / 1000) : 0; last = now; tick += dt; if (!nebDone) paintRows(3);
     const tx = stage ? parseFloat(stage.style.getPropertyValue("--tx")) || 0 : 0, ty = stage ? parseFloat(stage.style.getPropertyValue("--ty")) || 0 : 0;
     ctx.clearRect(0, 0, W, H); ctx.globalCompositeOperation = "source-over";
-    if (nebDone) { nebFade = reduced ? 1 : Math.min(1, nebFade + dt * 0.8); ctx.globalAlpha = 0.55 * nebFade; ctx.imageSmoothingEnabled = true; ctx.drawImage(neb, 0, 0, W, H); ctx.globalAlpha = 1; }
+    if (nebDone) { nebFade = reduced ? 1 : Math.min(1, nebFade + dt * 0.8); ctx.globalAlpha = 0.85 * nebFade; ctx.imageSmoothingEnabled = true; ctx.drawImage(neb, 0, 0, W, H); ctx.globalAlpha = 1; }
     ctx.globalCompositeOperation = "lighter";
     for (const L of layers) for (const q of L.st) {
       const x = (((q.x - tick * L.vx * (reduced ? 0 : 1)) % 1) + 1) % 1 * W + tx * 5 * L.par, y = q.y * H + ty * 4 * L.par, tw = reduced ? 1 : 0.72 + 0.28 * Math.sin(tick * (0.8 + q.m * 1.6) + q.t);
