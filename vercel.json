@@ -60,18 +60,19 @@
     { "source": "/rss.xml", "destination": "/blog/th/feed.xml", "permanent": true },
     { "source": "/atom.xml", "destination": "/blog/th/feed.xml", "permanent": true },
     { "source": "/blog/:lang/:file.html/", "destination": "/blog/:lang/:file.html", "permanent": true },
-    { "source": "/songs/:lang/:file.html/", "destination": "/songs/:lang/:file.html", "permanent": true }
+    { "source": "/songs/:lang/:file.html/", "destination": "/songs/:lang/:file.html", "permanent": true },
+    { "source": "/sitemap-blog.xml", "destination": "/sitemap.xml", "statusCode": 301 }
   ],
   "rewrites": [
-    { "source": "/sitemap-blog.xml", "destination": "/api/blog-sitemap" },
+    { "source": "/sitemap-blog-:lang.xml", "destination": "/api/blog-sitemap?lang=:lang" },
     { "source": "/ads.txt", "destination": "/api/plain-404" },
     { "source": "/blog/:lang/", "destination": "/api/blog-page?lang=:lang" },
     { "source": "/blog/:lang/:rest*", "destination": "/api/blog-page?lang=:lang&rest=:rest*" },
     { "source": "/blog/:slug", "destination": "/api/blog-page?slug=:slug" },
-    { "source": "/((?!sw\\.js|manifest\\.webmanifest|icon\\.svg|updates/|api/|llms\\.txt$|llms-full\\.txt$|sitemap-blog\\.xml$).*)", "destination": "/index.html" }
+    { "source": "/((?!sw\\.js|manifest\\.webmanifest|icon\\.svg|updates/|api/|llms\\.txt$|llms-full\\.txt$|sitemap-blog\\.xml$|sitemap-blog-[a-z]+\\.xml$).*)", "destination": "/index.html" }
   ],
   "functions": {
-    "api/blog-page.js": { "includeFiles": "{supabase-client.ts,api/blog-live-catalog.json}" },
-    "api/blog-sitemap.js": { "includeFiles": "{supabase-client.ts,api/blog-live-catalog.json}" }
+    "api/blog-page.js": { "includeFiles": "{supabase-client.ts,api/blog-live-catalog.json}", "maxDuration": 30 },
+    "api/blog-sitemap.js": { "includeFiles": "{supabase-client.ts,api/blog-live-catalog.json}", "maxDuration": 30 }
   }
 }

@@ -73,8 +73,10 @@ const htmlHit = await serveBlog({ lang: "ja", rest: "static-only.html" }, fetchI
 ok("an extension-less static article redirects to its file", redir.status === 301 && redir.headers.location === SITE + "/blog/ja/static-only.html" && redirSlash.status === 301 && redirSlash.headers.location === redir.headers.location);
 ok("the .html address is not redirected (that would loop)", htmlHit.status === 404 && !htmlHit.headers.location && htmlHit.body.includes('<html lang="ja">'));
 
-const sm = await serveBlogSitemap(fetchImpl, opts);
-ok("sitemap-blog names the new ja article, the static-only one, and the index", sm.status === 200 && sm.body.includes(SITE + "/blog/ja/live-one.html") && sm.body.includes(SITE + "/blog/ja/static-only.html") && sm.body.includes("<loc>" + SITE + "/blog/ja/</loc>") && sm.body.includes('hreflang="ko"') && sm.body.includes('hreflang="x-default" href="' + SITE + "/blog/en/live-one.html\""));
+const sm = await serveBlogSitemap(fetchImpl, opts, "ja");
+ok("sitemap-blog-ja names the new ja article, the static-only one, and the index, and none of another language", sm.status === 200 && sm.body.includes(SITE + "/blog/ja/live-one.html") && sm.body.includes(SITE + "/blog/ja/static-only.html") && sm.body.includes("<loc>" + SITE + "/blog/ja/</loc>") && !sm.body.includes("/blog/ko/") && !sm.body.includes("/blog/en/") && !sm.body.includes("xhtml"));
+const smKo = await serveBlogSitemap(fetchImpl, opts, "ko");
+ok("sitemap-blog-ko is the ko file: the database row and the catalog one (the same slug as the ja article), once each", smKo.status === 200 && smKo.body.includes(SITE + "/blog/ko/live-ko.html") && smKo.body.includes(SITE + "/blog/ko/live-one.html") && !smKo.body.includes("/blog/ja/"));
 
 const empty = await serveBlog({ lang: "ja" }, async () => ({ ok: true, json: async () => [] }), { catalog: [] });
 ok("ja index with nothing at all is still 404, in Japanese", empty.status === 404 && empty.body.includes('<html lang="ja">') && !empty.body.includes('class="card"'));

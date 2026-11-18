@@ -10,6 +10,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import { blogSitemapIndexEntries } from "./blog-paths.mjs";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const SITE = (process.env.SITE_URL || "https://www.tigaalpha.com").replace(/\/+$/, "");
@@ -212,10 +213,10 @@ for (const [u, alts] of URLS) songsXml.push(`<url><loc>${u}</loc>${alts.map(([l,
 songsXml.push("</urlset>");
 fs.writeFileSync(path.join(ROOT, "sitemap-pages.xml"), pagesXml.join("\n") + "\n");
 fs.writeFileSync(path.join(ROOT, "sitemap-songs.xml"), songsXml.join("\n") + "\n");
-const indexXml = `<?xml version="1.0" encoding="UTF-8"?>\n<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n<sitemap><loc>${SITE}/sitemap-pages.xml</loc><lastmod>${lastmod}</lastmod></sitemap>\n<sitemap><loc>${SITE}/sitemap-songs.xml</loc><lastmod>${lastmod}</lastmod></sitemap>\n<sitemap><loc>${SITE}/sitemap-blog.xml</loc><lastmod>${lastmod}</lastmod></sitemap>\n</sitemapindex>\n`;
+const indexXml = `<?xml version="1.0" encoding="UTF-8"?>\n<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n<sitemap><loc>${SITE}/sitemap-pages.xml</loc><lastmod>${lastmod}</lastmod></sitemap>\n<sitemap><loc>${SITE}/sitemap-songs.xml</loc><lastmod>${lastmod}</lastmod></sitemap>\n${blogSitemapIndexEntries(SITE, lastmod).join("\n")}\n</sitemapindex>\n`;   // the blog: the ten sitemap-blog-<lang>.xml, listed directly (a sitemap index may not list another index; /sitemap-blog.xml is a 301 to this file, vercel.json; see blog-paths.mjs)
 fs.writeFileSync(path.join(ROOT, "sitemap.xml"), indexXml);
 // One group: * plus the named crawlers share Allow: / and the existing /updates/ block.
 // A bot-only group would replace these rules, so the names stay in this record.
 const BOTS = ["*", "GPTBot", "OAI-SearchBot", "ChatGPT-User", "PerplexityBot", "ClaudeBot", "Claude-SearchBot", "Google-Extended", "Bingbot", "Applebot", "meta-externalagent"];
-fs.writeFileSync(path.join(ROOT, "robots.txt"), `${BOTS.map(b => `User-agent: ${b}`).join("\n")}\nAllow: /\nDisallow: /updates/\n\nSitemap: ${SITE}/sitemap.xml\nSitemap: ${SITE}/sitemap-blog.xml\n`);
+fs.writeFileSync(path.join(ROOT, "robots.txt"), `${BOTS.map(b => `User-agent: ${b}`).join("\n")}\nAllow: /\nDisallow: /updates/\n\nSitemap: ${SITE}/sitemap.xml\n`);   // the one index names every sitemap, the ten blog files included (a second Sitemap: line for the blog would only repeat it)
 console.log(`build-song-pages: ${songs.length} songs x 3 languages = ${pages} pages + 3 indexes, sitemap.xml (${URLS.length + 6 + GUIDES.length * 3} urls), robots.txt  (${SITE})`);

@@ -3,9 +3,11 @@
 // Japanese, Korean and Russian (owner 2026-11-11), then Hindi, Spanish, French and Arabic (owner 2026-11-13) are ALSO read from committed source files, blog-src/<lang>/<slug>.json (see readStaticPosts):
 // the table does not allow those languages until supabase-blog-ja-ko-ru-migration.sql / supabase-blog-hi-es-fr-ar-migration.sql are applied, so the articles must be able to ship without them.
 // A database row wins over a source file with the same (lang, slug). A language whose blog-src folder is missing or empty is simply skipped. Arabic is right-to-left: its pages carry dir="rtl".
+// A row flagged live_only = true (the translation queue, owner 2026-11-17) is NOT written here at all: it is served from the database by scripts/blog-live.mjs (see isLiveOnly and the filter right after mergeStatic in writeBlog),
+// and it is not even downloaded: the build asks the database for the rows that are not flagged (fetchBuildRows).
 // Run by `npm run build` after build-song-pages.mjs (it appends to that script's sitemap.xml). SITE_URL overrides the domain.
 import fs from "node:fs"; import path from "node:path"; import { fileURLToPath } from "node:url";
-import { STATIC_BLOG_LANGS as STATIC_LANGS } from "./blog-paths.mjs";
+import { STATIC_BLOG_LANGS as STATIC_LANGS, totalFromContentRange } from "./blog-paths.mjs";
 export { STATIC_LANGS };
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const SITE = (process.env.SITE_URL || "https://www.tigaalpha.com").replace(/\/+$/, "");
@@ -65,6 +67,10 @@ export function mergeStatic(dbPosts, staticPosts) {
   const have = new Set((dbPosts || []).map(p => p.lang + "/" + p.slug));
   return (dbPosts || []).concat((staticPosts || []).filter(p => !have.has(p.lang + "/" + p.slug)));
 }
+// live_only (supabase-blog-translation-queue-migration.sql, owner 2026-11-17): a row with this flag is served from the database by the on-demand function (scripts/blog-live.mjs) and gets NO static file anywhere,
+// because ~11,000 translated articles written as files would add ~340 MB to blog/, the git repo, the Vercel deployment and the OTA zip. Only a real `true` counts: a row from blog-src/ has no such field,
+// and false / null / a database without the column all mean "static, exactly as before".
+export const isLiveOnly = (p) => !!p && p.live_only === true;
 function inline(s) {
   return esc(s).replace(/!\[([^\]]*)\]\((https:\/\/[^)\s]+)\)/g, (_, a, u) => `<img src="${u}" alt="${a}" loading="lazy">`)
     .replace(/\[([^\]]+)\]\((https:\/\/[^)\s]+)\)/g, (_, t, u) => `<a href="${u}" rel="noopener">${t}</a>`).replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
@@ -314,8 +320,8 @@ export function feedXml(lang, list) {
   }).join("");
   return `<?xml version="1.0" encoding="UTF-8"?>\n<rss version="2.0"><channel><title>TIGA ALPHA ${esc(L.name)}</title><link>${SITE}/blog/${lang}/</link><description>${esc(L.sub)}</description><language>${L.html}</language>${items}</channel></rss>\n`;
 }
-// The sitemap file for the languages that ship as source files. sitemap.xml is an index whose blog entry (sitemap-blog.xml) is rendered from the database on request, and the
-// database does not hold these articles until the owner applies the seed SQL, so they get a plain file of their own, listed in the index below. Duplicates with the live sitemap are harmless.
+// The sitemap file for the languages that ship as source files. sitemap.xml is an index whose blog entries (the ten sitemap-blog-<lang>.xml, see blogSitemapIndexEntries in blog-paths.mjs) are rendered from the database on request, and the
+// database does not hold these articles until the owner applies the seed SQL, so they get a plain file of their own (with the hreflang sets), listed in the index below. Duplicates with the live sitemap files are harmless.
 function staticSitemapXml(posts, bySlug) {
   const day = (p) => String(p.updated_at || p.created_at || "").slice(0, 10);
   const xl = (l, h) => `<xhtml:link rel="alternate" hreflang="${l}" href="${h}"/>`;
@@ -345,25 +351,73 @@ function writeStaticIndex(lang, list) {
   for (let n = 2; n <= pages; n++) { fs.mkdirSync(path.join(dir, "page", String(n)), { recursive: true }); fs.writeFileSync(path.join(dir, "page", String(n), "index.html"), indexHtml(lang, rows, n)); }
   fs.writeFileSync(path.join(dir, "feed.xml"), feedXml(lang, rows));
 }
+/* What `npm run build` reads from the database: the published rows that become files. Used by writeBlog; exported so that the tests can run it against a fake fetch.
+   - live_only rows are NOT downloaded (&live_only=eq.false; the column is NOT NULL, so that is every row that is not flagged). They are served live and written nowhere, and with the translation queue they are ~85% of the table;
+     downloading them with select=* (about 8.7 KB a row, the body included) multiplied the Supabase egress of every build run by about 7 (57 runs a day, 4-5 per push) only to throw them away. A database without the column
+     answers 400: the read is repeated without the filter, as before. (A server that ignores the filter changes nothing but the download: writeBlog still takes the flagged rows out by their flag.)
+   - A blog-src file is shadowed by a database row of the same (lang, slug), flagged or not (mergeStatic). With the flagged rows not downloaded, the few files that could be shadowed are looked up by name (select=lang,slug,
+     a request per 50 names) and come back as stub rows { live_only: true } that the merge and the catalog treat exactly like the real rows.
+   - The read must be COMPLETE or it is not used: the caller deletes blog/ and rewrites it from these rows, so a read that stopped early would delete the pages of every row it never saw (the old loop gave up after 40 pages = 20,000 rows
+     and still called that a success). `complete` is false when the page guard (BUILD_MAX_PAGES = 200 pages of 500 = 100,000 rows, was 40) ran out with rows left, or when fewer rows came back than the total PostgREST announced
+     ("Prefer: count=exact", Content-Range); the caller then keeps the existing pages, as it does for a failed request, and the build log names the reason (`incomplete read: ... page guard`). The step between pages is the number
+     of rows the last answer held, so a server that caps a page below `page` is followed, not skipped over. */
+export const BUILD_PAGE = 500, BUILD_MAX_PAGES = 200;
+export async function fetchBuildRows(o = {}) {
+  const { url, key, statics = [], fetchImpl = fetch, page = BUILD_PAGE, maxPages = BUILD_MAX_PAGES, timeoutMs = 20000, log = console.log } = o;
+  const get = (query, count) => fetchImpl(`${url}/rest/v1/blog_posts?${query}`, { headers: { apikey: key, Authorization: "Bearer " + key, ...(count ? { Prefer: "count=exact" } : {}) }, signal: AbortSignal.timeout(timeoutMs) });
+  const readAll = async (filter) => {
+    const rows = []; let total = null;
+    for (let n = 0; n < maxPages; n++) {
+      const r = await get(`select=*&published=eq.true${filter}&order=created_at.desc,id.asc&limit=${page}&offset=${rows.length}`, n === 0);
+      if (!r.ok) return { status: r.status, why: `no posts (${r.status})` };
+      const data = await r.json();
+      if (!Array.isArray(data)) return { why: "no posts (the answer is not a list)" };
+      if (n === 0) total = totalFromContentRange(r);
+      for (const p of data) rows.push(p);
+      if (total != null ? rows.length >= total : data.length < page) return { rows, total };
+      if (!data.length) return { why: `incomplete read: ${rows.length} of ${total} rows (an empty page before the total)` };
+    }
+    return { why: `incomplete read: ${rows.length}${total != null ? " of " + total : ""} rows after ${maxPages} pages, more are left (the page guard; raise BUILD_MAX_PAGES if the table really is this big)` };
+  };
+  let filtered = true, res = await readAll("&live_only=eq.false");
+  if (res.status === 400) { log("build-blog-pages: this database has no live_only column (400): reading every published row"); filtered = false; res = await readAll(""); }
+  if (!res.rows) return { complete: false, rows: [], why: res.why };
+  const stubs = [];
+  if (filtered && statics.length) {
+    const have = new Set(res.rows.map(p => p.lang + "/" + p.slug)), plain = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+    const open = statics.filter(p => plain.test(p.slug) && /^[a-z]{2,3}$/.test(p.lang) && !have.has(p.lang + "/" + p.slug));
+    const want = new Set(open.map(p => p.lang + "/" + p.slug)), slugs = [...new Set(open.map(p => p.slug))], langs = [...new Set(open.map(p => p.lang))];
+    for (let i = 0; i < slugs.length; i += 50) {
+      const r = await get(`select=lang,slug&published=eq.true&live_only=is.true&lang=in.(${langs.join(",")})&slug=in.(${slugs.slice(i, i + 50).join(",")})&limit=1000`, false);
+      if (!r.ok) return { complete: false, rows: [], why: `shadow lookup failed (${r.status})` };
+      const data = await r.json();
+      if (!Array.isArray(data)) return { complete: false, rows: [], why: "shadow lookup failed (the answer is not a list)" };
+      for (const p of data) if (p && want.delete(p.lang + "/" + p.slug)) stubs.push({ id: "shadow:" + p.lang + "/" + p.slug, lang: p.lang, slug: p.slug, published: true, live_only: true });
+    }
+  }
+  return { complete: true, rows: res.rows.concat(stubs), read: res.rows.length, filtered, ignored: filtered ? res.rows.filter(isLiveOnly).length : 0, shadowed: stubs.length, total: res.total };
+}
 async function writeBlog() {
+// The source files (ja / ko / ru / hi / es / fr / ar) are read whether or not the database answered: they are committed, so a build with no network (this sandbox) still emits those pages, indexes and feeds.
+// (Read first: the database read below looks up the ones a flagged row may shadow.)
+const statics = readStaticPosts();
 let dbPosts = [];
-let fetched = false;
+let fetched = false, dbRead = null;
 if (process.env.BLOG_OFFLINE) console.log("build-blog-pages: offline (BLOG_OFFLINE), keeping the pages in " + OUT);
 else if (process.env.BLOG_FIXTURE) { dbPosts = JSON.parse(fs.readFileSync(process.env.BLOG_FIXTURE, "utf8")); fetched = true; }
 else try {
-  // page through the API (the old single request was capped at 500 rows, so past 500 published rows the oldest articles would have been deleted from the deploy)
-  const PAGE = 500; let off = 0, all = [], okAll = true;
-  for (let guard = 0; guard < 40; guard++) {
-    const r = await fetch(`${URL_}/rest/v1/blog_posts?select=*&published=eq.true&order=created_at.desc,id.asc&limit=${PAGE}&offset=${off}`, { headers: { apikey: KEY, Authorization: "Bearer " + KEY }, signal: AbortSignal.timeout(20000) });
-    if (!r.ok) { console.log("build-blog-pages: no posts (" + r.status + ")"); okAll = false; break; }
-    const data = await r.json(); if (!Array.isArray(data)) { okAll = false; break; }
-    all = all.concat(data); if (data.length < PAGE) break; off += PAGE;
-  }
-  if (okAll) { dbPosts = all; fetched = true; }
+  // page through the API (the old single request was capped at 500 rows, so past 500 published rows the oldest articles would have been deleted from the deploy); see fetchBuildRows for what is asked and when the read counts as complete
+  const r = await fetchBuildRows({ url: URL_, key: KEY, statics });
+  if (r.complete) { dbPosts = r.rows; fetched = true; dbRead = r; } else console.log("build-blog-pages: " + r.why);
 } catch (e) { console.log("build-blog-pages: skipped (" + (e && e.message) + ")"); }
-// The source files (ja / ko / ru / hi / es / fr / ar) are read whether or not the database answered: they are committed, so a build with no network (this sandbox) still emits those pages, indexes and feeds.
-const statics = readStaticPosts();
-const posts = mergeStatic(dbPosts, statics);
+// The live_only rows are taken out ONCE, here, right after the merge (a database row still wins over a blog-src file of the same (lang, slug), flagged or not), so everything below that reads `posts` sees static rows only:
+// the article pages, the index pages and feeds of the source-file languages, blog/sitemap-static.xml, the sitemap.xml appends, the hreflang sets (bySlug) and the related lists. With no flagged row `posts` is the merged list itself.
+const merged = mergeStatic(dbPosts, statics);
+const liveOnly = merged.filter(isLiveOnly);
+const posts = liveOnly.length ? merged.filter(p => !isLiveOnly(p)) : merged;
+if (dbRead && dbRead.filtered && dbRead.ignored) console.log(`build-blog-pages: ${dbRead.read} rows read, ${dbRead.ignored} of them live-only (the database did not apply live_only=eq.false: they are downloaded and dropped here)`);
+else if (dbRead && dbRead.filtered) console.log(`build-blog-pages: ${dbRead.read} static rows read, live-only rows not downloaded${dbRead.shadowed ? ` (${dbRead.shadowed} blog-src file(s) are shadowed by one)` : ""}`);
+else if (liveOnly.length) console.log(`build-blog-pages: ${liveOnly.length} live-only rows served from the database (no static file)`);
 setIndexLangs(STATIC_LANGS.filter(l => posts.some(p => p.lang === l)));
 if (fetched) fs.rmSync(OUT, { recursive: true, force: true });
 else console.log("build-blog-pages: fetch failed, leaving the existing blog pages in place");
@@ -419,7 +473,7 @@ if (!fetched) {
 const staticPosts = posts.filter(p => STATIC_LANGS.includes(p.lang));
 if (staticPosts.length) { fs.mkdirSync(OUT, { recursive: true }); fs.writeFileSync(path.join(OUT, "sitemap-static.xml"), staticSitemapXml(posts, bySlug)); }
 const sm = path.join(ROOT, "sitemap.xml");
-if (urls.length && fs.existsSync(sm) && !process.env.BLOG_OUT && !process.env.BLOG_OFFLINE && !fs.readFileSync(sm, "utf8").includes("<sitemapindex")) {   // an offline patch run only knows the pages on disk (no dates, no alternates): it must not rewrite the sitemap. A sitemap index points at sitemap-blog.xml instead of copying each post.
+if (urls.length && fs.existsSync(sm) && !process.env.BLOG_OUT && !process.env.BLOG_OFFLINE && !fs.readFileSync(sm, "utf8").includes("<sitemapindex")) {   // an offline patch run only knows the pages on disk (no dates, no alternates): it must not rewrite the sitemap. A sitemap index points at the ten sitemap-blog-<lang>.xml instead of copying each post.
   const add = urls.map(([u, alts, d]) => `<url><loc>${u}</loc>${d ? `<lastmod>${d}</lastmod>` : ""}${alts.map(([l, h]) => `<xhtml:link rel="alternate" hreflang="${l}" href="${h}"/>`).join("")}</url>`).join("\n");
   // blog entries already in the file (a second run without build-song-pages.mjs in front of it) are dropped first, so the append never duplicates them
   fs.writeFileSync(sm, fs.readFileSync(sm, "utf8").replace(/<url><loc>[^<]*\/blog\/[^<]*<\/loc>[\s\S]*?<\/url>\n?/g, "").replace("</urlset>", add + "\n</urlset>"));
@@ -437,14 +491,16 @@ console.log(`build-blog-pages: ${posts.length} posts (${statics.length} from blo
 // Titles of the committed source-file articles (ja / ko / ru / hi / es / fr / ar), for the on-demand index / feed / sitemap. Bodies stay in the HTML files.
 // Written only by a real build (BLOG_OUT is the test door): Vercel bundles api/blog-live-catalog.json into the function.
 if (!process.env.BLOG_OUT) {
-  const cat = liveCatalogRows(statics);
+  // the catalog names the blog-src files that got a page: one shadowed by a live-only database row (the row wins, and it has no file) is not listed
+  const shadowed = new Set(liveOnly.map(p => p.lang + "/" + p.slug));
+  const cat = liveCatalogRows(shadowed.size ? statics.filter(p => !shadowed.has(p.lang + "/" + p.slug)) : statics);
   fs.mkdirSync(path.join(ROOT, "api"), { recursive: true });
   fs.writeFileSync(path.join(ROOT, "api/blog-live-catalog.json"), JSON.stringify(cat));
   console.log(`build-blog-pages: live catalog ${cat.length} static rows`);
 }
 }
 export function liveCatalogRows(posts) {
-  return (posts || []).filter(p => STATIC_LANGS.includes(p.lang) && p && p.slug && p.published !== false).map(p => ({
+  return (posts || []).filter(p => STATIC_LANGS.includes(p.lang) && p && p.slug && p.published !== false && !isLiveOnly(p)).map(p => ({
     lang: p.lang, slug: p.slug, title: p.title || "", excerpt: typeof p.excerpt === "string" ? p.excerpt : "",
     category: p.category || "tips", published: true, created_at: p.created_at, updated_at: p.updated_at || p.created_at,
   }));
