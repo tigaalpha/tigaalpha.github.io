@@ -89,7 +89,7 @@ serve(async (req) => {
 
     // what the card is charged: the row's own currency and price (written by the database), baht + amount for a row that has neither
     const cur = String(row.charge_currency || "thb").toLowerCase();
-    if (!MINOR[cur]) return new Response(JSON.stringify({ error: "bad currency on request" }), { status: 500, headers });
+    if (!Object.prototype.hasOwnProperty.call(MINOR, cur)) return new Response(JSON.stringify({ error: "bad currency on request" }), { status: 500, headers });
     const charge = cur === "thb" ? amount : Number(row.charge_amount);
     if (!Number.isFinite(charge) || charge <= 0) {
       return new Response(JSON.stringify({ error: "bad amount on request" }), { status: 500, headers });

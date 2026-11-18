@@ -79,7 +79,7 @@ serve(async (req) => {
 
     // the session must be what this request asked for: same currency, same amount in the smallest unit, read in the currency the session was OPENED in
     const cur = String(row.charge_currency || "thb").toLowerCase();
-    const want = MINOR[cur] ? Math.round((cur === "thb" ? Number(row.amount) : Number(row.charge_amount)) * MINOR[cur]) : NaN;
+    const want = Object.prototype.hasOwnProperty.call(MINOR, cur) ? Math.round((cur === "thb" ? Number(row.amount) : Number(row.charge_amount)) * MINOR[cur]) : NaN;
     const conv = s.currency_conversion && typeof s.currency_conversion === "object" ? s.currency_conversion : null;   // Adaptive Pricing on an API version before 2025-03-31
     const gotCur = String((conv ? conv.source_currency : s.currency) || "").toLowerCase();
     const gotAmt = Number(conv ? conv.amount_total : s.amount_total);
@@ -88,10 +88,16 @@ serve(async (req) => {
       return new Response(JSON.stringify({ status: "mismatch", error: "amount_mismatch" }), { status: 409, headers });
     }
 
-    await fetch(`${url}/rest/v1/school_payment_requests?id=eq.${encodeURIComponent(requestId)}`, {
+    // a failed write must not be answered "paid": the buyer would see "Payment received" while the row stays pending and staff see nothing.
+    // A 500 shows the existing "contact us if you were charged" message, and landing on the success URL again retries the write.
+    const upd = await fetch(`${url}/rest/v1/school_payment_requests?id=eq.${encodeURIComponent(requestId)}`, {
       method: "PATCH", headers: { ...H, Prefer: "return=minimal" },
       body: JSON.stringify({ status: "paid", reviewed_at: new Date().toISOString(), stripe_session_id: String(sessionId) }),
     });
+    if (!upd.ok) {
+      console.error("school payment not recorded " + JSON.stringify({ requestId, sessionId, httpStatus: upd.status }));
+      return new Response(JSON.stringify({ error: "payment not recorded" }), { status: 500, headers });
+    }
 
     return new Response(JSON.stringify({ status: "paid" }), { headers });
   } catch (e) {

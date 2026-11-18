@@ -143,14 +143,14 @@ async function loadFnSrc(src) {
   await import("data:text/javascript;base64," + Buffer.from(transformSync(src, { loader: "ts", format: "esm" }).code + "\n// " + (nonce++)).toString("base64"));
   const h = globalThis.__handler; globalThis.__handler = null; return h;
 }
-function world(rows, sessions = {}) {
+function world(rows, sessions = {}, opts = {}) {
   const log = { posts: [], patches: [], errors: [] };
   globalThis.Deno = { env: { get: (k) => ({ STRIPE_SECRET_KEY: "sk_test_x", SUPABASE_URL: "http://sb.test", SUPABASE_SERVICE_ROLE_KEY: "svc" })[k] } };
   const realErr = console.error; console.error = (...a) => { log.errors.push(a.join(" ")); };
   globalThis.fetch = async (url, init = {}) => {
     url = String(url);
     const m = url.match(/\/rest\/v1\/school_payment_requests\?id=eq\.([^&]+)(?:&select=(.*))?$/);
-    if (m && init.method === "PATCH") { log.patches.push(JSON.parse(init.body)); return new Response(null, { status: 204 }); }
+    if (m && init.method === "PATCH") { log.patches.push(JSON.parse(init.body)); return new Response(opts.failPatch ? "db down" : null, { status: opts.failPatch ? 503 : 204 }); }
     if (m && (!init.method || init.method === "GET")) {
       const row = rows[decodeURIComponent(m[1])]; if (!row) return new Response("[]", { status: 200 });
       const sel = decodeURIComponent(m[2] || "*");
@@ -447,6 +447,22 @@ if (haveBase) {
     if (haveBase) { const b = parts(base); eq([a.head, a.gate, a.own], [b.head, b.gate, b.own], `${name}: ALLOW, ${name === "school-stripe-checkout" ? "siteOf, " : ""}cors, jwtPayload, the sign-in gate and the own-request gate are the base commit's, character for character (nothing weakened)`); }
   }
   if (!haveBase) skip("the CORS / gate code against the base commit's", "base commit missing");
+}
+
+// B9. a failed write must never be answered "paid" (found by the final review; the base function ignored the PATCH result): the buyer has paid, the row would stay pending and staff would see nothing
+{
+  const sess = { id: "cs_1", payment_status: "paid", currency: "thb", amount_total: 1380000, metadata: { request_id: "req-1" }, client_reference_id: "req-1" };
+  const w = world({ "req-1": row0() }, { cs_1: sess }, { failPatch: true });
+  const r = await verify(req({ requestId: "req-1", sessionId: "cs_1" })); const j = await r.json().catch(() => null); w.restore();
+  ok(r.status === 500 && j && j.error === "payment not recorded" && j.status !== "paid", "B9: when the database refuses the write the function answers 500 'payment not recorded', never {status: paid}", JSON.stringify({ s: r.status, j }));
+  ok(w.log.errors.some((e) => /school payment not recorded/.test(e) && /req-1/.test(e) && /503/.test(e)), "B9: ... and logs one line with the request id, the session id and the HTTP status", JSON.stringify(w.log.errors));
+}
+// B10. a currency named after an Object.prototype key is refused by BOTH functions (the lookup used to be a truthiness test on a plain object)
+for (const cur of ["constructor", "toString", "__proto__"]) {
+  const row = row0({ charge_currency: cur, charge_amount: 434.85, method: "stripe" });
+  const c = await pay(row); ok(c.status === 500 && c.body && c.body.error === "bad currency on request" && c.posts.length === 0, `B10: school-stripe-checkout refuses the currency '${cur}' and sends nothing to Stripe`, JSON.stringify(c.body));
+  const v = await ver(row, { id: "cs_1", payment_status: "paid", currency: "usd", amount_total: 43485, metadata: { request_id: "req-1" } });
+  ok(v.status === 409 && v.patches.length === 0, `B10: verify-school-payment refuses to mark a '${cur}' row paid (409, no write)`, JSON.stringify({ s: v.status, p: v.patches }));
 }
 
 // ══ C. the real modal ════════════════════════════════════════════════════════════════════════════════════════════════════════════
