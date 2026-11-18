@@ -4217,6 +4217,7 @@ const cat: Record<string, string> = {
   "This map ran into a problem": "حدثت مشكلة في هذه الخريطة",
   "This needs a real account": "يلزم حساب حقيقي",
   "This one is free, and you choose it once. Every other model is bought on the Robot skins shelf.": "هذا مجاني، وتختاره مرة واحدة فقط. كل نموذج آخر يُشترى من رف أشكال الروبوت.",
+  "This order is over the limit for one card payment — please contact us": "قيمة الطلب تتجاوز حد الدفعة الواحدة بالبطاقة، تواصل معنا.",
   "This page doesn't look like it's open in Safari — open this link in Safari first, then follow the steps below.": "تبدو هذه الصفحة غير مفتوحة في Safari — افتح هذا الرابط في Safari أولًا، ثم اتبع الخطوات أدناه.",
   "This part could not be shown": "تعذّر عرض هذا الجزء",
   "This part has a problem, but the app still works normally — tap close to hide this box": "في هذا الجزء مشكلة، لكن التطبيق يعمل بشكل طبيعي — اضغط إغلاق لإخفاء هذا المربع",

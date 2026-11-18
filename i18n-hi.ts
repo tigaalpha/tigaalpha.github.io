@@ -4217,6 +4217,7 @@ const cat: Record<string, string> = {
   "This map ran into a problem": "इस मैप में कोई समस्या आ गई",
   "This needs a real account": "इसके लिए असली खाता चाहिए",
   "This one is free, and you choose it once. Every other model is bought on the Robot skins shelf.": "यह वाला मुफ़्त है, और आप इसे सिर्फ़ एक बार चुनते हैं। बाकी हर मॉडल रोबोट स्किन शेल्फ़ से खरीदा जाता है।",
+  "This order is over the limit for one card payment — please contact us": "ऑर्डर की रकम एक बार के कार्ड भुगतान की सीमा से ज़्यादा है — कृपया हमसे संपर्क करें।",
   "This page doesn't look like it's open in Safari — open this link in Safari first, then follow the steps below.": "ऐसा लगता है कि यह पेज Safari में नहीं खुला है — पहले इस लिंक को Safari में खोलें, फिर नीचे दिए चरण अपनाएँ।",
   "This part could not be shown": "यह हिस्सा दिखाया नहीं जा सका",
   "This part has a problem, but the app still works normally — tap close to hide this box": "इस हिस्से में कुछ समस्या है, पर ऐप सामान्य रूप से चल रहा है — इस बॉक्स को छिपाने के लिए बंद करें पर टैप करें",

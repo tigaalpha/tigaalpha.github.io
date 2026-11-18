@@ -37943,6 +37943,15 @@
   "hi": "यह वाला मुफ़्त है, और आप इसे सिर्फ़ एक बार चुनते हैं। बाकी हर मॉडल रोबोट स्किन शेल्फ़ से खरीदा जाता है।",
   "ar": "هذا مجاني، وتختاره مرة واحدة فقط. كل نموذج آخر يُشترى من رف أشكال الروبوت."
  },
+ "This order is over the limit for one card payment — please contact us": {
+  "ja": "ご注文金額がカード1回あたりのお支払い上限を超えています。お問い合わせください。",
+  "ko": "주문 금액이 카드 1회 결제 한도를 넘었어요. 문의해 주세요.",
+  "ru": "Сумма заказа превышает лимит одного платежа картой — свяжитесь с нами.",
+  "hi": "ऑर्डर की रकम एक बार के कार्ड भुगतान की सीमा से ज़्यादा है — कृपया हमसे संपर्क करें।",
+  "es": "El pedido supera el límite de un solo pago con tarjeta. Contáctanos, por favor.",
+  "fr": "La commande dépasse la limite d'un seul paiement par carte — contacte-nous.",
+  "ar": "قيمة الطلب تتجاوز حد الدفعة الواحدة بالبطاقة، تواصل معنا."
+ },
  "This page doesn't look like it's open in Safari — open this link in Safari first, then follow the steps below.": {
   "ja": "このページはSafariで開かれていないようです — まずこのリンクをSafariで開いてから、以下の手順に進んでください。",
   "ko": "이 페이지가 Safari에서 열려 있지 않은 것 같아요 — 먼저 이 링크를 Safari에서 연 다음 아래 단계를 따라 하세요.",

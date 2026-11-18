@@ -21,6 +21,8 @@
     "verify:blogdata": "node scripts/build-blog-static-data.mjs --check",
     "verify:chat-free": "node scripts/smoke-chat-free-pause.mjs",
     "verify:plans": "node scripts/smoke-two-plans.mjs",
+    "verify:school": "node scripts/verify-school-currency.mjs",
+    "verify:school-browser": "node scripts/verify-school-browser.mjs",
     "verify:android": "node scripts/smoke-android-play-store.mjs",
     "verify:hooks": "node scripts/check-hook-order.mjs",
     "verify:names": "node scripts/check-undefined-names.mjs",
