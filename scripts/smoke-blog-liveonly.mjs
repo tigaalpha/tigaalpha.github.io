@@ -251,7 +251,7 @@ heading("live function: a live-only article is a normal article page");
 {
   const api = makeApi(DB);
   const out = await live.serveBlog({ lang: "en", rest: "clone-live.html" }, api.fetchImpl, OPTS);
-  ok(out.status === 200 && out.headers["content-type"].startsWith("text/html") && out.headers["content-language"] === "en" && out.headers["cache-control"] === "public, max-age=120, s-maxage=120" && out.headers["x-blog-source"] === "live", "GET /blog/en/clone-live.html (live_only = true) is 200, text/html, content-language en, cached 120 s");
+  ok(out.status === 200 && out.headers["content-type"].startsWith("text/html") && out.headers["content-language"] === "en" && out.headers["cache-control"] === live.CACHE_ARTICLE && out.headers["x-blog-source"] === "live", "GET /blog/en/clone-live.html (live_only = true) is 200, text/html, content-language en, cached 120 s");
   const staticPage = fs.readFileSync(path.join(A.out, "en/clone-static.html"), "utf8");
   const norm = (h) => h.split("clone-static").join("clone-live").replace(/<nav class="rel"[\s\S]*?<\/nav>/, "");
   ok(norm(staticPage) === norm(out.body), "its HTML is the HTML the generator writes for the same article as a static row (slug aside, related box aside)");
@@ -434,7 +434,7 @@ heading("sitemap: with the whole queue published, every file stays far below wha
   const files = [];
   for (const l of paths.BLOG_LANGS) files.push([l, await live.serveBlogSitemap(api.fetchImpl, OPTS, l)]);
   const sizes = files.map(([, a]) => Buffer.byteLength(a.body)), biggest = Math.max(...sizes);
-  ok(files.length === 10 && files.every(([, a]) => a.status === 200 && a.headers["content-type"].startsWith("application/xml") && a.headers["cache-control"] === "public, max-age=120, s-maxage=120" && a.headers["x-blog-source"] === "live" && !a.headers["x-blog-sitemap-dropped"]), "ten files answer 200 as XML, cached 120 s, with nothing left out");
+  ok(files.length === 10 && files.every(([, a]) => a.status === 200 && a.headers["content-type"].startsWith("application/xml") && a.headers["cache-control"] === live.CACHE_LIST && a.headers["x-blog-source"] === "live" && !a.headers["x-blog-sitemap-dropped"]), "ten files answer 200 as XML, cached ten minutes at the edge, with nothing left out");
   ok(biggest < PLATFORM_LIMIT / 4, `the biggest file (sitemap-blog-${files[sizes.indexOf(biggest)][0]}.xml) is ${(biggest / 1e6).toFixed(2)} MB, under a quarter of the platform's 4.5 MB (the ten: ${sizes.map(n => (n / 1e6).toFixed(2)).join(" ")} MB)`);
   const locsOf = new Map();
   for (const [l, a] of files) {
@@ -792,7 +792,9 @@ if (!haveBase) {
   const same = async (what, query) => {
     const a = await oldLive.serveBlog(query, makeApi(DB).fetchImpl, OPTS), b = await live.serveBlog(query, makeApi(DB).fetchImpl, OPTS);
     compared++;
-    if (a.status !== b.status || a.body !== b.body || JSON.stringify(a.headers) !== JSON.stringify(b.headers)) differ.push(what);
+    // the cache policy was changed on purpose (2026-11-18: CACHE_ARTICLE / CACHE_LIST, asserted above and in the sitemap test); every other header is still compared
+    const noCache = (h) => { const c = { ...h }; delete c["cache-control"]; return JSON.stringify(c); };
+    if (a.status !== b.status || a.body !== b.body || noCache(a.headers) !== noCache(b.headers) || (b.status === 200 && !/s-maxage=\d+/.test(b.headers["cache-control"] || ""))) differ.push(what);
   };
   for (const r of publishedDb) await same(`${r.lang}/${r.slug}`, { lang: r.lang, rest: r.slug + ".html" });
   await same("en index", { lang: "en" }); await same("en index page 2", { lang: "en", page: "2" }); await same("ja index", { lang: "ja" }); await same("en feed", { lang: "en", rest: "feed.xml" }); await same("th index (one hidden row only)", { lang: "th" });

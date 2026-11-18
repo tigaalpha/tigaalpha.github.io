@@ -196,7 +196,7 @@ language sql stable as $function$
       case when j.title = j.ztitle then 'title_unchanged' end,
       case when length(j.excerpt) < (case when cfg.cjk then 20 else 40 end) or length(j.excerpt) > (case when cfg.cjk then 220 else 340 end) then 'excerpt_length' end,
       case when j.excerpt ~ '[*#`]|\[|\n' then 'excerpt_markdown' end,
-      case when j.body ~* '(here is the translation|translation:|translator|翻译|译文|lorem ipsum|as an ai|i cannot|\[object|undefined)' or j.body ~ '\mTODO\M' or j.body ~ '\mNaN\M' then 'junk_text' end,
+      case when j.body ~* '(here is the translation|translation:|translator|翻译|译文|lorem ipsum|as an ai|\[object|undefined)' or j.body ~ '\mTODO\M' or j.body ~ '\mNaN\M' then 'junk_text' end,
       case when length(j.body) > 1500 and position(E'\n' in j.body) = 0 then 'single_line_body' end
     ], null) as problems) pr
 $function$;

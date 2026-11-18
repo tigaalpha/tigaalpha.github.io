@@ -11,6 +11,11 @@ export const BLOG_SITE = (process.env.SITE_URL || "https://www.tigaalpha.com").r
 
 const HTML = "text/html; charset=utf-8";
 const MISS = { "content-type": HTML, "cache-control": "no-store", "x-blog-source": "live", "x-robots-tag": "noindex" };
+/* Cache policy of the live answers. The CDN keeps an answer for s-maxage and, after that, serves the stale copy once while it fetches a fresh one (stale-while-revalidate), so a crawler or a reader
+   almost never waits for the database. An article changes only when its translation is fixed (rare), so it may live an hour at the edge; a list, a feed or a sitemap gains rows as articles are published,
+   so it lives ten minutes. A 404 / 503 stays "no-store" (MISS above), so an article that is not published yet is never cached as missing. */
+export const CACHE_ARTICLE = "public, max-age=300, s-maxage=3600, stale-while-revalidate=86400";
+export const CACHE_LIST = "public, max-age=120, s-maxage=600, stale-while-revalidate=3600";
 
 function result(status, body, headers) {
   return { status, body, headers };
@@ -195,7 +200,7 @@ export async function serveBlog(query, fetchImpl, opts) {
     if (parsed.kind === "feed") {
       return result(200, feedXml(parsed.lang, list), {
         "content-type": "application/rss+xml; charset=utf-8",
-        "cache-control": "public, max-age=120, s-maxage=120",
+        "cache-control": CACHE_LIST,
         "x-blog-source": "live",
       });
     }
@@ -203,7 +208,7 @@ export async function serveBlog(query, fetchImpl, opts) {
     return result(200, html, {
       "content-type": HTML,
       "content-language": contentLanguage(parsed.lang),
-      "cache-control": "public, max-age=120, s-maxage=120",
+      "cache-control": CACHE_LIST,
       "x-blog-source": "live",
     });
   }
@@ -229,7 +234,7 @@ export async function serveBlog(query, fetchImpl, opts) {
   return result(200, html, {
     "content-type": HTML,
     "content-language": contentLanguage(post.lang),
-    "cache-control": "public, max-age=120, s-maxage=120",
+    "cache-control": CACHE_ARTICLE,
     "x-blog-source": "live",
   });
 }
@@ -241,7 +246,7 @@ export async function serveBlog(query, fetchImpl, opts) {
      serveBlogSitemapQuery(query, fetch, opts) what api/blog-sitemap.js calls: it takes ?lang= (the first one, when it is an array).
    A file reads only its own language (2 to 4 requests of 1,000 rows, two rounds) and is held under the platform's response limit by a safety cap (the newest urls are kept, what is left out is logged and sent as
    x-blog-sitemap-dropped). A failing read is a 503 with no body, never half a file. */
-const SITEMAP_HEADERS = { "content-type": "application/xml; charset=utf-8", "cache-control": "public, max-age=120, s-maxage=120", "x-blog-source": "live" };
+const SITEMAP_HEADERS = { "content-type": "application/xml; charset=utf-8", "cache-control": CACHE_LIST, "x-blog-source": "live" };
 const SITEMAP_FAILED = { "content-type": "text/plain; charset=utf-8", "cache-control": "no-store", "x-blog-source": "live" };
 function sitemapAnswer(built, lang) {
   const headers = { ...SITEMAP_HEADERS };
