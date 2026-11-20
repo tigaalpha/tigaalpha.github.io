@@ -19,6 +19,7 @@ import { createClient } from "@/services/supabase/client";
 import { createRepositories } from "@/services/repositories";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { HiddenPanel, MASK, useHideFigures } from "@/lib/hide-figures";
 import { aggregateByMonth, formatBaht, type MonthlyPoint } from "@/lib/finance";
 
 // Neon palette — revenue keeps purple, expense orange, profit green everywhere
@@ -46,6 +47,7 @@ function ChartTooltip({ active, payload, label }: { active?: boolean; payload?: 
 }
 
 export function FinanceCharts() {
+  const [hideFigures] = useHideFigures();
   const [monthly, setMonthly] = useState<MonthlyPoint[] | null>(null);
   const [showTable, setShowTable] = useState(false);
 
@@ -94,7 +96,9 @@ export function FinanceCharts() {
           </Button>
         </CardHeader>
         <CardContent>
-          {!monthly || !totals ? (
+          {hideFigures ? (
+            <HiddenPanel height={240} />
+          ) : !monthly || !totals ? (
             <div className="h-64 animate-pulse rounded-xl bg-line/[0.03] dark:bg-white/[0.03]" />
           ) : showTable ? (
             <div className="overflow-x-auto">
@@ -143,13 +147,17 @@ export function FinanceCharts() {
         <CardHeader>
           <CardTitle>สัดส่วนรายได้</CardTitle>
           <CardDescription>
-            {totals
+            {hideFigures
+              ? `รายได้ ${MASK} (100%) = ค่าใช้จ่าย ${MASK} + กำไร ${MASK}`
+              : totals
               ? `รายได้ ${formatBaht(totals.revenue)} (100%) = ค่าใช้จ่าย ${expensePct.toFixed(1)}% + กำไร ${profitPct.toFixed(1)}%`
               : "กำลังโหลด…"}
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {!totals ? (
+          {hideFigures ? (
+            <HiddenPanel height={288} />
+          ) : !totals ? (
             <div className="h-72 animate-pulse rounded-xl bg-line/[0.03] dark:bg-white/[0.03]" />
           ) : (
             <div className="flex flex-col items-center gap-6 sm:flex-row sm:justify-around">

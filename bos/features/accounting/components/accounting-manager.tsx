@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
 import { formatCurrency, cn } from "@/lib/utils";
+import { EyeToggle, MASK, useHideFigures } from "@/lib/hide-figures";
 import { INCOME_CATEGORIES, EXPENSE_CATEGORIES, PAYMENT_METHODS } from "@/features/accounting/categories";
 import { parseExcelTransactions, type ParseExcelResult } from "@/lib/parse-excel-transactions";
 import type { Tables, TransactionType } from "@/types/database";
@@ -29,6 +30,7 @@ interface AccountingManagerProps {
 const DATE_FMT = "yyyy-MM-dd";
 
 export function AccountingManager({ transactions, startDate, endDate, onRangeChange, onChanged, initialCustomerId, initialCourseId }: AccountingManagerProps) {
+  const [hide] = useHideFigures();
   const [type, setType] = useState<TransactionType>("income");
   const [category, setCategory] = useState(INCOME_CATEGORIES[0]!);
   const [amount, setAmount] = useState("");
@@ -224,24 +226,27 @@ export function AccountingManager({ transactions, startDate, endDate, onRangeCha
 
   return (
     <div className="space-y-6">
+      <div className="flex justify-end">
+        <EyeToggle />
+      </div>
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <SummaryCard
           label="รายได้"
-          value={formatCurrency(summary.totalIncome)}
+          value={hide ? MASK : formatCurrency(summary.totalIncome)}
           icon={TrendingUp}
           tone="success"
           href="/accounting/income"
         />
         <SummaryCard
           label="รายจ่าย"
-          value={formatCurrency(summary.totalExpense)}
+          value={hide ? MASK : formatCurrency(summary.totalExpense)}
           icon={TrendingDown}
           tone="danger"
           href="/accounting/expenses"
         />
         <SummaryCard
           label="กำไรสุทธิ"
-          value={formatCurrency(summary.netProfit)}
+          value={hide ? MASK : formatCurrency(summary.netProfit)}
           icon={Wallet}
           tone={summary.netProfit >= 0 ? "success" : "danger"}
         />
@@ -486,7 +491,7 @@ export function AccountingManager({ transactions, startDate, endDate, onRangeCha
                     <div className="flex items-center gap-3">
                       <span className={cn("text-sm font-semibold", t.type === "income" ? "text-success" : "text-danger")}>
                         {t.type === "income" ? "+" : "-"}
-                        {formatCurrency(t.amount)}
+                        {hide ? MASK : formatCurrency(t.amount)}
                       </span>
                       <Button variant="ghost" size="icon" onClick={() => handleDelete(t.id)}>
                         <Trash2 className="h-4 w-4 text-danger" />
@@ -512,7 +517,7 @@ export function AccountingManager({ transactions, startDate, endDate, onRangeCha
                   <li key={c.category} className="flex items-center justify-between text-sm">
                     <span className="text-secondary/70">{c.category}</span>
                     <span className={cn("font-medium", c.type === "income" ? "text-success" : "text-danger")}>
-                      {formatCurrency(c.total)}
+                      {hide ? MASK : formatCurrency(c.total)}
                     </span>
                   </li>
                 ))}
