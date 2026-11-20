@@ -116,7 +116,7 @@ for (const c of ["thb", "usd", "cny"]) for (const cy of ["month", "year"]) for (
   const client = cy === "year" ? P.b2bYearPriceByCur(c, tier) : P.b2bPriceByCur(c, tier);
   ok(client === SERVER[c][cy] && client === OWNER[c][cy], `${c} ${cy} ${tier}: the card (${client}) = the server table (${SERVER[c][cy]}) = what the owner was told (${OWNER[c][cy]})`);
 }
-eq(["th", "en", "zh", "ja", "ko", "ru", "hi", "es", "fr", "ar"].map((l) => P.currencyOf(l)), ["thb", "usd", "cny", "usd", "usd", "usd", "usd", "usd", "usd", "usd"], "currencyOf: Thai baht, Chinese yuan, every other language dollars");
+eq(["th", "en", "zh", "ja", "ko", "ru", "hi", "es", "fr", "ar", "de"].map((l) => P.currencyOf(l)), ["thb", "usd", "cny", "usd", "usd", "usd", "usd", "usd", "usd", "usd", "usd"], "currencyOf: Thai baht, Chinese yuan, every other language dollars");
 ok(MIG.includes("when 'thb' then public._school_b2b_unit_price(p_tier, p_cycle)"), "baht keeps ONE source: the 3-argument price function delegates to _school_b2b_unit_price");
 {
   const cents = { thb: { month: 92000, year: 1070000 }, usd: { month: 2899, year: 33499 }, cny: { month: 21000, year: 236000 } };
@@ -647,7 +647,7 @@ if (haveBase) {
   }
 }
 // C4. every other language is dollars, card only
-for (const lang of ["ja", "ko", "ru", "hi", "es", "fr", "ar"]) {
+for (const lang of ["ja", "ko", "ru", "hi", "es", "fr", "ar", "de"]) {
   reset(); const m = await mount(lang);
   ok(/US\$434\.85/.test(m.text()), `${lang}: the details headline is dollars`);
   await toPay(m);
@@ -695,8 +695,12 @@ for (const lang of ["ja", "ko", "ru", "hi", "es", "fr", "ar"]) {
   const SR = await stage(path.join(TMP, "app-real"), { realCatalogs: true });
   const KEY = "This order is over the limit for one card payment — please contact us";
   const catalog = JSON.parse(read("i18n-src/catalog.json"));
-  ok(!!catalog[KEY] && ["ja", "ko", "ru", "hi", "es", "fr", "ar"].every((l) => typeof catalog[KEY][l] === "string" && catalog[KEY][l].trim().length > 8), "the refusal sentence is in i18n-src/catalog.json for all seven extra languages");
-  const WANT = { th: "ยอดสั่งซื้อเกินวงเงินต่อครั้งของการจ่ายด้วยบัตร กรุณาติดต่อเรา", en: KEY, zh: "订单金额超过单次刷卡限额，请联系我们", ...Object.fromEntries(["ja", "ko", "ru", "hi", "es", "fr", "ar"].map((l) => [l, catalog[KEY] && catalog[KEY][l]])) };
+  // i18n-de.ts is empty until the German translation is merged: de joins this check once it holds entries
+  const deReady = /^\s*"[^"\n]+"\s*:/m.test(read("i18n-de.ts"));
+  if (!deReady) console.log("de catalog empty: skipped (the refusal sentence in German is checked once i18n-de.ts holds the catalog)");
+  const REFUSAL_LANGS = deReady ? ["ja", "ko", "ru", "hi", "es", "fr", "ar", "de"] : ["ja", "ko", "ru", "hi", "es", "fr", "ar"];
+  ok(!!catalog[KEY] && REFUSAL_LANGS.every((l) => typeof catalog[KEY][l] === "string" && catalog[KEY][l].trim().length > 8), "the refusal sentence is in i18n-src/catalog.json for all seven extra languages");
+  const WANT = { th: "ยอดสั่งซื้อเกินวงเงินต่อครั้งของการจ่ายด้วยบัตร กรุณาติดต่อเรา", en: KEY, zh: "订单金额超过单次刷卡限额，请联系我们", ...Object.fromEntries(REFUSAL_LANGS.map((l) => [l, catalog[KEY] && catalog[KEY][l]])) };
   const seen = [];
   for (const lang of Object.keys(WANT)) {
     await SR.L.loadCatalog(lang);

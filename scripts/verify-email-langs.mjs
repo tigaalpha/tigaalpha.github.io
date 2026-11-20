@@ -4,15 +4,15 @@
 
    What they are: supabase/functions/weekly-report (Monday, pg_cron) and supabase/functions/return-reminders (daily, days 1 / 3 / 7 after sign-up).
    Both write ONE short push text and the same words into the in-app inbox (`notifications`); there is no e-mail provider behind them. Until
-   2026-11-17 a learner whose profile language was ja ko ru hi es fr ar got the English text.
+   2026-11-17 a learner whose profile language was ja ko ru hi es fr ar got the English text; de joined them after (2026-11-20).
 
    What this runs (no network, no Deno: the real files are cut before `Deno.serve`, the type annotations are stripped by esbuild and the tables
    are evaluated):
-     - all ten languages exist for the weekly text and for day 1, 3 and 7;
+     - all eleven languages exist for the weekly text and for day 1, 3 and 7;
      - th / en / zh are byte for byte what was already live (pinned below, copied from the deployed v6 / v2);
      - every text fits a push (title <= 45, body <= 120 characters), keeps its emoji, has no placeholder left over, and the weekly body prints the
        streak for 0, 1, 2, 12 and 365 (Latin digits 0-9 in every language, Arabic included);
-     - each language is written in its own script (kana / kanji, hangul, Cyrillic, Devanagari, Arabic; es and fr carry their accents), no Thai in a
+     - each language is written in its own script (kana / kanji, hangul, Cyrillic, Devanagari, Arabic; es, fr and de carry their accents), no Thai in a
        non-Thai text, no English sentence in a non-Latin one (EXP / TIGA allowed);
      - pickLang: no language -> th, th -> th, every table language -> itself, anything else (an unknown code, "constructor") -> en;
      - the guard rails the deploy must not lose: the cron-secret check, the POST-only check, the app_settings switches, no secret in the file.
@@ -25,8 +25,8 @@ import { transformSync } from "esbuild";
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 let pass = 0, fail = 0;
 const ok = (c, n) => { if (c) { pass++; console.log("PASS " + n); } else { fail++; console.log("FAIL " + n); } };
-const LANGS = ["th", "en", "zh", "ja", "ko", "ru", "hi", "es", "fr", "ar"];
-const NEW = ["ja", "ko", "ru", "hi", "es", "fr", "ar"];
+const LANGS = ["th", "en", "zh", "ja", "ko", "ru", "hi", "es", "fr", "ar", "de"];
+const NEW = ["ja", "ko", "ru", "hi", "es", "fr", "ar", "de"];
 
 async function load(rel) {
   const src = fs.readFileSync(path.join(ROOT, rel), "utf8");
@@ -51,15 +51,15 @@ const OLD_RETURN = {
 const EMOJI = { weekly: "📊", 1: "🎵", 3: "🎹", 7: "🌟" };
 
 // ── 1. completeness and the old texts ─────────────────────────────────────────────────────────
-ok(LANGS.every((l) => W.M.MSG[l] && typeof W.M.MSG[l].t === "string" && typeof W.M.MSG[l].b === "function"), "weekly-report: a title and a body(streak) for all ten languages");
-ok(Object.keys(W.M.MSG).length === 10, "weekly-report: exactly ten languages in the table (" + Object.keys(W.M.MSG).join(" ") + ")");
-ok([1, 3, 7].every((d) => LANGS.every((l) => R.M.MSG[d] && R.M.MSG[d][l] && R.M.MSG[d][l].t && R.M.MSG[d][l].b)), "return-reminders: a title and a body for all ten languages on day 1, 3 and 7");
-ok(Object.keys(R.M.MSG).join() === "1,3,7" && [1, 3, 7].every((d) => Object.keys(R.M.MSG[d]).length === 10), "return-reminders: exactly the days 1, 3, 7 and ten languages each");
+ok(LANGS.every((l) => W.M.MSG[l] && typeof W.M.MSG[l].t === "string" && typeof W.M.MSG[l].b === "function"), "weekly-report: a title and a body(streak) for all eleven languages");
+ok(Object.keys(W.M.MSG).length === 11, "weekly-report: exactly eleven languages in the table (" + Object.keys(W.M.MSG).join(" ") + ")");
+ok([1, 3, 7].every((d) => LANGS.every((l) => R.M.MSG[d] && R.M.MSG[d][l] && R.M.MSG[d][l].t && R.M.MSG[d][l].b)), "return-reminders: a title and a body for all eleven languages on day 1, 3 and 7");
+ok(Object.keys(R.M.MSG).join() === "1,3,7" && [1, 3, 7].every((d) => Object.keys(R.M.MSG[d]).length === 11), "return-reminders: exactly the days 1, 3, 7 and eleven languages each");
 for (const l of ["th", "en", "zh"]) {
   ok(W.M.MSG[l].t === OLD_WEEKLY[l][0] && [0, 1, 5, 12, 365].every((s) => W.M.MSG[l].b(s) === OLD_WEEKLY[l][1](s)), `weekly-report: ${l} is byte for byte the text that was already live`);
   ok([1, 3, 7].every((d) => R.M.MSG[d][l].t === OLD_RETURN[d][l][0] && R.M.MSG[d][l].b === OLD_RETURN[d][l][1]), `return-reminders: ${l} is byte for byte the text that was already live (days 1, 3, 7)`);
 }
-ok(/type Lang = "th" \| "en" \| "zh" \| "ja" \| "ko" \| "ru" \| "hi" \| "es" \| "fr" \| "ar";/.test(R.src), "return-reminders: the Lang type lists all ten languages");
+ok(/type Lang = "th" \| "en" \| "zh" \| "ja" \| "ko" \| "ru" \| "hi" \| "es" \| "fr" \| "ar" \| "de";/.test(R.src), "return-reminders: the Lang type lists all eleven languages");
 
 // ── 2. every text is a push: short, with its emoji, nothing left over ────────────────────────
 const cp = (s) => [...s].length;
@@ -82,6 +82,10 @@ for (const l of LANGS) {
 }
 ok(/jour\b/.test(W.M.MSG.fr.b(1)) && /jours\b/.test(W.M.MSG.fr.b(2)) && /jours\b/.test(W.M.MSG.fr.b(0) === W.M.MSG.fr.b(0) ? W.M.MSG.fr.b(12) : ""), "fr: \"1 jour\" is singular and 2, 12 are plural");
 
+ok(/Tag\b/.test(W.M.MSG.de.b(1)) && /Tage\b/.test(W.M.MSG.de.b(2)) && /Tage\b/.test(W.M.MSG.de.b(12)), "de: \"1 Tag\" is singular and 2, 12 are plural");
+ok(/\bdu\b|\bdir\b|\bdeine?\b|\bdich\b/i.test(textOfDe()) && !/\b(Sie|Ihr|Ihre|Ihnen)\b/.test(textOfDe()), "de: written in the du-form (no Sie)");
+function textOfDe() { return [W.M.MSG.de.t, W.M.MSG.de.b(7), ...[1, 3, 7].flatMap((d) => [R.M.MSG[d].de.t, R.M.MSG[d].de.b])].join("\n"); }
+
 // ── 3. each language in its own script ────────────────────────────────────────────────────────
 const SCRIPT = { ja: /[ぁ-んァ-ヶ一-龯]/, ko: /[가-힣]/, ru: /[а-яА-ЯёЁ]/, hi: /[ऀ-ॿ]/, ar: /[؀-ۿ]/ };
 const textOf = (l) => [W.M.MSG[l].t, W.M.MSG[l].b(7), ...[1, 3, 7].flatMap((d) => [R.M.MSG[d][l].t, R.M.MSG[d][l].b])];
@@ -93,8 +97,8 @@ for (const l of NEW) {
     const stripped = all.replace(/EXP|TIGA|\p{Extended_Pictographic}/gu, " ");
     ok(!/[A-Za-z]{4,}/.test(stripped), `${l}: no English word of 4+ letters is left (EXP and TIGA are kept as written)`);
   } else {
-    ok(/[áéíóúñ¿¡]/.test(all) || /[éèêàçùôî]/.test(all), `${l}: carries its own accented letters`);
-    const english = textOf(l).filter((t) => /\b(the|your|you|and|with|then|today)\b/i.test(t));
+    ok(/[áéíóúñ¿¡]/.test(all) || /[éèêàçùôî]/.test(all) || /[äöüß]/.test(all), `${l}: carries its own accented letters`);
+    const english = textOf(l).filter((t) => /\b(the|your|you|with|then|today)\b/i.test(t) || (l !== "de" && /\band\b/i.test(t)));
     ok(!english.length, `${l}: no English sentence among the eight lines`);
   }
   ok(!/[฀-๿]/.test(all), `${l}: no Thai character`);
@@ -106,7 +110,7 @@ for (const [name, X] of [["weekly-report", W], ["return-reminders", R]]) {
   const pk = X.M.pickLang;
   ok(pk(null) === "th" && pk(undefined) === "th" && pk("") === "th" && pk("th") === "th", `${name}: no language at all, or th, stays Thai as it always was`);
   ok(["en", "zh", ...NEW].every((l) => pk(l) === l), `${name}: every other table language gets its own text (en zh ${NEW.join(" ")})`);
-  ok(["xx", "EN", "pt", "constructor", "__proto__", "toString", "de"].every((l) => pk(l) === "en"), `${name}: an unknown code (xx, pt, de, constructor, __proto__) falls back to English, never to a crash`);
+  ok(["xx", "EN", "pt", "constructor", "__proto__", "toString", "pt-BR"].every((l) => pk(l) === "en"), `${name}: an unknown code (xx, pt, pt-BR, constructor, __proto__) falls back to English, never to a crash`);
 }
 
 // ── 5. what the deploy must not lose ──────────────────────────────────────────────────────────

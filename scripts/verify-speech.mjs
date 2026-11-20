@@ -121,6 +121,7 @@ async function load() {
   localStorage.setItem("tg_tts_day", JSON.stringify({ d: "1999-1-1", s: 250 }));
   check("budget-new-day-resets", S.ttsBudgetLeft() === S.TTS_DAILY_SECONDS);
   check("speech-seconds-estimate", S.ttsEstSeconds("a".repeat(150), "en") === 10 && S.ttsEstSeconds("你".repeat(45), "zh") === 10);
+  check("speech-seconds-estimate-de", S.ttsEstSeconds("a".repeat(130), "de") === 10 && S.ttsEstSeconds("a".repeat(140), "es") === 10);   // German 13 characters a second, Spanish 14: each extra language has its own figure
 }
 
 // 3. one call after another: the newer one wins

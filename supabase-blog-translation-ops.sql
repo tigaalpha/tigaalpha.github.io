@@ -5,6 +5,8 @@
 -- every function below was read back from the live database with pg_get_functiondef, so it supersedes the older bodies in those two files
 -- (blog_claim_jobs, blog_stage_translation and blog_check_staged here are the CURRENT versions). Idempotent: create or replace / if not exists.
 --
+-- 2026-11-20: German (de) joins the validator below (avgs row, the stop-word check not_german); the rest of the queue is generic over p_lang. supabase-blog-de-migration.sql applies it.
+--
 -- What was added on top of the first migration:
 --   * blog_translation_jobs.prio (0 = the Chinese articles, 1 = articles of en th ja ko ru that are also translated into hi es fr ar) and .src_lang (the language of the source
 --     article; zh_id holds the id of the SOURCE article whatever its language); a unique index on (lang, target_slug) so two jobs can never write the same article;
@@ -142,7 +144,7 @@ end $function$;
 create or replace function public.blog_check_staged(p_lang text, p_only_unpublished boolean default true)
 returns table(id uuid, slug text, ok boolean, problems text[], len_ratio numeric, share numeric)
 language sql stable as $function$
-  with avgs(l, a) as (values ('zh', 2369), ('en', 5983), ('th', 4629), ('ja', 3072), ('ko', 3235), ('ru', 6632), ('hi', 5081), ('es', 5745), ('fr', 6204), ('ar', 4532)),
+  with avgs(l, a) as (values ('zh', 2369), ('en', 5983), ('th', 4629), ('ja', 3072), ('ko', 3235), ('ru', 6632), ('hi', 5081), ('es', 5745), ('fr', 6204), ('ar', 4532), ('de', 6800)),
   cfg as (
     select
       case p_lang when 'ja' then 0.75 when 'ko' then 0.70 when 'ru' then 0.85 when 'hi' then 0.80 when 'ar' then 0.80 when 'th' then 0.78 else 0.97 end as min_share,
@@ -176,6 +178,8 @@ language sql stable as $function$
                                    or public.blog_word_share(j.body, array['the','and','of','le','les','des','est','pour','une']) > 0.04) then 'not_spanish' end,
       case when p_lang = 'fr' and (public.blog_word_share(j.body, array['le','la','les','des','de','et','en','un','une','pour','avec','que','est','vous','du']) < 0.15
                                    or public.blog_word_share(j.body, array['the','and','of','el','los','las','que','una','para']) > 0.04) then 'not_french' end,
+      case when p_lang = 'de' and (public.blog_word_share(j.body, array['der','die','das','und','ist','nicht','ein','eine','zu','den','mit','für','auf','sie','ich','du','von','dem','im','es','sich','auch','als','an','bei','nach','wie','wird','kann']) < 0.15
+                                   or public.blog_word_share(j.body, array['the','and','of','to','is','that','with']) > 0.04) then 'not_german' end,
       case when p_lang <> 'th' and j.body !~ 'US\$24\.99' then 'price_missing' end,
       case when p_lang = 'th' and j.body !~ '799' then 'price_missing' end,
       case when p_lang <> 'th' and j.body ~ '(¥|￥)\s*176|799|THB|฿' then 'wrong_price_text' end,

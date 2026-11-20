@@ -13,8 +13,8 @@ import { xl, by, isExtraLang } from "./lang-extra";
 
 
 /* ── TTS ── */
-export const TTS_LOCALES = { th: "th-TH", en: "en-US", zh: "zh-CN", ja: "ja-JP", ko: "ko-KR", ru: "ru-RU", hi: "hi-IN", es: "es-ES", fr: "fr-FR", ar: "ar-SA" };   // ar: the voice lookup in bestVoice() matches on the "ar" prefix, so any Arabic voice the device has is a candidate
-export const TTS_RATE = { th: 0.9, en: 0.95, zh: 0.92, ja: 0.95, ko: 0.95, ru: 0.95, hi: 0.95, es: 0.95, fr: 0.95, ar: 0.92 };
+export const TTS_LOCALES = { th: "th-TH", en: "en-US", zh: "zh-CN", ja: "ja-JP", ko: "ko-KR", ru: "ru-RU", hi: "hi-IN", es: "es-ES", fr: "fr-FR", ar: "ar-SA", de: "de-DE" };   // ar: the voice lookup in bestVoice() matches on the "ar" prefix, so any Arabic voice the device has is a candidate
+export const TTS_RATE = { th: 0.9, en: 0.95, zh: 0.92, ja: 0.95, ko: 0.95, ru: 0.95, hi: 0.95, es: 0.95, fr: 0.95, ar: 0.92, de: 0.95 };
 /* ── เร็วขึ้น (เจ้าของ 2026-10-02: "มันอ่านช้า") ──
    ค่าเดิมคือ 1 = ได้ยิ้ตามจังหวะที่โมเดลพูด และเส้นทางสำรองของเครื่องยิ่งช้าลง
    (TTS_RATE ไทย 0.9 = ช้ากว่าปกติอยู่แล้ว) ผู้เรียนกดฟังแล้วต้องรอนานและอ่านยาว
@@ -732,12 +732,12 @@ export function detectSpeechLang(text, fallback = "en") {
     else if ((c >= 0x41 && c <= 0x5A) || (c >= 0x61 && c <= 0x7A)) la++;
   }
   // Hindi (Devanagari) is told by its script like the others; guarded by `hi &&`, so a text with no Devanagari takes the old path unchanged.
-  // Spanish and French share the Latin script with English, so NO text can be told apart from English by its letters (owner 2026-11-13: left to the app
-  // language). The caller passes the app language as `fallback`; when that is "es" or "fr" a Latin-only text is taken to be written in it, for every other
-  // fallback a Latin text is "en" exactly as before. A learner of an "es"/"fr" app who writes English gets the Spanish/French voice: the cost of not guessing.
+  // Spanish, French and German share the Latin script with English, so NO text can be told apart from English by its letters (owner 2026-11-13: left to the app
+  // language). The caller passes the app language as `fallback`; when that is "es", "fr" or "de" a Latin-only text is taken to be written in it, for every other
+  // fallback a Latin text is "en" exactly as before. A learner of an "es"/"fr"/"de" app who writes English gets the Spanish/French/German voice: the cost of not guessing.
   if (hi && hi > th && hi > zh && hi >= ja && hi >= ko && hi >= ru && hi >= ar) return "hi";
   if (ar && ar > th && ar > zh && ar > ja && ar > ko && ar > ru && ar >= hi) return "ar";
-  const latin = fallback === "es" || fallback === "fr" ? fallback : "en";
+  const latin = fallback === "es" || fallback === "fr" || fallback === "de" ? fallback : "en";
   // a script of its own wins over a few Latin terms (note names, product names) mixed into the text
   if (ja && ja + zh > th && ja + zh > ko && ja + zh > ru) return "ja";
   if (ko && ko > th && ko > ru) return "ko";
@@ -749,7 +749,7 @@ export function detectSpeechLang(text, fallback = "en") {
   if (sEn > sTh + sZh) return latin;
   return sZh > sTh ? "zh" : "th";
 }
-const TTS_CHARS_PER_SEC = { th: 11, en: 15, zh: 4.5, ja: 6.5, ko: 7.5, ru: 13, hi: 9, es: 14, fr: 14, ar: 12 };
+const TTS_CHARS_PER_SEC = { th: 11, en: 15, zh: 4.5, ja: 6.5, ko: 7.5, ru: 13, hi: 9, es: 14, fr: 14, ar: 12, de: 13 };
 export function ttsEstSeconds(text, lang) { return String(text || "").length / (by(TTS_CHARS_PER_SEC, lang) || 12); }
 export const TTS_DAILY_SECONDS = 300;                   // five minutes of cloud speech a day on a device (about ฿2.5 at today's price)
 const TTS_DAY_KEY = "tg_tts_day";

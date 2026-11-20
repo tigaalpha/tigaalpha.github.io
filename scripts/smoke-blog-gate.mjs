@@ -10,9 +10,10 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 let pass = 0, fail = 0; const ok = (c, m) => { if (c) { pass++; console.log("  ✓", m); } else { fail++; console.log("  ✗ FAIL:", m); } };
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "blog-gate-")); const out = path.join(tmp, "blog");
 // th / en / zh are database rows in production; the page code is the same for ja / ko / ru / hi / es / fr / ar, which ship as source files, so the same fixture rows give their pages here (the generator writes their index itself).
-// All ten languages have a row, so every page carries the full hreflang cluster of ten.
-const LANGS7 = ["th", "en", "zh", "hi", "es", "fr", "ar"], NEWL = ["hi", "es", "fr", "ar"], ALL10 = ["th", "en", "zh", "ja", "ko", "ru", "hi", "es", "fr", "ar"];
-const TITLES = { th: "ท่านั่งเล่นเปียโน", en: "Piano posture", zh: "钢琴坐姿", ja: "ピアノの姿勢と座り方", ko: "피아노 자세와 앉는 법", ru: "Посадка за фортепиано", hi: "पियानो बजाते समय बैठने का सही तरीका", es: "Postura correcta al sentarse al piano", fr: "La bonne posture au piano", ar: "وضعية الجلوس الصحيحة: 15 دقيقة في TIGA ALPHA" };
+// All eleven languages have a row, so every page carries the full hreflang cluster of eleven.
+// de (2026-11-20) has no source file and no feed here: its pages come from rows like th / en / zh, so it joins the page checks (PAGEL) but not the feed check (NEWL).
+const LANGS7 = ["th", "en", "zh", "hi", "es", "fr", "ar", "de"], NEWL = ["hi", "es", "fr", "ar"], PAGEL = [...NEWL, "de"], ALL10 = ["th", "en", "zh", "ja", "ko", "ru", "hi", "es", "fr", "ar", "de"];
+const TITLES = { th: "ท่านั่งเล่นเปียโน", en: "Piano posture", zh: "钢琴坐姿", ja: "ピアノの姿勢と座り方", ko: "피아노 자세와 앉는 법", ru: "Посадка за фортепиано", hi: "पियानो बजाते समय बैठने का सही तरीका", es: "Postura correcta al sentarse al piano", fr: "La bonne posture au piano", ar: "وضعية الجلوس الصحيحة: 15 دقيقة في TIGA ALPHA", de: "Die richtige Haltung am Klavier" };
 const posts = ALL10.map((lang) => ({ id: "p-" + lang, lang, slug: "piano-posture", category: "tips", title: TITLES[lang], excerpt: "x", body: "# H\n" + "para ".repeat(200) + "\n\n" + "more ".repeat(400), cover_url: null, published: true, created_at: "2026-10-01T00:00:00Z", updated_at: "2026-10-01T00:00:00Z" }));
 fs.writeFileSync(path.join(tmp, "posts.json"), JSON.stringify(posts));
 const server = http.createServer((q, s) => { let f = path.join(tmp, decodeURIComponent(q.url.split("?")[0])); if (fs.existsSync(f) && fs.statSync(f).isDirectory()) f = path.join(f, "index.html"); if (!fs.existsSync(f)) { s.writeHead(404); return s.end("nf"); } s.writeHead(200, { "content-type": f.endsWith(".html") ? "text/html; charset=utf-8" : "text/plain" }); s.end(fs.readFileSync(f)); });
@@ -63,14 +64,14 @@ ok(/openIt\(\)\},250\);/.test(html), "the reading clock ticks every 250 ms, so t
 ok(!/data-gate-close|tg-g-x|tg-g-later/.test(html) && !/Escape/.test(html), "the wall has no close button, no 'maybe later' and no Esc handler");
 ok(html.includes('"isAccessibleForFree":false') && html.includes('"cssSelector":"article"'), "the article's JSON-LD says the article is gated (isAccessibleForFree false, cssSelector article)");
 ok(html.includes("<!--tg-gate:v7-->") && html.includes("<!--/tg-gate-->"), "the wall block carries the marker <!--tg-gate:v7-->");
-for (const l of NEWL) {
+for (const l of PAGEL) {
   const h = fs.readFileSync(path.join(tmp, "blog", l, "piano-posture.html"), "utf8");
   ok(/MS=3000/.test(h) && !/MS=5000|MS=15000|MS=30000/.test(h) && h.includes("<!--tg-gate:v7-->") && h.includes("<!--/tg-gate-->") && (h.match(/id="tg-gate"/g) || []).length === 1, l + ": one wall, marker <!--tg-gate:v7-->, the reading time is 3 seconds (MS=3000)");
   ok(/id="tg-gate"[^>]*data-nosnippet[^>]*hidden/.test(h) && !/data-gate-close|tg-g-x|tg-g-later/.test(h) && !/Escape/.test(h) && h.includes("utm_source=blog") && h.includes("utm_campaign=piano-posture") && h.includes("lg=" + l) && h.includes("go=google") && h.includes("wall=signup") && h.includes("wall=login"), l + ": hidden and data-nosnippet, no close button or Esc handler, links carry the blog attribution and lg=" + l);
   ok(h.includes('"isAccessibleForFree":false') && h.includes('"cssSelector":"article"') && h.includes(`"inLanguage":"${l}"`), l + ": the JSON-LD says the article is gated and its language is " + l);
   ok(h.includes(`<html lang="${l}"${l === "ar" ? ' dir="rtl"' : ""}>`) && (l === "ar") === /\[dir=rtl\]/.test(h), l + (l === "ar" ? ': <html lang="ar" dir="rtl"> and the right-to-left rules' : ": no dir attribute, no right-to-left rule"));
   const alts = [...h.matchAll(/<link rel="alternate" hreflang="([^"]+)" href="([^"]+)">/g)].map(m => m[1]);
-  ok(alts.length === 11 && ["th", "en", "zh-Hans", "ja", "ko", "ru", "hi", "es", "fr", "ar"].every(x => alts.includes(x)) && alts.includes("x-default") && h.includes(`hreflang="x-default" href="${ORIGIN}/blog/en/piano-posture.html"`), l + ": the hreflang cluster lists all ten languages and x-default (English)");
+  ok(alts.length === 12 && ["th", "en", "zh-Hans", "ja", "ko", "ru", "hi", "es", "fr", "ar", "de"].every(x => alts.includes(x)) && alts.includes("x-default") && h.includes(`hreflang="x-default" href="${ORIGIN}/blog/en/piano-posture.html"`), l + ": the hreflang cluster lists all eleven languages and x-default (English)");
 }
 {
   const ix = fs.readFileSync(path.join(tmp, "blog", "ar", "index.html"), "utf8");
@@ -90,7 +91,8 @@ for (const lang of LANGS7) {
   const txt = (await page.evaluate(() => document.getElementById("tg-gate").innerText)).replace(/\u00a0/g, " ");   // hi / es / fr / ar keep "TIGA AI" (and es "Inicia sesión") together with a no-break space
   const want = { th: ["ล็อกอินเพื่ออ่านต่อ", "ล็อกอินด้วย Google", "สมัครสมาชิกฟรี", "เข้าสู่ระบบ", "ทดลองเรียนเปียโนฟรี 7 วัน", "ไม่ต้องใช้บัตรเครดิต"], en: ["Log in to keep reading", "Continue with Google", "Sign up free", "Log in", "free for 7 days", "no credit card needed"], zh: ["登录后继续阅读", "使用 Google 继续", "免费注册", "登录", "免费试学钢琴 7 天", "无需信用卡"],
     hi: ["आगे पढ़ने के लिए लॉग इन करें", "Google से जारी रखें", "मुफ़्त में साइन अप करें", "लॉग इन करें", "7 दिन तक पियानो के पाठ मुफ़्त", "क्रेडिट कार्ड की ज़रूरत नहीं"], es: ["Inicia sesión para seguir leyendo", "Continuar con Google", "Regístrate gratis", "Inicia sesión", "gratis durante 7 días", "sin tarjeta de crédito"],
-    fr: ["Connectez-vous pour continuer à lire", "Continuer avec Google", "S'inscrire gratuitement", "Se connecter", "gratuitement pendant 7 jours", "sans carte bancaire"], ar: ["سجّل الدخول لمواصلة القراءة", "المتابعة باستخدام Google", "إنشاء حساب مجاني", "تسجيل الدخول", "مجانًا لمدة 7 أيام", "بطاقة ائتمان"] }[lang];
+    fr: ["Connectez-vous pour continuer à lire", "Continuer avec Google", "S'inscrire gratuitement", "Se connecter", "gratuitement pendant 7 jours", "sans carte bancaire"], ar: ["سجّل الدخول لمواصلة القراءة", "المتابعة باستخدام Google", "إنشاء حساب مجاني", "تسجيل الدخول", "مجانًا لمدة 7 أيام", "بطاقة ائتمان"],
+    de: ["Melde dich an, um weiterzulesen", "Weiter mit Google", "Kostenlos registrieren", "Anmelden", "7 Tage kostenlos", "ohne Kreditkarte"] }[lang];
   ok(want.every(x => txt.includes(x)), "text is in the page's language (" + want[0] + ")");
   ok(txt.includes("TIGA AI"), "it names the TIGA AI app");
   ok((await page.evaluate(() => getComputedStyle(document.documentElement).direction)) === (lang === "ar" ? "rtl" : "ltr") && (await page.evaluate(() => getComputedStyle(document.querySelector(".tg-g-card")).textAlign)) === "center", "text direction " + (lang === "ar" ? "rtl (dir=\"rtl\")" : "ltr") + ", the card's text is centred");
@@ -166,7 +168,7 @@ console.log("who does not see it");
   await page.waitForTimeout(2000); ok(!(await vis(page)), "a member (a session in this browser) never sees it");
   await ctx.close();
 }
-for (const lang of NEWL) {
+for (const lang of PAGEL) {
   const { ctx, page } = await open(lang, { ms: 600, session: true });
   await page.waitForTimeout(2000); ok(!(await vis(page)), lang + ": a member never sees it");
   await ctx.close();
@@ -195,7 +197,7 @@ for (const lang of NEWL) {
 }
 
 console.log("clicking through");
-for (const lgx of ["zh", "hi", "es", "fr", "ar"]) {
+for (const lgx of ["zh", "hi", "es", "fr", "ar", "de"]) {
   const { ctx, page } = await open(lgx, { ms: 600 });
   await page.waitForTimeout(1300);
   let target = "";
@@ -218,7 +220,7 @@ console.log("a phone");
   if (process.env.SHOT) await page.screenshot({ path: process.env.SHOT + "-phone.png" });
   await ctx.close();
 }
-for (const lang of NEWL) {
+for (const lang of PAGEL) {
   // the smallest phone (320 x 568): the card fits with no scrolling of its own, no label is cut off, the buttons are at least 44 px tall
   const { ctx, page } = await open(lang, { ms: 600, w: 320, h: 568 });
   await page.waitForTimeout(1500); const shown = await vis(page);
@@ -231,9 +233,9 @@ for (const lang of NEWL) {
 if (process.env.SHOT) { const { ctx, page } = await open("th", { ms: 600 }); await page.waitForTimeout(1400); await page.screenshot({ path: process.env.SHOT + "-desktop.png" }); await ctx.close(); }
 
 console.log("reader count (owner 2026-11-07)");
-// the number is formatted in the page's own locale (hi-IN / es-ES / fr-FR / ar with Western digits): es-ES does not group four digits, fr-FR groups with a narrow no-break space
-const NUMRE = { th: /1,234/, en: /1,234/, zh: /1,234/, hi: /1,234/, es: /(^|[^\d.,])1234(?!\d)/, fr: /1[\s\u00a0\u202f]234/, ar: /1,234/ };
-for (const [lang, unit] of [["th", "ยอดวิว"], ["en", "views"], ["zh", "次浏览"], ["hi", "व्यूज़"], ["es", "visualizaciones"], ["fr", "vues"], ["ar", "مشاهدة"]]) {
+// the number is formatted in the page's own locale (hi-IN / es-ES / fr-FR / de-DE / ar with Western digits): es-ES does not group four digits, fr-FR groups with a narrow no-break space
+const NUMRE = { th: /1,234/, en: /1,234/, zh: /1,234/, hi: /1,234/, es: /(^|[^\d.,])1234(?!\d)/, fr: /1[\s\u00a0\u202f]234/, ar: /1,234/, de: /1\.234/ };
+for (const [lang, unit] of [["th", "ยอดวิว"], ["en", "views"], ["zh", "次浏览"], ["hi", "व्यूज़"], ["es", "visualizaciones"], ["fr", "vues"], ["ar", "مشاهدة"], ["de", "Aufrufe"]]) {
   const { ctx, page, calls } = await open(lang, { ms: 1200, rpc: { views: 1234 } });
   await page.waitForFunction(() => { const e = document.querySelector(".tg-views"); return !!e && !e.hidden; }, null, { timeout: 4000 }).catch(() => {});
   const b = await page.evaluate(() => { const e = document.querySelector(".tg-views"); return e ? { text: e.textContent, hidden: e.hidden, inMeta: !!e.closest("article .meta") } : null; });

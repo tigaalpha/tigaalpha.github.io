@@ -18,7 +18,7 @@ for (const k of ["window", "document", "navigator", "localStorage", "HTMLElement
 }
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 globalThis.__qs = [];
-globalThis.__counts = { th: 10, en: 12, zh: 8, ja: 80, ko: 3, ru: 4, hi: 1, es: 2, fr: 0 };
+globalThis.__counts = { th: 10, en: 12, zh: 8, ja: 80, ko: 3, ru: 4, hi: 1, es: 2, fr: 0, de: 0 };
 const posts = [];
 for (let i = 0; i < 80; i++) {
   posts.push({
@@ -117,7 +117,7 @@ const first = lists()[0];
 ok("the first page is a counted range of 50, not a hard limit", !!first && call(first, "range").a === 0 && call(first, "range").b === 49 && call(first, "select").opts && call(first, "select").opts.count === "exact" && !first.calls.some(c => c.m === "limit") && !call(first, "eq"), JSON.stringify(first && first.calls));
 ok("rows are ordered newest first, with id as the tie-break", !!first && first.calls.filter(c => c.m === "order").map(c => c.k + ":" + c.opts.ascending).join(",") === "created_at:false,id:false");
 const counted = heads().map(h => call(h, "eq") && call(h, "eq").v);
-for (const l of ["th", "en", "zh", "ja", "ko", "ru", "hi", "es", "fr", "ar"]) ok("head count for " + l, counted.includes(l));
+for (const l of ["th", "en", "zh", "ja", "ko", "ru", "hi", "es", "fr", "ar", "de"]) ok("head count for " + l, counted.includes(l));
 const allChip = host.querySelector('[data-blog-filter="all"]');
 const jaChip = host.querySelector('[data-blog-filter="ja"]');
 ok("each language chip shows its server total, and All shows the sum", allChip && allChip.getAttribute("data-blog-n") === "120" && jaChip && jaChip.getAttribute("data-blog-n") === "80" && host.querySelector('[data-blog-filter="fr"]').getAttribute("data-blog-n") === "0", allChip && allChip.getAttribute("data-blog-n"));
@@ -149,7 +149,7 @@ ok("the post past the first 50 is on screen and the newest JA post is not", !!ho
 await M.act(async () => { host.querySelector('[data-blog-slug="ja-old-000"] button').dispatchEvent(new MouseEvent("click", { bubbles: true })); await sleep(30); });
 const titles = [...host.querySelectorAll("input")].map(i => i.value);
 ok("Edit opens that old post, not a newer one", titles.includes("Oldest JA") && titles.includes("ja-old-000"), titles.filter(Boolean).slice(0, 6).join(" | "));
-for (const l of ["hi", "es", "fr", "ar"]) ok("the editor can set the article language to " + l, !!host.querySelector(`[data-blog-setlang="${l}"]`));
+for (const l of ["hi", "es", "fr", "ar", "de"]) ok("the editor can set the article language to " + l, !!host.querySelector(`[data-blog-setlang="${l}"]`));
 
 console.log(fail ? `\nFAILED ${fail} / ${n}` : `\nall passed (${n})`);
 fs.rmSync(dir, { recursive: true, force: true });

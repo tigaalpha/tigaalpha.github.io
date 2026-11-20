@@ -5,7 +5,7 @@
      npm run build && node scripts/smoke-lang-jakoru.mjs
      DIST=/path/to/another/build node scripts/smoke-lang-jakoru.mjs        (any folder that holds a built index.html and bundle/; the default is ./dist)
 
-   Proves, for ja ko ru hi es fr ar, at a 320 x 568 phone (the narrowest and shortest screen the app supports):
+   Proves, for ja ko ru hi es fr ar de, at a 320 x 568 phone (the narrowest and shortest screen the app supports):
      - the header language menu lists TEN languages, in registry order, each in its own script, and the menu stays inside the viewport, in the default language and again after switching (right-to-left for Arabic);
      - choosing the language loads that language's catalog chunk and no other, sets <html lang> and <html dir> (rtl for Arabic and ONLY for Arabic), writes the guest profile and
        tg_lang_hint, and the first screen and the bottom tab bar are in the right script (kana / kanji, hangul, Cyrillic, Devanagari, Arabic);
@@ -44,12 +44,12 @@ let pass = 0; const fails = [];
 const ok = (c, n) => { if (c) { pass++; console.log("PASS " + n); } else { fails.push(n); console.log("FAIL " + n); } };
 
 // the registry order of the picker (lang-extra.ts ALL_LANGS / LANG_META) and what the menu must show
-const NAME = { th: "ไทย", en: "English", zh: "中文", ja: "日本語", ko: "한국어", ru: "Русский", hi: "हिन्दी", es: "Español", fr: "Français", ar: "العربية" };
-const ORDER = ["th", "en", "zh", "ja", "ko", "ru", "hi", "es", "fr", "ar"];
-const EXTRA = ["ja", "ko", "ru", "hi", "es", "fr", "ar"];
-const SCRIPT = { ja: /[぀-ヿ㐀-鿿]/g, ko: /[가-힯]/g, ru: /[Ѐ-ӿ]/g, hi: /[ऀ-ॿ]/g, ar: /[؀-ۿݐ-ݿ]/g };   // Latin-script es / fr are not here on purpose
-const ACCENT = { es: /[áéíóúñ¿¡]/gi, fr: /[éèêàâçùûôîïœ]/gi };
-const LOCALE = { ja: "en-US", ko: "en-US", ru: "en-US", hi: "hi-IN", es: "es-ES", fr: "fr-FR", ar: "ar-SA" };   // the DEVICE's own locale: ar-SA is where a plain toLocaleString() prints Arabic-Indic digits
+const NAME = { th: "ไทย", en: "English", zh: "中文", ja: "日本語", ko: "한국어", ru: "Русский", hi: "हिन्दी", es: "Español", fr: "Français", ar: "العربية", de: "Deutsch" };
+const ORDER = ["th", "en", "zh", "ja", "ko", "ru", "hi", "es", "fr", "ar", "de"];
+const EXTRA = ["ja", "ko", "ru", "hi", "es", "fr", "ar", "de"];
+const SCRIPT = { ja: /[぀-ヿ㐀-鿿]/g, ko: /[가-힯]/g, ru: /[Ѐ-ӿ]/g, hi: /[ऀ-ॿ]/g, ar: /[؀-ۿݐ-ݿ]/g };   // Latin-script es / fr / de are not here on purpose
+const ACCENT = { es: /[áéíóúñ¿¡]/gi, fr: /[éèêàâçùûôîïœ]/gi, de: /[äöüßÄÖÜ]/g };   // de: only meaningful once i18n-de.ts holds the catalog (empty until the translation merge)
+const LOCALE = { ja: "en-US", ko: "en-US", ru: "en-US", hi: "hi-IN", es: "es-ES", fr: "fr-FR", ar: "ar-SA", de: "de-DE" };   // the DEVICE's own locale: ar-SA is where a plain toLocaleString() prints Arabic-Indic digits
 const VW = 320, VH = 568;
 
 async function fresh(locale = "en-US") {
@@ -58,7 +58,7 @@ async function fresh(locale = "en-US") {
   const errors = [], chunks = [];
   page.on("pageerror", e => errors.push(String(e && e.stack || e).slice(0, 300)));
   page.on("console", m => { if (m.type() === "error" && /Minified React|Cannot read|is not a function|is not defined|undefined/.test(m.text())) errors.push("console: " + m.text().slice(0, 240)); });
-  page.on("request", r => { const m = /\/(i18n-(ja|ko|ru|hi|es|fr|ar))-[\w-]+\.js/.exec(r.url()); if (m) chunks.push(m[2]); });
+  page.on("request", r => { const m = /\/(i18n-(ja|ko|ru|hi|es|fr|ar|de))-[\w-]+\.js/.exec(r.url()); if (m) chunks.push(m[2]); });
   // every call to the live backend is refused: a guest session needs none
   await page.route(/supabase\.co|googleapis|google-analytics|googletagmanager/, r => r.abort());
   return { ctx, page, errors, chunks };
@@ -104,7 +104,7 @@ let EN = null;
   ok(await page.evaluate(() => document.documentElement.dir) === "ltr" && await page.evaluate(() => document.documentElement.lang) === "th", "Thai: <html lang=th dir=ltr>");
   await page.click(".flagbtn");
   const menu = await page.evaluate(() => { const m = document.querySelector(".flagmenu"), r = m.getBoundingClientRect(); return { names: [...m.querySelectorAll(".flagitem .fn")].map(e => e.textContent), r: [r.left, r.top, r.right, r.bottom], vw: innerWidth, vh: innerHeight }; });
-  ok(menu.names.length === 10, "the header language menu lists ten languages (" + menu.names.length + ")");
+  ok(menu.names.length === ORDER.length, "the header language menu lists ten languages (" + menu.names.length + ")");
   ok(JSON.stringify(menu.names) === JSON.stringify(ORDER.map(l => NAME[l])), "...in registry order, each in its own script: " + menu.names.join(" | "));
   ok(menu.r[0] >= 0 && menu.r[1] >= 0 && menu.r[2] <= menu.vw + 0.5 && menu.r[3] <= menu.vh + 0.5, `...and the menu stays inside the ${menu.vw} x ${menu.vh} viewport (${menu.r.map(Math.round).join(",")})`);
   await page.click(".flagbtn"); await page.waitForTimeout(200);   // the menu closes on a click (there is no Escape handler); an open menu would sit over the Upgrade pill on a narrow screen
@@ -132,7 +132,7 @@ for (const lg of EXTRA) {
   const before = await text(page);
   await page.click(".flagbtn");
   const menu = await page.evaluate(() => { const m = document.querySelector(".flagmenu"), r = m.getBoundingClientRect(); return { n: m.querySelectorAll(".flagitem").length, r: [r.left, r.top, r.right, r.bottom] }; });
-  ok(menu.n === 10 && menu.r[0] >= 0 && menu.r[2] <= VW + 0.5 && menu.r[3] <= VH + 0.5, `${lg}: the menu lists ${menu.n} languages and stays inside the ${VW} px viewport (${menu.r.map(Math.round).join(",")})`);
+  ok(menu.n === ORDER.length && menu.r[0] >= 0 && menu.r[2] <= VW + 0.5 && menu.r[3] <= VH + 0.5, `${lg}: the menu lists ${menu.n} languages and stays inside the ${VW} px viewport (${menu.r.map(Math.round).join(",")})`);
   await page.locator(".flagitem", { hasText: NAME[lg] }).click();
   await page.waitForFunction(l => document.documentElement.lang === l, lg, { timeout: 15000 });
   await page.waitForTimeout(800); await closePops(page);
@@ -174,7 +174,7 @@ for (const lg of EXTRA) {
   // the menu opened again IN this language (right-to-left for Arabic: the menu hangs from the left edge of its button there) still lists ten and stays inside the screen
   await page.click(".flagbtn");
   const menu2 = await page.evaluate(() => { const m = document.querySelector(".flagmenu"), r = m && m.getBoundingClientRect(); return m ? { n: m.querySelectorAll(".flagitem").length, r: [r.left, r.top, r.right, r.bottom] } : null; });
-  ok(menu2 && menu2.n === 10 && menu2.r[0] >= -0.5 && menu2.r[2] <= VW + 0.5 && menu2.r[1] >= 0 && menu2.r[3] <= VH + 0.5, `${lg}: opened again in ${lg}, the menu lists ${menu2 && menu2.n} languages and stays inside the ${VW} x ${VH} screen (${menu2 && menu2.r.map(Math.round).join(",")})`);
+  ok(menu2 && menu2.n === ORDER.length && menu2.r[0] >= -0.5 && menu2.r[2] <= VW + 0.5 && menu2.r[1] >= 0 && menu2.r[3] <= VH + 0.5, `${lg}: opened again in ${lg}, the menu lists ${menu2 && menu2.n} languages and stays inside the ${VW} x ${VH} screen (${menu2 && menu2.r.map(Math.round).join(",")})`);
   await page.click(".flagbtn"); await page.waitForTimeout(200);   // close it again
 
   if (lg === "ar") {
@@ -211,13 +211,14 @@ for (const lg of EXTRA) {
   await page.evaluate(() => document.querySelector(".hamb").click()); await page.waitForTimeout(500);
   await page.evaluate(() => { const subs = [...document.querySelectorAll(".draweritem.sub")]; if (subs[1]) subs[1].click(); }); await page.waitForTimeout(800);
   const grid = await page.evaluate(() => { const el = document.querySelector(".setlangs-all"); if (!el) return null; const r = el.getBoundingClientRect(); return { n: el.querySelectorAll("button").length, l: r.left, r: r.right, sw: el.scrollWidth, cw: el.clientWidth }; });
-  ok(grid && grid.n === 10 && grid.l >= 0 && grid.r <= VW + 0.5 && grid.sw <= grid.cw + 1, `${lg}: Settings > Language lists ${grid && grid.n} languages in a grid that fits the ${VW} px screen (x ${grid && Math.round(grid.l)}..${grid && Math.round(grid.r)}, no sideways overflow)`);
+  ok(grid && grid.n === ORDER.length && grid.l >= 0 && grid.r <= VW + 0.5 && grid.sw <= grid.cw + 1, `${lg}: Settings > Language lists ${grid && grid.n} languages in a grid that fits the ${VW} px screen (x ${grid && Math.round(grid.l)}..${grid && Math.round(grid.r)}, no sideways overflow)`);
   ok(errors.length === 0, `${lg}: no page error in Settings (${errors.join(" ; ")})`);
 
   // the login card of the members-only domain: it used to honour th / en / zh only and showed English to someone who had chosen another language
   const wall = await wallOf(page);
   if (SCRIPT[lg]) ok(count(wall.text, SCRIPT[lg]) >= 6, `${lg}: the login card is in ${lg} (${count(wall.text, SCRIPT[lg])} characters in its script)`);
-  else ok(wall.text !== EN.wall.text && lines(wall.text).filter(l => !new Set(lines(EN.wall.text)).has(l)).length >= 5 && count(wall.text, ACCENT[lg]) >= 1, `${lg}: the login card is in ${lg}, not English (${lines(wall.text).filter(l => !new Set(lines(EN.wall.text)).has(l)).length} lines differ, ${count(wall.text, ACCENT[lg])} accented letters)`);
+  // de: the login card words (Anmelden, Passwort, E-Mail ...) carry no umlaut, so for German only the differing lines prove it is not English
+  else ok(wall.text !== EN.wall.text && lines(wall.text).filter(l => !new Set(lines(EN.wall.text)).has(l)).length >= 5 && (lg === "de" || count(wall.text, ACCENT[lg]) >= 1), `${lg}: the login card is in ${lg}, not English (${lines(wall.text).filter(l => !new Set(lines(EN.wall.text)).has(l)).length} lines differ, ${count(wall.text, ACCENT[lg])} accented letters)`);
   ok(wall.dir === (lg === "ar" ? "rtl" : "ltr") && wall.over <= 1, `${lg}: the login card flows ${wall.dir} and does not scroll sideways at ${VW} px (${wall.over} px over)`);
   ok(errors.length === 0, `${lg}: no page error on the login card (${errors.join(" ; ")})`);
   await ctx.close();

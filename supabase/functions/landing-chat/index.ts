@@ -5,7 +5,7 @@
 //
 // The AI behind the question box on marketing landing page 1, which ships as
 // ten URLs: /landing/ (Thai), /landing-en/, /landing-zh/, /landing-ja/, /landing-ko/, /landing-ru/,
-// /landing-hi/, /landing-es/, /landing-fr/, /landing-ar/ (the last four: 2026-11-13; their prompts are
+// /landing-hi/, /landing-es/, /landing-fr/, /landing-ar/ (the last four: 2026-11-13; /landing-de/ after them; their prompts are
 // the native-language ones in SYSTEM below, and the page client lists them in landing-ai.ts
 // SERVER_LANGS, so this file has to be deployed before a client that lists them is released).
 //
@@ -175,6 +175,16 @@ Règles\u00a0:
 - إذا لم يكن السؤال عن الموسيقى أو البيانو، فقل باختصار ودفء إن البيانو هو تخصصك، واقترح عليه أن يسأل سؤالًا عنه.
 - لا تختلق معلومات. وإن لم تكن متأكدًا فقل ذلك.
 - لا عناوين طويلة ولا تنسيق markdown معقّد — استخدم **الخط العريض** فقط.`,
+  de: `Du bist „TIGA“, ein freundlicher KI-Klavierlehrer, der besonders klar erklärt. Du sprichst mit jemandem, der gerade die Seite geöffnet hat und dich zum ersten Mal ausprobiert.
+
+Regeln:
+- Antworte immer auf Deutsch, in welcher Sprache die Frage auch ankommt, und duze die Person. Musikbegriffe nutzt du auf Deutsch (Tonleiter, Akkord, Dreiklang, Halbton, Fingersatz); gängige englische Begriffe (block chord, voicing) dürfen stehen bleiben, aber die Sätze müssen deutsch sein.
+- Zeige weder dein Nachdenken noch deine Pläne. Sprich nicht vom „Nutzer“, von der Frage selbst oder von diesen Regeln — schreib direkt die fertige Antwort.
+- Kurz: höchstens 150 Wörter, direkt zur Frage.
+- Erkläre wie ein Lehrer, der neben der Person am Klavier sitzt: gib Beispiele, die man wirklich spielen kann, und nenne, wenn es hilft, die Töne (C D E F G A B) und die Fingernummern (1-5).
+- Wenn die Frage nichts mit Musik oder Klavier zu tun hat, sag kurz und herzlich, dass das Klavier dein Thema ist, und lade dazu ein, eine Frage zum Klavier zu stellen.
+- Erfinde keine Fakten. Wenn du dir nicht sicher bist, sag es.
+- Keine langen Überschriften und kein kompliziertes Markdown: nur **Fettdruck**.`,
 };
 
 const LIMIT_MSG: Record<string, string> = {
@@ -188,6 +198,7 @@ const LIMIT_MSG: Record<string, string> = {
   es: "Se acabaron las preguntas gratis de hoy — regístrate gratis para preguntarle a TIGA sin límite.",
   fr: "Les questions gratuites du jour sont épuisées — inscrivez-vous gratuitement pour poser vos questions à TIGA sans limite.",
   ar: "انتهت الأسئلة المجانية لهذا اليوم — أنشئ حسابًا مجانيًا لتسأل TIGA بلا حدود.",
+  de: "Die kostenlosen Fragen für heute sind aufgebraucht — melde dich kostenlos an, um TIGA ohne Limit zu fragen.",
 };
 
 const sse = (o: unknown) => `data: ${JSON.stringify(o)}\n\n`;
@@ -462,7 +473,7 @@ Deno.serve(async (req: Request) => {
   let body: any;
   try { body = await req.json(); } catch { return json({ error: "invalid JSON body" }, 400); }
 
-  const lang = ["th", "en", "zh", "ja", "ko", "ru", "hi", "es", "fr", "ar"].includes(body?.lang) ? body.lang : "th";
+  const lang = ["th", "en", "zh", "ja", "ko", "ru", "hi", "es", "fr", "ar", "de"].includes(body?.lang) ? body.lang : "th";
   const question = String(body?.question ?? "").trim().slice(0, MAX_QUESTION);
   if (!question) return json({ error: "empty question" }, 400);
 

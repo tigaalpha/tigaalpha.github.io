@@ -19,6 +19,7 @@
 -- "Not duplicates": a job whose target language already has the same slug (or the target slug) is skip_dup from the start; a topic-level pass marks near-identical topics later (dup_of).
 --
 -- Idempotent: every statement is create-if-not-exists / insert-on-conflict-do-nothing / create-or-replace.
+-- 2026-11-20: the two language checks above also allow 'de' (German); the seed below is the original nine-language one, supabase-blog-de-migration.sql widens a database that already exists.
 -- Undo: drop the three functions and two tables, then: alter table public.blog_posts drop column live_only;   (delete the staged rows first: delete from public.blog_posts where live_only)
 
 begin;
@@ -34,7 +35,7 @@ $$;
 
 create table if not exists public.blog_translation_jobs (
   zh_id uuid not null references public.blog_posts(id) on delete cascade,
-  lang text not null check (lang in ('th','en','ja','ko','ru','hi','es','fr','ar')),
+  lang text not null check (lang in ('th','en','ja','ko','ru','hi','es','fr','ar','de')),
   zh_slug text not null,
   target_slug text not null,
   status text not null default 'pending' check (status in ('pending','claimed','staged','published','skip_dup','failed')),
@@ -50,7 +51,7 @@ create index if not exists blog_translation_jobs_queue on public.blog_translatio
 alter table public.blog_translation_jobs enable row level security;
 
 create table if not exists public.blog_translation_cta (
-  lang text primary key check (lang in ('th','en','ja','ko','ru','hi','es','fr','ar')),
+  lang text primary key check (lang in ('th','en','ja','ko','ru','hi','es','fr','ar','de')),
   paragraph text not null,
   bullets text not null,
   updated_at timestamptz not null default now()

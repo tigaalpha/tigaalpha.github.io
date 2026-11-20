@@ -8,14 +8,15 @@ const [, , enFile, trFile, lang] = process.argv;
 const en = JSON.parse(fs.readFileSync(enFile, "utf8"));
 let tr;
 try { tr = JSON.parse(fs.readFileSync(trFile, "utf8")); } catch (e) { console.log("FAIL cannot read " + trFile + ": " + e.message); process.exit(1); }
-const SCRIPT = { ja: /[぀-ヿ㐀-鿿]/g, ko: /[가-힯]/g, ru: /[Ѐ-ӿ]/g, hi: /[ऀ-ॿ]/g, ar: /[\u0600-\u06FF]/g }[lang];   // es / fr are Latin: judged by function words below
+const SCRIPT = { ja: /[぀-ヿ㐀-鿿]/g, ko: /[가-힯]/g, ru: /[Ѐ-ӿ]/g, hi: /[ऀ-ॿ]/g, ar: /[\u0600-\u06FF]/g }[lang];   // es / fr / de are Latin: judged by function words below
 const LATIN = {
   es: "de la que el en y a los se del las un por con no una su para es al lo como más pero sus le ya o este sí porque esta entre cuando muy sin sobre también me hasta hay donde quien desde todo nos durante tu te mi tus mis vez puedes puede ver hacer tiene tienes cada nuevo nueva primer".split(" "),
   fr: "de la le les des du un une et en que qui dans pour pas est sur avec ce se ne vous tu nous mon ton son ses au aux plus mais ou où par comme votre vos ta tes ma mes cette ces il elle être avoir fait faire chaque nouveau nouvelle premier".split(" "),
+  de: "der die das und ist nicht ein eine einen zu den mit für auf sie ich du dir dich dein deine von dem im es sich auch als an bei nach wie wird kann wenn dann oder aber nur noch schon jede jeden nächste neue erste zum zur ins aus".split(" "),
 }[lang];
 const EN_WORDS = new Set("the of and to in is that for it with as on are be this by at from or an not you your have has will can new each next first".split(" "));
 function latinRatio(text) {
-  const words = String(text).toLowerCase().replace(/https?:\/\/\S+/g, " ").match(/[a-zà-ÿ']+/g) || [];
+  const words = String(text).toLowerCase().replace(/https?:\/\/\S+/g, " ").match(/[a-zß-ÿ']+/g) || [];
   const target = new Set(LATIN);
   let t = 0, e = 0;
   for (const w of words) { const bare = w.replace(/^[ldjmntsc]'/, ""); if (target.has(w) || target.has(bare)) t++; if (EN_WORDS.has(w)) e++; }
@@ -44,7 +45,7 @@ for (const [name, re] of Object.entries(kinds)) {
   if (a !== b) bad(`${name}: English ${a}, translation ${b}`);
 }
 const urls = s => (String(s).match(/https?:\/\/[^\s)]+/g) || []).sort().join("\n");
-const mapUrl = u => u.replace(/\/landing-(en|zh|ja|ko|ru|hi|es|fr|ar)\//g, `/landing-${lang}/`).replace(/\/landing\/(?=[?#]|$)/g, `/landing-${lang}/`).replace(/([?&])lg=(en|zh|th|ja|ko|ru|hi|es|fr|ar)\b/g, `$1lg=${lang}`);
+const mapUrl = u => u.replace(/\/landing-(en|zh|ja|ko|ru|hi|es|fr|ar|de)\//g, `/landing-${lang}/`).replace(/\/landing\/(?=[?#]|$)/g, `/landing-${lang}/`).replace(/([?&])lg=(en|zh|th|ja|ko|ru|hi|es|fr|ar|de)\b/g, `$1lg=${lang}`);
 if (urls(b0).split("\n").map(mapUrl).sort().join("\n") !== urls(b1)) bad("URLs differ from the English (only /landing-en/ -> /landing-" + lang + "/ and lg=" + lang + " may change)");
 if (SCRIPT) {
   const scriptChars = count(b1, SCRIPT);

@@ -37,6 +37,7 @@ const SOLFEGE_X = {
   hi: { C: "डो", D: "रे", E: "मी", F: "फ़ा", G: "सोल", A: "ला", B: "सी" },
   es: { C: "Do", D: "Re", E: "Mi", F: "Fa", G: "Sol", A: "La", B: "Si" },
   fr: { C: "Do", D: "Ré", E: "Mi", F: "Fa", G: "Sol", A: "La", B: "Si" },
+  de: { C: "Do", D: "Re", E: "Mi", F: "Fa", G: "Sol", A: "La", B: "Si" },
   ar: { C: "دو", D: "ري", E: "مي", F: "فا", G: "صول", A: "لا", B: "سي" },
 };
 function solfegeOf(pc, lang) { const base = String(pc || "").charAt(0).toUpperCase(); const m = lang === "th" ? SOLFEGE_TH : SOLFEGE_X[lang] || SOLFEGE_EN; return (m[base] || "") + (String(pc || "").includes("♭") ? "♭" : String(pc || "").length > 1 ? "♯" : ""); }

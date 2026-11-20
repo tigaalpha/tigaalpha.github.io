@@ -434,15 +434,15 @@ heading("sitemap: with the whole queue published, every file stays far below wha
   const files = [];
   for (const l of paths.BLOG_LANGS) files.push([l, await live.serveBlogSitemap(api.fetchImpl, OPTS, l)]);
   const sizes = files.map(([, a]) => Buffer.byteLength(a.body)), biggest = Math.max(...sizes);
-  ok(files.length === 10 && files.every(([, a]) => a.status === 200 && a.headers["content-type"].startsWith("application/xml") && a.headers["cache-control"] === live.CACHE_LIST && a.headers["x-blog-source"] === "live" && !a.headers["x-blog-sitemap-dropped"]), "ten files answer 200 as XML, cached ten minutes at the edge, with nothing left out");
-  ok(biggest < PLATFORM_LIMIT / 4, `the biggest file (sitemap-blog-${files[sizes.indexOf(biggest)][0]}.xml) is ${(biggest / 1e6).toFixed(2)} MB, under a quarter of the platform's 4.5 MB (the ten: ${sizes.map(n => (n / 1e6).toFixed(2)).join(" ")} MB)`);
+  ok(files.length === paths.BLOG_LANGS.length && files.every(([, a]) => a.status === 200 && a.headers["content-type"].startsWith("application/xml") && a.headers["cache-control"] === live.CACHE_LIST && a.headers["x-blog-source"] === "live" && !a.headers["x-blog-sitemap-dropped"]), "one file per language (eleven with de) answers 200 as XML, cached ten minutes at the edge, with nothing left out");
+  ok(biggest < PLATFORM_LIMIT / 4, `the biggest file (sitemap-blog-${files[sizes.indexOf(biggest)][0]}.xml) is ${(biggest / 1e6).toFixed(2)} MB, under a quarter of the platform's 4.5 MB (all of them: ${sizes.map(n => (n / 1e6).toFixed(2)).join(" ")} MB)`);
   const locsOf = new Map();
   for (const [l, a] of files) {
     const doc = parseXml(a.body);
     if (doc.getElementsByTagName("parsererror").length || doc.documentElement.nodeName !== "urlset") { ok(false, `sitemap-blog-${l}.xml is well-formed XML with a urlset root`); continue; }
     locsOf.set(l, [...doc.getElementsByTagName("loc")].map(e => e.textContent));
   }
-  ok(locsOf.size === 10, "all ten files are well-formed XML (parsed strictly), each a urlset (an index never lists an index)");
+  ok(locsOf.size === paths.BLOG_LANGS.length, "all eleven files are well-formed XML (parsed strictly), each a urlset (an index never lists an index)");
   const articleUrls = []; for (const locs of locsOf.values()) for (const u of locs) if (u.endsWith(".html")) articleUrls.push(u);
   const have = new Set(articleUrls);
   ok(articleUrls.length === TARGET.length && have.size === TARGET.length && TARGET.every(r => have.has(urlOfRow(r))), `together the files hold every one of the ${TARGET.length} article urls, each exactly once`);
@@ -450,26 +450,27 @@ heading("sitemap: with the whole queue published, every file stays far below wha
   let perLang = true;
   for (const l of paths.BLOG_LANGS) {
     const locs = locsOf.get(l), art = locs.filter(u => u.endsWith(".html")), n = TARGET.filter(r => r.lang === l).length;
+    if (n === 0) { if (locs.length !== 0) perLang = false; continue; }   // a language with no row yet (de) is an empty urlset: no address in a sitemap is a 404
     if (!(art.length === n && art.every(u => u.startsWith(`${live.BLOG_SITE}/blog/${l}/`)) && locs.length === n + 1 && locs[locs.length - 1] === `${live.BLOG_SITE}/blog/${l}/`)) perLang = false;
   }
-  ok(perLang, "each file holds only the rows of its own language and closes with that language's index address (th 3,020, en 2,728, zh 1,312, the other seven 2,020 each)");
+  ok(perLang, "each file holds only the rows of its own language and closes with that language's index address (th 3,020, en 2,728, zh 1,312, the other six 2,020 each; de has no row yet and is an empty urlset)");
   const jaBody = files.find(([l]) => l === "ja")[1].body;
   ok(!jaBody.includes("xhtml") && /<url><loc>[^<]+\.html<\/loc><lastmod>\d{4}-\d{2}-\d{2}<\/lastmod><\/url>/.test(jaBody) && jaBody.length / 2021 < 200, `an entry is the address and the day, nothing else (${(jaBody.length / 2021).toFixed(0)} bytes): the page carries its own hreflang`);
   const days = [...jaBody.matchAll(/\.html<\/loc><lastmod>(\d{4}-\d{2}-\d{2})<\/lastmod>/g)].map(m => m[1]);
   ok(days.length === 2020 && days.every((d, i) => i === 0 || d <= days[i - 1]), "the entries are newest first (so the cap, if it is ever reached, leaves out the OLDEST articles)");
 }
 
-heading("sitemap: the reviewers' own figures (1,312 stems x 10 languages, the queue's slug rule, 13,130 urls)");
+heading("sitemap: the reviewers' own figures (1,312 stems x every language, the queue's slug rule, 14,432 urls with de)");
 {
   const W = STEM, rows = [];
   for (let i = 0; i < 1312; i++) for (const l of paths.BLOG_LANGS) rows.push({ id: uid(), lang: l, slug: l === "zh" ? `${W}-${i}-zh` : (l === "en" || l === "th") ? `${W}-${i}` : `${W}-${i}-${l}`, published: true, created_at: "2026-01-01T00:00:00Z" });
   const api = makeApi(rows), answers = [];
   for (const l of paths.BLOG_LANGS) answers.push(await live.serveBlogSitemap(api.fetchImpl, OPTS, l));
   const urls = answers.reduce((n, a) => n + a.body.split("<url>").length - 1, 0), biggest = Math.max(...answers.map(a => Buffer.byteLength(a.body)));
-  ok(rows.length === 13120 && urls === 13120 + 10 && answers.every(a => a.status === 200), "all ten answer 200 and name every address once (13,120 article urls + 10 language index addresses)");
-  ok(biggest < PLATFORM_LIMIT / 10, `the biggest of the ten is ${(biggest / 1e6).toFixed(2)} MB (under a tenth of the platform's limit)`);
+  ok(rows.length === 1312 * paths.BLOG_LANGS.length && urls === rows.length + paths.BLOG_LANGS.length && answers.every(a => a.status === 200), "all eleven answer 200 and name every address once (14,432 article urls + 11 language index addresses)");
+  ok(biggest < PLATFORM_LIMIT / 10, `the biggest file is ${(biggest / 1e6).toFixed(2)} MB (under a tenth of the platform's limit)`);
   const oldPaths = await oldPathsP;
-  if (oldPaths) { const control = Buffer.byteLength(oldPaths.sitemapBlogXml(rows, SITE)); ok(control > PLATFORM_LIMIT && control > biggest * 10, `control: the one file for the same rows is ${(control / 1e6).toFixed(2)} MB (the reviewers measured 5.92 MB), over the 4.5 MB a Function may send: ten files of ${(biggest / 1e6).toFixed(2)} MB at most are what a crawler gets now`); }
+  if (oldPaths) { const control = Buffer.byteLength(oldPaths.sitemapBlogXml(rows, SITE)); ok(control > PLATFORM_LIMIT && control > biggest * 10, `control: the one file for the same rows is ${(control / 1e6).toFixed(2)} MB (the reviewers measured 5.92 MB), over the 4.5 MB a Function may send: files of ${(biggest / 1e6).toFixed(2)} MB at most are what a crawler gets now`); }
 }
 
 heading("sitemap: the entry points of the Vercel function (api/blog-sitemap.js)");
@@ -487,10 +488,10 @@ heading("sitemap: the entry points of the Vercel function (api/blog-sitemap.js)"
     let allSmall = true, allOwn = true;
     for (const l of paths.BLOG_LANGS) {
       const r = await call({ query: { lang: l } }), doc = parseXml(r.body), locs = [...doc.getElementsByTagName("loc")].map(e => e.textContent);
-      if (!(r.statusCode === 200 && doc.documentElement.nodeName === "urlset" && locs.every(u => u.startsWith(`${live.BLOG_SITE}/blog/${l}/`)) && locs.includes(`${live.BLOG_SITE}/blog/${l}/`))) allOwn = false;
+      if (!(r.statusCode === 200 && doc.documentElement.nodeName === "urlset" && locs.every(u => u.startsWith(`${live.BLOG_SITE}/blog/${l}/`)) && (locs.length === 0 || locs.includes(`${live.BLOG_SITE}/blog/${l}/`)))) allOwn = false;
       if (Buffer.byteLength(r.body) >= PLATFORM_LIMIT / 4) allSmall = false;
     }
-    ok(allOwn && allSmall, "?lang=<each of the ten languages>: that language's urlset, its own addresses only, each far below the platform's limit, through the handler");
+    ok(allOwn && allSmall, "?lang=<each of the eleven languages>: that language's urlset, its own addresses only, each far below the platform's limit, through the handler");
     const before = api.log.length;
     const arr = await call({ query: { lang: ["ar"] } }), bad = [await call({ query: { lang: "xx" } }), await call({ query: { lang: "ja/../../x" } }), await call({ query: { lang: "JA" } }), await call({ query: { lang: "live-ja" } }), await call({ query: { lang: "th.xml" } })];
     ok(arr.statusCode === 200 && arr.body.includes("/blog/ar/") && bad.every(r => r.statusCode === 404 && r.body === "" && r.headers["cache-control"] === "no-store"), "an array lang takes the first; a language that is not one of the ten (xx, JA, live-ja, th.xml, a path) is a 404 with no body, never cached");
@@ -529,8 +530,8 @@ heading("vercel.json, the root sitemap index and robots.txt");
   const spa = vj.rewrites[vj.rewrites.length - 1], inner = /^\/\((.*)\)$/.exec(spa.source)[1], spaRe = new RegExp("^" + inner + "$");
   ok(spa.destination === "/index.html" && !spaRe.test("sitemap-blog.xml") && paths.BLOG_LANGS.every(l => !spaRe.test(`sitemap-blog-${l}.xml`)) && spaRe.test("settings") && spaRe.test("song/12") && spaRe.test("sitemap-blog-th.xml.bak"), "the app's catch-all lets the ten files (and /sitemap-blog.xml) through and still catches every other path");
   const entries = paths.blogSitemapIndexEntries(SITE, "2026-11-17");
-  ok(entries.length === 10 && paths.BLOG_LANGS.every((l, i) => entries[i] === `<sitemap><loc>${SITE}/sitemap-blog-${l}.xml</loc><lastmod>2026-11-17</lastmod></sitemap>`) && !entries.join("").includes("sitemap-blog.xml"), "the root sitemap index names the ten per-language files and nothing else of the blog (the set is fixed, so it is written at build time)");
-  ok(parseXml(paths.blogSitemapIndexXml(SITE, "2026-11-17")).getElementsByTagName("sitemap").length === 10, "...as well-formed sitemapindex entries");
+  ok(entries.length === paths.BLOG_LANGS.length && paths.BLOG_LANGS.every((l, i) => entries[i] === `<sitemap><loc>${SITE}/sitemap-blog-${l}.xml</loc><lastmod>2026-11-17</lastmod></sitemap>`) && !entries.join("").includes("sitemap-blog.xml"), "the root sitemap index names the ten per-language files and nothing else of the blog (the set is fixed, so it is written at build time)");
+  ok(parseXml(paths.blogSitemapIndexXml(SITE, "2026-11-17")).getElementsByTagName("sitemap").length === paths.BLOG_LANGS.length, "...as well-formed sitemapindex entries");
 
   // the REAL build-song-pages.mjs and then the REAL build-blog-pages.mjs, in a throw-away root: what the release build writes into sitemap.xml and robots.txt
   const mkSongRoot = (name, files) => {
@@ -551,14 +552,16 @@ heading("vercel.json, the root sitemap index and robots.txt");
   ok(docB.getElementsByTagName("parsererror").length === 0 && docB.documentElement.nodeName === "sitemapindex" && kids.join() === [`${SITE}/sitemap-pages.xml`, `${SITE}/sitemap-songs.xml`, ...paths.BLOG_LANGS.map(l => `${SITE}/sitemap-blog-${l}.xml`), `${SITE}/blog/sitemap-static.xml`].join(), "the real generators write a root sitemap.xml that names pages, songs, the ten blog files directly and the static file of the source-file languages, in that order, and not sitemap-blog.xml");
   const diskKids = ["sitemap-pages.xml", "sitemap-songs.xml", "blog/sitemap-static.xml"].map(f => parseXml(fs.readFileSync(path.join(songRoot, f), "utf8")).documentElement.nodeName);
   ok(diskKids.every(n => n === "urlset") && !kids.includes(`${SITE}/sitemap.xml`), "no entry is itself an index: the three files on disk are urlsets, the ten served by the function are urlsets (checked above), and the root does not name itself");
-  ok(lastmods.slice(0, 12).every(d => d === lastmods[0]) && /^\d{4}-\d{2}-\d{2}$/.test(lastmods[0]), "the ten blog entries carry the lastmod of the build, like the entries before them");
+  ok(lastmods.slice(0, 2 + paths.BLOG_LANGS.length).every(d => d === lastmods[0]) && /^\d{4}-\d{2}-\d{2}$/.test(lastmods[0]), "the ten blog entries carry the lastmod of the build, like the entries before them");
   const sitemapLines = robotsA.split("\n").filter(l => /^sitemap:/i.test(l));
   ok(sitemapLines.join() === `Sitemap: ${SITE}/sitemap.xml` && !/sitemap-blog/.test(robotsA) && /^User-agent: \*\nUser-agent: GPTBot\n/.test(robotsA) && robotsA.includes("Allow: /\nDisallow: /updates/\n"), "robots.txt names the root index only (it covers the ten files; a second Sitemap: line for the blog would repeat it) and keeps its crawler groups and rules");
   if (haveBase) {
+    // 2026-11-20: the landing pages gained a German page; the old generator has none, so compare without it (its own <url> line, and the de alternate link that every landing line now carries)
+    const noDe = b => b.toString("utf8").split("\n").filter(l => !l.startsWith(`<url><loc>${SITE}/landing-de/</loc>`)).join("\n").split(`<xhtml:link rel="alternate" hreflang="de" href="${SITE}/landing-de/"/>`).join("");
     const oldRoot = mkSongRoot("sbx-song-old", { "scripts/build-song-pages.mjs": gitShow("scripts/build-song-pages.mjs") });
     runGen(path.join(oldRoot, "scripts/build-song-pages.mjs"), {});
     const smOld = fs.readFileSync(path.join(oldRoot, "sitemap.xml"), "utf8"), robotsOld = fs.readFileSync(path.join(oldRoot, "robots.txt"), "utf8"), oldLine = `<sitemap><loc>${SITE}/sitemap-blog.xml</loc><lastmod>${lastmods[0]}</lastmod></sitemap>`;
-    ok(["sitemap-pages.xml", "sitemap-songs.xml"].every(f => fs.readFileSync(path.join(oldRoot, f)).equals(fs.readFileSync(path.join(songRoot, f)))) && smOld.includes(oldLine) && smOld.replace(oldLine, paths.blogSitemapIndexEntries(SITE, lastmods[0]).join("\n")) === smA && robotsOld === robotsA + `Sitemap: ${SITE}/sitemap-blog.xml\n`, `against the generator at ${BASELINE_REF}: sitemap-pages.xml and sitemap-songs.xml are byte-identical, and the only differences are the one sitemap-blog.xml entry (now the ten) in sitemap.xml and the one Sitemap: line of robots.txt`);
+    ok(fs.readFileSync(path.join(oldRoot, "sitemap-songs.xml")).equals(fs.readFileSync(path.join(songRoot, "sitemap-songs.xml"))) && noDe(fs.readFileSync(path.join(oldRoot, "sitemap-pages.xml"))) === noDe(fs.readFileSync(path.join(songRoot, "sitemap-pages.xml"))) && smOld.includes(oldLine) && smOld.replace(oldLine, paths.blogSitemapIndexEntries(SITE, lastmods[0]).join("\n")) === smA && robotsOld === robotsA + `Sitemap: ${SITE}/sitemap-blog.xml\n`, `against the generator at ${BASELINE_REF}: sitemap-songs.xml is byte-identical and sitemap-pages.xml is too apart from the German landing page (its own <url> line and the de alternate link inside each landing line), and the only differences are the one sitemap-blog.xml entry (now the ten) in sitemap.xml and the one Sitemap: line of robots.txt`);
   }
   // the committed files the release build will rewrite: until then they already say the same, so /sitemap-blog.xml (a 301 to /sitemap.xml) is never named by the file it redirects to
   const idxC = read("sitemap.xml"), robotsC = read("robots.txt");

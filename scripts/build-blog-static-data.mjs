@@ -7,7 +7,7 @@
    these languages. So that choosing a flag shows that language's articles straight away, BlogPage lazy-imports blog-data/<lang>.ts (its own chunk, never in the main bundle) and merges it with the
    database rows by slug: a database row wins, these rows fill what the database lacks. Each file is `export default` an array of BlogPost-shaped objects, newest first, ids "static:<lang>:<slug>"
    (BlogPage sends no view / read RPC for such an id: public.blog_hit() only counts an article that has a published row). A language with an empty or missing blog-src folder still gets a file
-   (an empty array), because BlogPage imports all seven by name and a missing file would break the bundle.
+   (an empty array), because BlogPage imports all seven by name and a missing file would break the bundle. German (de, 2026-11-20) has no committed article and no file here: BlogPage has no loader for it and reads its database rows alone.
    The articles are read through readStaticPosts() of build-blog-pages.mjs, the function the static pages and the SQL seed use, so a draft or malformed source file is skipped here exactly as there.
    The output depends only on blog-src (no dates, no randomness), so --check is a plain text comparison. `npm run build` runs this before vite (verify with `npm run verify:blogdata`). */
 import fs from "node:fs"; import path from "node:path"; import { fileURLToPath } from "node:url";

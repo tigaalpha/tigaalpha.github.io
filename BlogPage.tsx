@@ -9,23 +9,23 @@ import { pickT, xl, ALL_LANGS, LANG_META, localeOf, dateLocale, isExtraLang, dir
    fill what the table lacks, so the list is complete before supabase-blog-ja-ko-ru-migration.sql / supabase-blog-hi-es-fr-ar-migration.sql have been applied. A committed article has the id "static:<lang>:<slug>"
    and sends no view / read call (public.blog_hit() only counts an article with a published row). Arabic is right-to-left: the list and an open article take the direction of THEIR language (dir + lang),
    while the buttons, the language menu and the Back arrow keep the direction of the app's own language. */
-type Cat = { id: string; icon: string; th: string; en: string; zh: string; ja?: string; ko?: string; ru?: string; hi?: string; es?: string; fr?: string; ar?: string };
+type Cat = { id: string; icon: string; th: string; en: string; zh: string; ja?: string; ko?: string; ru?: string; hi?: string; es?: string; fr?: string; ar?: string; de?: string };
 export const BLOG_CATS: Cat[] = [
-  { id: "tips", icon: "💡", th: "เทคนิคการฝึก", en: "Practice tips", zh: "练习技巧", ja: "練習のコツ", ko: "연습 팁", ru: "Советы по занятиям", hi: "अभ्यास के टिप्स", es: "Consejos de práctica", fr: "Conseils de pratique", ar: "نصائح للتدريب" },
-  { id: "theory", icon: "🎼", th: "ทฤษฎีดนตรี", en: "Music theory", zh: "乐理", ja: "音楽理論", ko: "음악 이론", ru: "Теория музыки", hi: "संगीत सिद्धांत", es: "Teoría musical", fr: "Théorie musicale", ar: "نظرية الموسيقى" },
-  { id: "songs", icon: "🎵", th: "เพลงและเพลงฝึก", en: "Songs", zh: "曲目", ja: "曲と練習曲", ko: "곡과 연습곡", ru: "Песни и пьесы", hi: "गाने और अभ्यास के टुकड़े", es: "Canciones y piezas", fr: "Morceaux et pièces", ar: "أغانٍ وقطع للتدريب" },
-  { id: "news", icon: "📣", th: "ข่าวและประกาศ", en: "News", zh: "新闻公告", ja: "お知らせ", ko: "소식과 공지", ru: "Новости", hi: "समाचार और घोषणाएँ", es: "Noticias", fr: "Actualités", ar: "الأخبار والإعلانات" },
-  { id: "story", icon: "✨", th: "เรื่องราว", en: "Stories", zh: "故事", ja: "ストーリー", ko: "이야기", ru: "Истории", hi: "कहानियाँ", es: "Historias", fr: "Histoires", ar: "قصص" },
+  { id: "tips", icon: "💡", th: "เทคนิคการฝึก", en: "Practice tips", zh: "练习技巧", ja: "練習のコツ", ko: "연습 팁", ru: "Советы по занятиям", hi: "अभ्यास के टिप्स", es: "Consejos de práctica", fr: "Conseils de pratique", ar: "نصائح للتدريب", de: "Übetipps" },
+  { id: "theory", icon: "🎼", th: "ทฤษฎีดนตรี", en: "Music theory", zh: "乐理", ja: "音楽理論", ko: "음악 이론", ru: "Теория музыки", hi: "संगीत सिद्धांत", es: "Teoría musical", fr: "Théorie musicale", ar: "نظرية الموسيقى", de: "Musiktheorie" },
+  { id: "songs", icon: "🎵", th: "เพลงและเพลงฝึก", en: "Songs", zh: "曲目", ja: "曲と練習曲", ko: "곡과 연습곡", ru: "Песни и пьесы", hi: "गाने और अभ्यास के टुकड़े", es: "Canciones y piezas", fr: "Morceaux et pièces", ar: "أغانٍ وقطع للتدريب", de: "Lieder und Übungsstücke" },
+  { id: "news", icon: "📣", th: "ข่าวและประกาศ", en: "News", zh: "新闻公告", ja: "お知らせ", ko: "소식과 공지", ru: "Новости", hi: "समाचार और घोषणाएँ", es: "Noticias", fr: "Actualités", ar: "الأخبار والإعلانات", de: "News" },
+  { id: "story", icon: "✨", th: "เรื่องราว", en: "Stories", zh: "故事", ja: "ストーリー", ko: "이야기", ru: "Истории", hi: "कहानियाँ", es: "Historias", fr: "Histoires", ar: "قصص", de: "Geschichten" },
 ];
 // the first chip of the category row: every article of the language
-const ALL_CHIP: Cat = { id: "all", icon: "📚", th: "ทั้งหมด", en: "All", zh: "全部", ja: "すべて", ko: "전체", ru: "Все", hi: "सभी", es: "Todos", fr: "Tous", ar: "الكل" };
+const ALL_CHIP: Cat = { id: "all", icon: "📚", th: "ทั้งหมด", en: "All", zh: "全部", ja: "すべて", ko: "전체", ru: "Все", hi: "सभी", es: "Todos", fr: "Tous", ar: "الكل", de: "Alle" };
 // a category's name in any of the ten languages (the names above are the same words the static blog pages use: CATN in scripts/build-blog-pages.mjs)
 export const catLabel = (c: Cat, lang: string): string => lang === "th" ? c.th : lang === "zh" ? c.zh : (isExtraLang(lang) && (c as any)[lang]) || xl(lang, c.en);
 export const catName = (id: string, lang: string) => { const c = BLOG_CATS.find(x => x.id === id) || BLOG_CATS[0]; return c.icon + " " + catLabel(c, lang); };
 // Thai, the CJK scripts and kana are written without spaces (450 characters a minute); every other script here, Devanagari and Arabic included, is read like Latin text (1100)
 export const readMins = (t: string) => Math.max(1, Math.round(((t || "").length) / (/[\u0E00-\u0E7F\u3040-\u30FF\u3400-\u9FFF\uAC00-\uD7AF]/.test(t || "") ? 450 : 1100)));
 // "3 min" in the language of the article; `long` is the form beside the date in an open article
-const MIN_TXT: Record<string, [string, string]> = { th: ["นาที", "นาที"], zh: ["分钟", "分钟"], ja: ["分", "分で読めます"], ko: ["분", "분이면 읽어요"], ru: ["мин", "мин чтения"], hi: ["मिनट", "मिनट में पढ़ें"], es: ["min", "min de lectura"], fr: ["min", "min de lecture"] };
+const MIN_TXT: Record<string, [string, string]> = { th: ["นาที", "นาที"], zh: ["分钟", "分钟"], ja: ["分", "分で読めます"], ko: ["분", "분이면 읽어요"], ru: ["мин", "мин чтения"], hi: ["मिनट", "मिनट में पढ़ें"], es: ["min", "min de lectura"], fr: ["min", "min de lecture"], de: ["Min.", "Min. Lesezeit"] };
 // Arabic counts its minutes with a different word for 1, 2, 3-10 and 11 or more
 const arMins = (n: number) => n === 1 ? "دقيقة واحدة" : n === 2 ? "دقيقتان" : n >= 3 && n <= 10 ? n + " دقائق" : n + " دقيقة";
 export const minsText = (n: number, lang: string, long = false) => {
@@ -61,7 +61,7 @@ export function BlogBody({ text }: { text: string }) {
 }
 // Arabic asks for Latin digits and the Gregorian calendar, as the static pages do (LOC_JS in scripts/build-blog-pages.mjs): a bare "ar" prints Arabic-Indic digits in some engines
 const latnAr = (loc: string, lang: string) => lang === "ar" ? "ar-u-nu-latn" : loc;
-// th-TH, zh-CN, ja-JP, ko-KR, ru-RU, hi-IN, es-ES, fr-FR, ar for their own readers, en-GB for English (dateLocale in lang-extra.ts).
+// th-TH, zh-CN, ja-JP, ko-KR, ru-RU, hi-IN, es-ES, fr-FR, ar, de-DE for their own readers, en-GB for English (dateLocale in lang-extra.ts).
 // A plain calendar date ("2026-11-13", what the committed articles carry) is read in UTC, like the static pages do: in the device's own zone, west of Greenwich, it would show the day before. A full timestamp keeps the reader's zone, as before.
 export const fmtDate = (d: string, lang: string) => { try { return new Date(d).toLocaleDateString(latnAr(dateLocale(lang), lang), { year: "numeric", month: "short", day: "numeric", ...(/^\d{4}-\d{2}-\d{2}$/.test(d) ? { timeZone: "UTC" } : {}) }); } catch (e) { return ""; } };
 
@@ -77,13 +77,13 @@ const blogVid = () => {
 };
 const isStaticId = (id: string) => typeof id === "string" && id.startsWith("static:");
 // the same words the static pages use (VIEWS_LBL, VIEWS_ONE and UNIT_JS in scripts/build-blog-pages.mjs; Hindi is also the UI catalog's word for "views"): "1,234回閲覧" and "1,234회 조회" sit straight against the number, the others have a space
-const VIEWS_UNIT: Record<string, string> = { th: "ยอดวิว", zh: "次浏览", ja: "回閲覧", ko: "회 조회", ru: "просмотров", hi: "व्यूज़", es: "visualizaciones", fr: "vues", ar: "مشاهدة" };
-// one view is singular in es / fr ("1 visualización", "1 vue") and Arabic gives 1, 2, 3-10 and 11+ each its own form, as the static pages do; a count is only shown from 1 up. The other languages keep their one unit.
-const VIEWS_ONE: Record<string, string> = { es: "visualización", fr: "vue" };
+const VIEWS_UNIT: Record<string, string> = { th: "ยอดวิว", zh: "次浏览", ja: "回閲覧", ko: "회 조회", ru: "просмотров", hi: "व्यूज़", es: "visualizaciones", fr: "vues", ar: "مشاهدة", de: "Aufrufe" };
+// one view is singular in es / fr / de ("1 visualización", "1 vue", "1 Aufruf") and Arabic gives 1, 2, 3-10 and 11+ each its own form, as the static pages do; a count is only shown from 1 up. The other languages keep their one unit.
+const VIEWS_ONE: Record<string, string> = { es: "visualización", fr: "vue", de: "Aufruf" };
 const viewsUnit = (n: number, lang: string) => lang === "ar" ? (n === 2 ? "مشاهدتان" : n >= 3 && n <= 10 ? "مشاهدات" : VIEWS_UNIT.ar) : (n === 1 && VIEWS_ONE[lang]) || VIEWS_UNIT[lang] || xl(lang, "views");
 export const viewsText = (n: number, lang: string) => "👁 " + n.toLocaleString(latnAr(localeOf(lang), lang)) + (lang === "ja" || lang === "ko" ? "" : " ") + viewsUnit(n, lang);
 
-/* The committed articles: one lazy chunk per language (a literal path each, so the bundler can see every file). th / en / zh have none: their articles live only in the table. */
+/* The committed articles: one lazy chunk per language (a literal path each, so the bundler can see every file). th / en / zh have none: their articles live only in the table. de (2026-11-20) has none either: no loader entry, because there is no committed file to import. */
 const STATIC_LOADERS: Record<string, () => Promise<{ default: BlogPost[] }>> = {
   ja: () => import("./blog-data/ja"), ko: () => import("./blog-data/ko"), ru: () => import("./blog-data/ru"),
   hi: () => import("./blog-data/hi"), es: () => import("./blog-data/es"), fr: () => import("./blog-data/fr"), ar: () => import("./blog-data/ar"),
@@ -98,7 +98,7 @@ export const mergeRows = (db: BlogPost[], files: BlogPost[]): BlogPost[] => {
 // an object holding th + en + zh would be read by scripts/extract-i18n.mjs as a { th, en, zh } triple and put the English-tab line into the catalog.
 const EMPTY_TXT: Record<string, string> = {
   ja: "この言語の記事はまだありません。もうしばらくお待ちください", ko: "아직 이 언어로 된 글이 없어요. 곧 만나요", ru: "Статей на этом языке пока нет — загляните позже",
-  hi: "इस भाषा में अभी कोई लेख नहीं है — जल्द ही दोबारा देखें", es: "Aún no hay artículos en este idioma — vuelve pronto", fr: "Pas encore d'articles dans cette langue — reviens bientôt", ar: "لا توجد مقالات بهذه اللغة بعد — عاود الزيارة قريبًا",
+  hi: "इस भाषा में अभी कोई लेख नहीं है — जल्द ही दोबारा देखें", es: "Aún no hay artículos en este idioma — vuelve pronto", fr: "Pas encore d'articles dans cette langue — reviens bientôt", ar: "لا توجد مقالات بهذه اللغة بعد — عاود الزيارة قريبًا", de: "Noch keine Artikel in dieser Sprache — schau bald wieder vorbei",
 };
 const htmlLang = (l: string) => (LANG_META[l] || LANG_META.en).html;
 const tall = (l: string) => l === "ar" || l === "hi";   // Arabic and Devanagari need a taller line than the 1.3-1.35 the Latin titles use

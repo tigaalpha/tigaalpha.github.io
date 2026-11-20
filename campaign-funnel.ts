@@ -11,7 +11,7 @@
    browser and sign up at 0.12% against 2.2% elsewhere) took a hand-written SQL
    session to find. The rows it reads:
 
-     kind "land"  item_id: page:<lang> (th|en|zh|ja|ko|ru|hi|es|fr|ar) · view · hero:seen · piano · aha:heard ·
+     kind "land"  item_id: page:<lang> (th|en|zh|ja|ko|ru|hi|es|fr|ar|de) · view · hero:seen · piano · aha:heard ·
                   ask · gate:shown · gate:inapp · openreal-top · openreal ·
                   escape:arrived[-known]:<browser> · try:* · signup:* ·
                   signed_up_landing:<lg> · signed_up_from:<anon_id>
@@ -82,7 +82,7 @@ export function buildVisitors(rows: Array<{ anon_id?: string | null; kind: strin
       if (g.v && !v.v) v.v = g.v;
       if (g.tz && !v.tz) v.tz = g.tz;
       if (g.oua && !v.oua) v.oua = g.oua;
-      if (g.lg && !v.lg && /^(th|en|zh|ja|ko|ru|hi|es|fr|ar)$/.test(g.lg)) v.lg = g.lg;
+      if (g.lg && !v.lg && /^(th|en|zh|ja|ko|ru|hi|es|fr|ar|de)$/.test(g.lg)) v.lg = g.lg;
       if (g.s && it.startsWith("first;") && (!v.src || v.src === "direct")) v.src = g.s;
       continue;
     }

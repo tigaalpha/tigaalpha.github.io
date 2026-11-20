@@ -12,6 +12,7 @@
      /landing-es/   Spanish   (2026-11-13)
      /landing-fr/   French    (2026-11-13)
      /landing-ar/   Arabic    (2026-11-13, right to left: <html lang="ar" dir="rtl">)
+     /landing-de/   German    (2026-11-20)
 
    They are the same page. This takes the ONE built HTML and rewrites only the
    parts a search result, a shared link preview and a screen reader read — the
@@ -26,7 +27,7 @@
    written here (and sets dir from it, see dirOf in landing/landing-copy.ts).
 
    The ten pages reference each other: the template carries one hreflang set
-   (th, en, zh-Hans, ja, ko, ru, hi, es, fr, ar, x-default = /landing-en/) that
+   (th, en, zh-Hans, ja, ko, ru, hi, es, fr, ar, de, x-default = /landing-en/) that
    every variant keeps unchanged, so each page lists all ten including itself.
    The set lives in landing/index.template.html and is checked against LOCALES
    below, so a language added to one and not the other stops the build.
@@ -158,6 +159,19 @@ const LOCALES = {
     bootHeadB: "يعزف لك الإجابة",
     html: "ar", htmlDir: "rtl", ogLocale: "ar_AR",
   },
+  /* de (2026-11-20): native marketing copy, informal "du". No double quotes, ampersands or dollar signs:
+     these strings are written into HTML attributes verbatim. */
+  de: {
+    dir: "landing-de",
+    title: "Probiere eine Klavierstunde mit einem KI-Lehrer aus — TIGA ALPHA",
+    desc: "Stell einem KI-Klavierlehrer eine Frage und sieh zu, wie er dir die Antwort auf echten Tasten vorspielt: Tonleitern, Akkorde, Dreiklänge. Ohne Anmeldung.",
+    ogTitle: "Probiere eine Klavierstunde mit einem KI-Lehrer aus — TIGA ALPHA",
+    ogDesc: "Spiele gleich auf den Tasten, stell dem KI-Lehrer eine Frage und sieh zu, wie er dir die Antwort Finger für Finger vorspielt. Ohne Anmeldung, ohne Installation.",
+    boot: "Wir machen dein Klavier bereit",
+    bootHeadA: "Frag einen KI-Klavierlehrer — ",
+    bootHeadB: "er spielt dir die Antwort vor",
+    html: "de", ogLocale: "de_DE",
+  },
 };
 
 const src = readFileSync(SRC, "utf8");
@@ -270,6 +284,16 @@ const SEO_NEW = {
       ["ما هو TIGA ALPHA؟", "تطبيق يعلّمك فيه الذكاء الاصطناعي العزف على البيانو. يمكنك التدرّب على المفاتيح التي تظهر على الشاشة، أو باستخدام الميكروفون، أو على بيانو MIDI."],
       ["كم التكلفة؟", "7 أيام مجانًا، ثم US$24.99 شهريًا."],
       ["ما اللغات المتاحة للتعلّم؟", "10 لغات: التايلاندية والإنجليزية والصينية والعربية واليابانية والروسية والإسبانية والفرنسية والهندية والكورية."],
+    ],
+  }),
+  de: seoBlock({
+    blogDir: "de", h1: "TIGA ALPHA — die App zum Klavierlernen mit KI-Lehrer",
+    intro: "TIGA ALPHA ist eine App zum Klavierlernen, entwickelt in Thailand. Lerne mit einem KI-Lehrer in 10 Sprachen: Thai, Englisch, Chinesisch, Arabisch, Japanisch, Russisch, Spanisch, Französisch, Hindi und Koreanisch. Gegründet wurde TIGA ALPHA von Aum, mit 20 Jahren Erfahrung im Klavierunterricht.",
+    price: "7 Tage kostenlos testen, danach US$24.99 pro Monat.", cta: "Kostenlos starten", faqHead: "Häufige Fragen", blog: "Blog",
+    qa: [
+      ["Was ist TIGA ALPHA?", "Eine App, in der dir eine KI das Klavierspielen beibringt. Du kannst auf der Bildschirmtastatur, mit dem Mikrofon oder an einem MIDI-Klavier üben."],
+      ["Was kostet es?", "7 Tage kostenlos testen, danach US$24.99 pro Monat."],
+      ["In welchen Sprachen kann ich lernen?", "In 10 Sprachen: Thai, Englisch, Chinesisch, Arabisch, Japanisch, Russisch, Spanisch, Französisch, Hindi und Koreanisch."],
     ],
   }),
 };

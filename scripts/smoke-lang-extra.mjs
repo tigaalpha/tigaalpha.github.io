@@ -1,5 +1,5 @@
-// The runtime behind the seven extra languages (lang-extra.ts): Japanese, Korean, Russian, then Hindi, Spanish, French and Arabic (2026-11-13).
-// Catalog lookups, {n} patterns, ordinals (ja ko ru hi es fr ar), the plural-suffix hole, by(), pickT, xl, the AI reply line, the picker order (ten languages),
+// The runtime behind the eight extra languages (lang-extra.ts): Japanese, Korean, Russian, then Hindi, Spanish, French and Arabic (2026-11-13), then German (2026-11-20).
+// Catalog lookups, {n} patterns, ordinals (ja ko ru hi es fr ar de), the plural-suffix hole, by(), pickT, xl, the AI reply line, the picker order (all picker languages),
 // the right-to-left flag, Intl digits (Arabic 0-9, Hindi never Devanagari), and the STATIC checks of the app plumbing that need no browser and no dist/. Where a function or a table is
 // needed, the REAL source is cut out of the file and run: the speech tables and detectSpeechLang and narrationText (speech.ts), currencyOf (payment.tsx), pickLang (retention.ts), the
 // piano-tts language hints, and the Arabic digit rule in a child process whose DEFAULT locale is ar-SA (where a plain toLocaleString() prints Arabic-Indic digits by itself). The rest
@@ -17,30 +17,30 @@ const M = await import("data:text/javascript;base64," + Buffer.from(js).toString
 let pass = 0; const fails = [];
 const eq = (a, b, n) => { const ok = JSON.stringify(a) === JSON.stringify(b); if (ok) pass++; else { fails.push(n); console.log(`FAIL ${n}: got ${JSON.stringify(a)}, wanted ${JSON.stringify(b)}`); } };
 
-eq(["ja", "ko", "ru", "hi", "es", "fr", "ar"].every(M.isExtraLang), true, "ja, ko, ru, hi, es, fr, ar are extra languages");
-eq(M.EXTRA_LANGS, ["ja", "ko", "ru", "hi", "es", "fr", "ar"], "seven extra languages in order");
+eq(["ja", "ko", "ru", "hi", "es", "fr", "ar", "de"].every(M.isExtraLang), true, "ja, ko, ru, hi, es, fr, ar, de are extra languages");
+eq(M.EXTRA_LANGS, ["ja", "ko", "ru", "hi", "es", "fr", "ar", "de"], "eight extra languages in order");
 eq(["th", "en", "zh", "", null, "xx"].some(M.isExtraLang), false, "th, en, zh and junk are not");
-eq(M.ALL_LANGS, ["th", "en", "zh", "ja", "ko", "ru", "hi", "es", "fr", "ar"], "ten languages in picker order");
-eq(new Set(M.ALL_LANGS).size, 10, "no language twice in the picker");
+eq(M.ALL_LANGS, ["th", "en", "zh", "ja", "ko", "ru", "hi", "es", "fr", "ar", "de"], "all languages in picker order (de after ar)");
+eq(new Set(M.ALL_LANGS).size, 11, "no language twice in the picker");
 eq(M.ALL_LANGS.every(l => M.LANG_META[l] && M.LANG_META[l].flag && M.LANG_META[l].name && M.LANG_META[l].locale && M.LANG_META[l].html && M.LANG_META[l].ai), true, "every picker language has flag, native name, locale, html lang and AI name");
-eq(M.ALL_LANGS.map(l => M.LANG_META[l].name), ["ไทย", "English", "中文", "日本語", "한국어", "Русский", "हिन्दी", "Español", "Français", "العربية"], "native names in picker order");
+eq(M.ALL_LANGS.map(l => M.LANG_META[l].name), ["ไทย", "English", "中文", "日本語", "한국어", "Русский", "हिन्दी", "Español", "Français", "العربية", "Deutsch"], "native names in picker order");
 eq(Object.keys(M.LANG_META).sort(), [...M.ALL_LANGS].sort(), "LANG_META has exactly the picker languages");
 eq(M.localeOf("ja"), "ja-JP", "locale ja"); eq(M.localeOf("ko"), "ko-KR", "locale ko"); eq(M.localeOf("ru"), "ru-RU", "locale ru"); eq(M.localeOf("zh"), "zh-CN", "locale zh");
 eq(M.dateLocale("en"), "en-GB", "English dates stay day-month-year"); eq(M.dateLocale("ja"), "ja-JP", "Japanese dates use ja-JP");
 eq(M.LANG_META.ru.html, "ru", "html lang ru");
-eq(M.localeOf("hi"), "hi-IN", "locale hi"); eq(M.localeOf("es"), "es-ES", "locale es"); eq(M.localeOf("fr"), "fr-FR", "locale fr");
+eq(M.localeOf("hi"), "hi-IN", "locale hi"); eq(M.localeOf("es"), "es-ES", "locale es"); eq(M.localeOf("fr"), "fr-FR", "locale fr"); eq(M.localeOf("de"), "de-DE", "locale de");
 eq(M.LANG_META.ar.locale, "ar", "the registry keeps the neutral 'ar' for Arabic (not ar-SA: no country, no Hijri calendar)");
 eq(M.localeOf("ar"), "ar-u-nu-latn", "Intl gets Arabic with the Latin numbering system named (Western digits 0-9 in every engine, not only in the ones with CLDR 42)");
 eq(M.dateLocale("ar"), "ar-u-nu-latn", "Arabic dates use it too"); eq(M.dateLocale("hi"), "hi-IN", "Hindi dates use hi-IN");
-eq(["hi", "es", "fr", "ar"].map(l => M.LANG_META[l].html), ["hi", "es", "fr", "ar"], "html lang hi es fr ar");
+eq(["hi", "es", "fr", "ar", "de"].map(l => M.LANG_META[l].html), ["hi", "es", "fr", "ar", "de"], "html lang hi es fr ar de");
 eq(new Intl.NumberFormat(M.localeOf("ar")).format(1234567), "1,234,567", "the Arabic locale prints Western digits (Node's ICU)");
 // no language prints native digits: every Intl tag the app uses resolves to the Latin numbering system (Hindi must never be Devanagari digits, Arabic never Arabic-Indic)
 eq(M.ALL_LANGS.map(l => new Intl.NumberFormat(M.localeOf(l)).resolvedOptions().numberingSystem), M.ALL_LANGS.map(() => "latn"), "every language formats numbers with Latin digits");
 eq(M.ALL_LANGS.map(l => new Intl.DateTimeFormat(M.dateLocale(l), { year: "numeric", month: "numeric", day: "numeric", timeZone: "UTC" }).format(new Date(Date.UTC(2026, 10, 16))).replace(/[^0-9٠-٩०-९]/g, "")).every(x => /^[0-9]+$/.test(x)), true, "every language writes the digits of a date with 0-9");
-eq(["th", "en", "zh", "ja", "ko", "ru", "hi", "es", "fr"].map(M.localeOf), ["th-TH", "en-US", "zh-CN", "ja-JP", "ko-KR", "ru-RU", "hi-IN", "es-ES", "fr-FR"], "only Arabic got a numbering-system extension: the other locales are exactly what they were");
+eq(["th", "en", "zh", "ja", "ko", "ru", "hi", "es", "fr", "de"].map(M.localeOf), ["th-TH", "en-US", "zh-CN", "ja-JP", "ko-KR", "ru-RU", "hi-IN", "es-ES", "fr-FR", "de-DE"], "only Arabic got a numbering-system extension: the other locales are exactly what they were");
 // right to left: only Arabic
 eq(M.ALL_LANGS.filter(M.isRtl), ["ar"], "only Arabic is right-to-left");
-eq(M.ALL_LANGS.map(M.dirOf), ["ltr", "ltr", "ltr", "ltr", "ltr", "ltr", "ltr", "ltr", "ltr", "rtl"], "dirOf per picker language");
+eq(M.ALL_LANGS.map(M.dirOf), ["ltr", "ltr", "ltr", "ltr", "ltr", "ltr", "ltr", "ltr", "ltr", "rtl", "ltr"], "dirOf per picker language");
 eq(M.dirOf("xx"), "ltr", "an unknown language is ltr"); eq(M.isRtl(undefined), false, "isRtl(undefined) does not throw");
 
 // before any catalog: English comes back, never undefined
@@ -91,15 +91,16 @@ eq([M.xlate("es", "Clear episode 4 or 5 first"), M.xlate("es", "Clear episode 4 
 // ordinals in a hole: every extra language has its own form of 1st / 2nd / 3rd ...
 M.setCatalog("ko", { "The {0} note": "{0} 음" }); M.setCatalog("ru", { "The {0} note": "{0} нота" });
 M.setCatalog("hi", { "The {0} note": "{0} स्वर" }); M.setCatalog("es", { "The {0} note": "{0} nota" });
-M.setCatalog("fr", { "The {0} note": "{0} note" }); M.setCatalog("ar", { "The {0} note": "النغمة {0}" });
+M.setCatalog("fr", { "The {0} note": "{0} note" }); M.setCatalog("ar", { "The {0} note": "النغمة {0}" }); M.setCatalog("de", { "The {0} note": "{0} Note" });
 eq(["1st", "2nd", "3rd", "4th", "5th", "11th"].map(o => M.xlate("ko", "The " + o + " note")), ["1번째 음", "2번째 음", "3번째 음", "4번째 음", "5번째 음", "11번째 음"], "ko ordinals");
 eq(["1st", "3rd", "5th"].map(o => M.xlate("ru", "The " + o + " note")), ["1-й нота", "3-й нота", "5-й нота"], "ru ordinals");
 eq(["1st", "2nd", "3rd", "4th", "5th", "11th"].map(o => M.xlate("hi", "The " + o + " note")), ["पहला स्वर", "दूसरा स्वर", "तीसरा स्वर", "चौथा स्वर", "5वाँ स्वर", "11वाँ स्वर"], "hi ordinals: words for 1-4, number + वाँ after");
 eq(["1st", "2nd", "3rd", "5th"].map(o => M.xlate("es", "The " + o + " note")), ["1.º nota", "2.º nota", "3.º nota", "5.º nota"], "es ordinals: number + .º");
 eq(["1st", "2nd", "3rd", "5th", "11th"].map(o => M.xlate("fr", "The " + o + " note")), ["1er note", "2e note", "3e note", "5e note", "11e note"], "fr ordinals: 1er, then Ne");
+eq(["1st", "2nd", "3rd", "5th", "11th"].map(o => M.xlate("de", "The " + o + " note")), ["1. Note", "2. Note", "3. Note", "5. Note", "11. Note"], "de ordinals: number + a full stop");
 eq(["1st", "2nd", "3rd", "4th", "5th"].map(o => M.xlate("ar", "The " + o + " note")), ["النغمة الأول", "النغمة الثاني", "النغمة الثالث", "النغمة الرابع", "النغمة 5"], "ar ordinals: words for 1-4, the digit after (Western digits)");
 // the English plural suffix ("s" / "es") is dropped in a hole: these languages have no such ending, and the translation puts the hole where it would have been
-for (const [lg, to] of [["ja", "{0}曲{1}。"], ["hi", "{0} गाने{1}।"], ["es", "{0} canciones{1}."], ["fr", "{0} chansons{1}."], ["ar", "{0} أغنية{1}."]]) {
+for (const [lg, to] of [["ja", "{0}曲{1}。"], ["hi", "{0} गाने{1}।"], ["es", "{0} canciones{1}."], ["fr", "{0} chansons{1}."], ["ar", "{0} أغنية{1}."], ["de", "{0} Lieder{1}."]]) {
   M.setCatalog(lg, { "{0} song{1}": to, "{0} box{1}": to });
   const out = [M.xlate(lg, "3 songs"), M.xlate(lg, "1 song"), M.xlate(lg, "2 boxes")];
   eq(out, [to.replace("{0}", "3").replace("{1}", ""), to.replace("{0}", "1").replace("{1}", ""), to.replace("{0}", "2").replace("{1}", "")], lg + ": the plural-suffix hole ('s' / 'es') is an empty string, never printed");
@@ -107,7 +108,7 @@ for (const [lg, to] of [["ja", "{0}曲{1}。"], ["hi", "{0} गाने{1}।"]
 
 // the AI reply line
 eq(M.replyInstruction("th"), "", "no extra line for th"); eq(M.replyInstruction("en"), "", "no extra line for en");
-for (const [lg, nm] of [["ja", "Japanese"], ["ko", "Korean"], ["ru", "Russian"], ["hi", "Hindi"], ["es", "Spanish"], ["fr", "French"], ["ar", "Arabic"]]) eq(M.replyInstruction(lg).includes(nm), true, "reply line names " + nm);
+for (const [lg, nm] of [["ja", "Japanese"], ["ko", "Korean"], ["ru", "Russian"], ["hi", "Hindi"], ["es", "Spanish"], ["fr", "French"], ["ar", "Arabic"], ["de", "German"]]) eq(M.replyInstruction(lg).includes(nm), true, "reply line names " + nm);
 eq(M.replyInstruction("zh"), "", "no extra line for zh");
 
 
@@ -120,7 +121,7 @@ const code = f => rd(f).replace(/\/\*[\s\S]*?\*\//g, m => m.replace(/[^\n]/g, " 
 const ts2js = src => esbuild.transformSync(src, { loader: "ts", format: "esm" }).code;
 const LANGX_URL = "data:text/javascript;base64," + Buffer.from(js).toString("base64");   // the very URL M was imported from: a module that imports it shares M's catalogs
 const evalTs = (src, exportNames, header = "") => import("data:text/javascript;base64," + Buffer.from(ts2js(header + src.replace(/^export /gm, "") + "\nexport { " + exportNames.join(", ") + " };")).toString("base64"));
-const ten = M.ALL_LANGS;
+const ten = M.ALL_LANGS;   // every picker language (the name is from the ten-language days)
 
 // ── speech.ts (a): the tables, and detectSpeechLang cut out of the real file and run ──
 {
@@ -129,16 +130,16 @@ const ten = M.ALL_LANGS;
   const tables = cut(/export const TTS_LOCALES = \{[^}]*\};/, "TTS_LOCALES") + "\n" + cut(/export const TTS_RATE = \{[^}]*\};/, "TTS_RATE") + "\n" + cut(/const TTS_CHARS_PER_SEC = \{[^}]*\};/, "TTS_CHARS_PER_SEC");
   const fnStart = sp.indexOf("export function detectSpeechLang"), fnEnd = sp.indexOf("const TTS_CHARS_PER_SEC");
   const T = await evalTs(tables + "\n" + sp.slice(fnStart, fnEnd), ["TTS_LOCALES", "TTS_RATE", "TTS_CHARS_PER_SEC", "detectSpeechLang"]);
-  eq(ten.every(l => T.TTS_LOCALES[l] && T.TTS_RATE[l] > 0.5 && T.TTS_RATE[l] <= 1.2 && T.TTS_CHARS_PER_SEC[l] > 2), true, "speech: every one of the ten languages has a voice locale, a speaking rate and a characters-per-second figure");
+  eq(ten.every(l => T.TTS_LOCALES[l] && T.TTS_RATE[l] > 0.5 && T.TTS_RATE[l] <= 1.2 && T.TTS_CHARS_PER_SEC[l] > 2), true, "speech: every picker language has a voice locale, a speaking rate and a characters-per-second figure");
   eq(ten.every(l => T.TTS_LOCALES[l].split("-")[0] === l), true, "speech: each voice locale starts with its own language code (bestVoice() matches voices on that prefix)");
-  eq(["hi", "es", "fr", "ar"].map(l => T.TTS_LOCALES[l]), ["hi-IN", "es-ES", "fr-FR", "ar-SA"], "speech: voice locales hi-IN, es-ES, fr-FR, ar-SA");
+  eq(["hi", "es", "fr", "ar", "de"].map(l => T.TTS_LOCALES[l]), ["hi-IN", "es-ES", "fr-FR", "ar-SA", "de-DE"], "speech: voice locales hi-IN, es-ES, fr-FR, ar-SA, de-DE");
   const d = T.detectSpeechLang;
   eq([d("नमस्ते, आज हम C मेजर स्केल सीखेंगे"), d("مرحبًا، سنتعلم اليوم سلم C ماجور"), d("สวัสดี วันนี้เรียนสเกล C"), d("今天学习 C 大调音阶"), d("こんにちは、Cメジャー"), d("안녕하세요 C 메이저"), d("Привет, учим гамму C")],
      ["hi", "ar", "th", "zh", "ja", "ko", "ru"], "detectSpeechLang tells th / zh / ja / ko / ru / hi / ar by script, with Latin note names mixed in");
-  eq([d("Let's learn the C major scale today", "en"), d("Let's learn the C major scale today", "th"), d("Let's learn the C major scale today", "zh")], ["en", "en", "en"], "detectSpeechLang: Latin text is English for every app language except es / fr, exactly as before");
-  eq([d("Hoy aprendemos la escala de Do mayor", "es"), d("Aujourd'hui nous apprenons la gamme de do majeur", "fr"), d("Hoy aprendemos la escala de Do mayor", "en")], ["es", "fr", "en"], "detectSpeechLang: Spanish and French share the Latin script, so the APP language decides (es / fr fallback) and nothing else is guessed");
-  eq([d("", "ar"), d("", "hi"), d("   ", "es")], ["ar", "hi", "es"], "detectSpeechLang: no text at all returns the fallback");
-  eq([d("C D E F G", "es"), d("12345", "fr")], ["es", "fr"], "detectSpeechLang: note names only are read as the app language when it is es / fr");
+  eq([d("Let's learn the C major scale today", "en"), d("Let's learn the C major scale today", "th"), d("Let's learn the C major scale today", "zh")], ["en", "en", "en"], "detectSpeechLang: Latin text is English for every app language except es / fr / de, exactly as before");
+  eq([d("Hoy aprendemos la escala de Do mayor", "es"), d("Aujourd'hui nous apprenons la gamme de do majeur", "fr"), d("Hoy aprendemos la escala de Do mayor", "en"), d("Heute lernen wir die C-Dur-Tonleiter", "de")], ["es", "fr", "en", "de"], "detectSpeechLang: Spanish, French and German share the Latin script, so the APP language decides (es / fr / de fallback) and nothing else is guessed");
+  eq([d("", "ar"), d("", "hi"), d("   ", "es"), d("", "de")], ["ar", "hi", "es", "de"], "detectSpeechLang: no text at all returns the fallback");
+  eq([d("C D E F G", "es"), d("12345", "fr"), d("C D E F G", "de")], ["es", "fr", "de"], "detectSpeechLang: note names only are read as the app language when it is es / fr / de");
   // the callers must hand over the app language as the fallback (a one-argument call would never say "es" or "fr")
   const callers = ["chat-ui.tsx", ...rootTs].filter((f, i, a) => a.indexOf(f) === i).flatMap(f => (rd(f).match(/detectSpeechLang\([^)]*\)/g) || []).map(c => f + ": " + c)).filter(c => !c.startsWith("speech.ts"));
   eq(callers.length >= 2 && callers.every(c => /detectSpeechLang\(text, lang\)/.test(c)), true, "speech: every caller of detectSpeechLang passes the app language (" + callers.join(" | ") + ")");
@@ -151,9 +152,9 @@ const ten = M.ALL_LANGS;
   const f = rd("supabase/functions/piano-tts/index.ts");
   const m = /const LANG_CODE: Record<string, string> = (\{[^}]*\});/.exec(f);
   const codes = m ? (0, eval)("(" + m[1] + ")") : {};
-  eq(ten.filter(l => l !== "ar").every(l => typeof codes[l] === "string" && codes[l].toLowerCase().startsWith(l === "zh" ? "cmn" : l)), true, "piano-tts: a Gemini language hint for nine languages (" + Object.entries(codes).map(([k, v]) => k + "=" + v).join(" ") + ")");
+  eq(ten.filter(l => l !== "ar").every(l => typeof codes[l] === "string" && codes[l].toLowerCase().startsWith(l === "zh" ? "cmn" : l)), true, "piano-tts: a Gemini language hint for every language but Arabic (" + Object.entries(codes).map(([k, v]) => k + "=" + v).join(" ") + ")");
   eq(codes.ar, undefined, "piano-tts: Arabic is sent with NO hint on purpose (the only Arabic tag the speech docs list is the Egyptian dialect; the model reads Arabic from the text)");
-  eq(codes.hi, "hi-IN", "piano-tts: Hindi hint hi-IN"); eq([codes.es, codes.fr], ["es-ES", "fr-FR"], "piano-tts: Spanish and French hints es-ES, fr-FR (a refused tag is retried without it)");
+  eq(codes.hi, "hi-IN", "piano-tts: Hindi hint hi-IN"); eq([codes.es, codes.fr, codes.de], ["es-ES", "fr-FR", "de-DE"], "piano-tts: Spanish, French and German hints es-ES, fr-FR, de-DE (a refused tag is retried without it)");
   eq(/status === 400 && withLang && langCode && \/language\/i\.test\(errText\)\) return synthOnce\(text, voice, lang, model, false\)/.test(f), true, "piano-tts: a code the model refuses is spoken again without the hint (a wrong code costs one round trip, not the feature)");
 }
 
@@ -161,7 +162,9 @@ const ten = M.ALL_LANGS;
 {
   for (const fn of ["weekly-report", "return-reminders"]) {
     const f = rd("supabase/functions/" + fn + "/index.ts");
-    eq(/\? "zh" : \(!(?:u|p)\.lang \|\| (?:u|p)\.lang === "th"\) \? "th" : "en"/.test(f), true, fn + ": zh and th keep their own text, every other language (the seven extra ones) gets the English text");
+    // since 2026-11-17 both functions write each learner in their own language (ja ko ru hi es fr ar, and de from 2026-11-20): Thai when no language is set, the language itself when the table has it,
+    // English for anything else. The real pickLang of each file is run by scripts/verify-email-langs.mjs; this only pins the shape of the line.
+    eq(/const pickLang = [^\n]*\(!l \|\| l === "th"\) \? "th" : [^\n]*\? [^\n]*: "en";/.test(f), true, fn + ": no language or th gets Thai, a language the table lists gets its own text, anything else gets English");
   }
 }
 
@@ -200,7 +203,7 @@ eq(/tg_lang_hint:/.test(rd("cloud-sync.ts")), true, "cloud-sync: tg_lang_hint (t
   eq(!!cm, true, "payment.tsx: currencyOf sits right after CURRENCY_BY_LANG");
   if (cm) {
     const C = await evalTs(cm[0].replace(/export const/g, "const"), ["currencyOf"]);
-    eq(ten.map(C.currencyOf), ["thb", "usd", "cny", "usd", "usd", "usd", "usd", "usd", "usd", "usd"], "currencyOf: baht, dollars, yuan, and DOLLARS for every extra language (never a translated word)");
+    eq(ten.map(C.currencyOf), ["thb", "usd", "cny", "usd", "usd", "usd", "usd", "usd", "usd", "usd", "usd"], "currencyOf: baht, dollars, yuan, and DOLLARS for every extra language (never a translated word)");
     eq([C.currencyOf(undefined), C.currencyOf("xx")], ["usd", "usd"], "currencyOf: an unknown language is priced as English");
   }
   eq(rootTs.filter(f => /by\(\s*CURRENCY_BY_LANG/.test(code(f))), [], "nothing reads the currency through by() any more");

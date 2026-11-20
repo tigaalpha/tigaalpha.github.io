@@ -149,6 +149,8 @@ ok("es date is Spanish (1 oct 2026)", /^1 oct\.? 2026$/.test(norm(M.fmtDate(D, "
 ok("fr date is French (1 oct. 2026)", /^1 oct\.? 2026$/.test(norm(M.fmtDate(D, "fr"))), M.fmtDate(D, "fr"));
 ok("ar date is Arabic month name with Latin digits and the Gregorian year", /^1 [؀-ۿ]+ 2026$/.test(norm(M.fmtDate(D, "ar"))) && !/[٠-٩]/.test(M.fmtDate(D, "ar")), M.fmtDate(D, "ar"));
 ok("read time in hi / es / fr", M.minsText(3, "hi") === "3 मिनट" && M.minsText(3, "hi", true) === "3 मिनट में पढ़ें" && M.minsText(3, "es") === "3 min" && M.minsText(3, "es", true) === "3 min de lectura" && M.minsText(3, "fr") === "3 min" && M.minsText(3, "fr", true) === "3 min de lecture");
+ok("de views: 1.234 Aufrufe, one view is singular (Aufruf), the date is German (1. Okt. 2026), the read time says Min. / Min. Lesezeit", norm(M.viewsText(1234, "de")) === "👁 1.234 Aufrufe" && norm(M.viewsText(1, "de")) === "👁 1 Aufruf" && norm(M.viewsText(2, "de")) === "👁 2 Aufrufe" && /^1\. Okt\.? 2026$/.test(norm(M.fmtDate(D, "de"))) && M.minsText(3, "de") === "3 Min." && M.minsText(3, "de", true) === "3 Min. Lesezeit", [M.viewsText(1234, "de"), M.viewsText(1, "de"), M.fmtDate(D, "de"), M.minsText(3, "de", true)].join(" | "));
+ok("de categories are German", M.catName("tips", "de") === "💡 Übetipps" && M.catName("theory", "de") === "🎼 Musiktheorie" && M.catName("songs", "de") === "🎵 Lieder und Übungsstücke" && M.catName("news", "de") === "📣 News" && M.catName("story", "de") === "✨ Geschichten");
 ok("read time in ar: the noun agrees with the number (1, 2, 3-10, 11+)", M.minsText(1, "ar") === "دقيقة واحدة" && M.minsText(2, "ar") === "دقيقتان" && M.minsText(3, "ar") === "3 دقائق" && M.minsText(10, "ar") === "10 دقائق" && M.minsText(11, "ar") === "11 دقيقة" && M.minsText(5, "ar", true) === "5 دقائق للقراءة" && M.minsText(1, "ar", true) === "دقيقة واحدة للقراءة");
 {
   // the unit follows the number where the language needs it (one view is singular in es / fr, Arabic has 1 / 2 / 3-10 / 11+): the same forms as the static pages (UNIT_JS in scripts/build-blog-pages.mjs)
@@ -188,7 +190,7 @@ ok("reading speed: Devanagari and Arabic are space-separated scripts, read like 
   ok("mergeRows: a slug of another language is not 'the same article'; no rows at all gives an empty list", M.mergeRows([{ ...a, lang: "fr" }], [b]).length === 2 && M.mergeRows([], []).length === 0 && M.mergeRows(null, null).length === 0);
 }
 
-console.log("the page: one flag button with a menu of ten languages, the language follows the app");
+console.log("the page: one flag button with a menu of all eleven languages, the language follows the app");
 for (const lang of LANGS) {
   await reset();
   const { host } = await mount(M.h(M.BlogPage, { lang }));
@@ -197,11 +199,11 @@ for (const lang of LANGS) {
   ok(lang + ": the button shows the flag of the app language and no language name", !!flagBtn && flagBtn.textContent.includes(M.LANG_META[lang].flag) && !LANGS.some(l => flagBtn.textContent.includes(M.LANG_META[l].name)), flagBtn && flagBtn.textContent);
   await click(flagBtn, M, 40);
   const opts = [...host.querySelectorAll("[data-blog-lang]")], tabs = opts.map(b => b.getAttribute("data-blog-lang") + ":" + b.textContent);
-  ok(lang + ": the menu lists ten languages, each with its flag and native name", opts.length === 10 && LANGS.every(l => tabs.some(t => t.startsWith(l + ":") && t.includes(M.LANG_META[l].flag) && t.includes(M.LANG_META[l].name))), tabs.join(" | "));
+  ok(lang + ": the menu lists eleven languages, each with its flag and native name", opts.length === LANGS.length && LANGS.every(l => tabs.some(t => t.startsWith(l + ":") && t.includes(M.LANG_META[l].flag) && t.includes(M.LANG_META[l].name))), tabs.join(" | "));
   const active = opts.find(b => b.getAttribute("aria-selected") === "true");
   ok(lang + ": the menu marks the app language as the current one", !!active && active.getAttribute("data-blog-lang") === lang && opts.filter(b => b.getAttribute("aria-selected") === "true").length === 1, active && active.getAttribute("data-blog-lang"));
   const menu = host.querySelector("[data-blog-langmenu]");
-  ok(lang + ": the list scrolls inside a max-height (60 vh up to 420 px), so ten rows stay reachable on a 320 x 568 phone; every row is a 48 px touch target", !!menu && menu.style.overflowY === "auto" && /min\(60vh,\s*420px\)/.test(menu.style.maxHeight) && opts.every(o => o.style.minHeight === "48px") && menu.getAttribute("role") === "listbox");
+  ok(lang + ": the list scrolls inside a max-height (60 vh up to 420 px), so eleven rows stay reachable on a 320 x 568 phone; every row is a 48 px touch target", !!menu && menu.style.overflowY === "auto" && /min\(60vh,\s*420px\)/.test(menu.style.maxHeight) && opts.every(o => o.style.minHeight === "48px") && menu.getAttribute("role") === "listbox");
   const rtl = lang === "ar";
   ok(lang + ": the menu hangs under the button on the end side of the app's direction (" + (rtl ? "left" : "right") + ")", !!menu && (rtl ? menu.style.left === "0px" && menu.style.right === "" : menu.style.right === "0px" && menu.style.left === ""), menu && (menu.style.left + "|" + menu.style.right));
   await reset(); const again = await mount(M.h(M.BlogPage, { lang })); await click(again.host.querySelector("[data-blog-langbtn]"), M, 40);
@@ -220,7 +222,7 @@ for (const lang of LANGS) {
   ok("closing the menu scrolls nothing", scrolls.length === 1);
   proto.scrollIntoView = function () { throw new Error("not allowed here"); };
   await click(host.querySelector("[data-blog-langbtn]"), M, 40);
-  ok("a scrollIntoView that throws does not break the menu", !!host.querySelector("[data-blog-langmenu]") && host.querySelectorAll("[data-blog-lang]").length === 10);
+  ok("a scrollIntoView that throws does not break the menu", !!host.querySelector("[data-blog-langmenu]") && host.querySelectorAll("[data-blog-lang]").length === LANGS.length);
   delete proto.scrollIntoView;
   await M.act(async () => { document.dispatchEvent(new dom.window.KeyboardEvent("keydown", { key: "Escape", bubbles: true })); await sleep(40); });
   ok("Escape closes the menu", !host.querySelector("[data-blog-langmenu]"));
@@ -229,7 +231,7 @@ for (const lang of LANGS) {
 }
 {
   await reset();
-  const { host } = await mount(M.h(M.BlogPage, { lang: "de" }));
+  const { host } = await mount(M.h(M.BlogPage, { lang: "it" }));   // de has a tab since 2026-11-20; Italian does not
   ok("an app language the blog does not have falls back to the English tab", /No English articles yet/.test(host.textContent) && host.querySelector("[data-blog-langbtn]").textContent.includes("🇬🇧"));
 }
 
@@ -359,8 +361,9 @@ const EXPECT = {
   es: { cat: "Consejos de práctica", min: "1 min", views: /1[.\s]?500 visualizaciones/, long: "1 min de lectura", openViews: /1[.\s]?234 visualizaciones/ },
   fr: { cat: "Conseils de pratique", min: "1 min", views: /1 500 vues/, long: "1 min de lecture", openViews: /1 234 vues/ },
   ar: { cat: "نصائح للتدريب", min: "دقيقة واحدة", views: /1,500 مشاهدة/, long: "دقيقة واحدة للقراءة", openViews: /1,234 مشاهدة/ },
+  de: { cat: "Übetipps", min: "1 Min.", views: /1\.500 Aufrufe/, long: "1 Min. Lesezeit", openViews: /1\.234 Aufrufe/ },
 };
-for (const lang of EXTRA) {
+for (const lang of [...EXTRA, "de"]) {   // de (2026-11-20) has no committed file: its card comes from the database row alone
   await reset(); globalThis.__posts = [post(lang)];
   const { host } = await mount(M.h(M.BlogPage, { lang })), card = cardByTitle(host, "T-" + lang), t = card ? norm(card.textContent) : "", X = EXPECT[lang];
   ok(lang + ": the article card shows title, category, read time and the view number", !!card && t.includes("T-" + lang) && t.includes(X.cat) && t.includes(X.min) && X.views.test(t), t);
@@ -374,6 +377,18 @@ for (const lang of EXTRA) {
   await reset(); globalThis.__calls.length = 0; globalThis.__posts = [post("ja")];
   await mount(M.h(M.BlogPage, { lang: "ja" }));
   ok("the view counts are asked for the tab's language (p_lang = ja)", globalThis.__calls.some(c => c.name === "blog_view_counts" && c.p_lang === "ja"));
+}
+
+console.log("de: no committed file, the list is the database rows alone (no import of a file that does not exist)");
+{
+  ok("there is no blog-data/de.ts, no blog-src/de and the loader table has no de entry", !fs.existsSync(path.join(ROOT, "blog-data", "de.ts")) && !fs.existsSync(path.join(ROOT, "blog-src", "de")) && !/blog-data\/de/.test(fs.readFileSync(path.join(ROOT, "BlogPage.tsx"), "utf8")));
+  await reset(); globalThis.__posts = [];
+  const e = await mount(M.h(M.BlogPage, { lang: "de" })), line = e.host.querySelector("[data-blog-empty]");
+  ok("de, no rows: the German empty line shows (no spinner is left waiting for a chunk), no card, not the English line", !!line && /Noch keine Artikel in dieser Sprache/.test(line.textContent) && e.host.querySelectorAll("[data-blog-card]").length === 0 && !/No English articles/.test(e.host.textContent));
+  await reset(); globalThis.__posts = [post("de"), post("de", { id: "p-de2", slug: "second", category: "theory", title: "T-de-2", created_at: "2026-09-01T00:00:00Z" })];
+  const { host } = await mount(M.h(M.BlogPage, { lang: "de" })), chips = [...host.querySelectorAll("[data-blog-cat]")];
+  ok("de, two rows: both cards, the first chip is Alle, the others are the German category names, the list is lang=de dir=ltr", host.querySelectorAll("[data-blog-card]").length === 2 && chips.length === 3 && chips[0].textContent.includes("Alle") && chips[1].textContent.includes("Übetipps") && chips[2].textContent.includes("Musiktheorie") && host.querySelector("[data-blog-list]").getAttribute("lang") === "de" && host.querySelector("[data-blog-list]").getAttribute("dir") === "ltr", chips.map(c => c.textContent).join(" | "));
+  ok("de: the database was asked for de only, and the view counts for de", globalThis.__eqs.some(x => x[0] === "lang" && x[1] === "de") && globalThis.__calls.some(c => c.name === "blog_view_counts" && c.p_lang === "de"));
 }
 
 console.log("Arabic is right-to-left: the list and an open article take the direction of THEIR language; the menu and the Back arrow keep the app's");
@@ -414,19 +429,19 @@ console.log("Arabic is right-to-left: the list and an open article take the dire
   ok("every direction in the page comes from dirOf() (the registry in lang-extra.ts), never from a hard-coded language", /dirOf\(/.test(page) && !/lang === "ar" \?[^;]*dir/.test(page) && M.isRtl("ar") && !M.isRtl("hi") && M.LANG_META.ar.rtl === true);
 }
 
-console.log("admin: ten languages in the lists and the filter, the migration hint names the right file");
+console.log("admin: eleven languages in the lists and the filter, the migration hint names the right file");
 {
   await reset(); globalThis.__posts = [{ ...post("ar"), id: "r1", title: "AR-ROW" }, { ...post("hi"), id: "r2", title: "HI-ROW" }, { ...post("th"), id: "r3", title: "TH-ROW" }];
   const { host } = await mount(M.h(M.AdminBlog, { lang: "en" }));
   const fl = [...host.querySelectorAll("[data-blog-filter]")];
-  ok("the filter row has All and one button per language with its native name (ten)", fl.length === 11 && fl[0].getAttribute("data-blog-filter") === "all" && LANGS.every(l => fl.some(b => b.getAttribute("data-blog-filter") === l && b.textContent === M.LANG_META[l].name)), fl.map(b => b.textContent).join(" | "));
+  ok("the filter row has All and one button per language with its native name (eleven)", fl.length === LANGS.length + 1 && fl[0].getAttribute("data-blog-filter") === "all" && LANGS.every(l => fl.some(b => b.getAttribute("data-blog-filter") === l && b.textContent === M.LANG_META[l].name)), fl.map(b => b.textContent).join(" | "));
   ok("with All every row shows", host.querySelectorAll("[data-blog-row]").length === 3);
   await click(fl.find(b => b.getAttribute("data-blog-filter") === "ar"), M, 40);
   await M.act(async () => { await sleep(200); });   // the list is fetched again from the database with the language filter (paginated admin list); the fetch starts when the click's act ends
   ok("the Arabic filter shows only the Arabic row", host.querySelectorAll("[data-blog-row]").length === 1 && /AR-ROW/.test(host.textContent) && !/HI-ROW/.test(host.textContent));
   await click(host.querySelector("[data-blog-new]"), M, 60);
   const set = [...host.querySelectorAll("[data-blog-setlang]")];
-  ok("the editor offers the article language as ten buttons", set.length === 10 && LANGS.every(l => set.some(b => b.getAttribute("data-blog-setlang") === l && b.textContent === M.LANG_META[l].name)));
+  ok("the editor offers the article language as eleven buttons", set.length === LANGS.length && LANGS.every(l => set.some(b => b.getAttribute("data-blog-setlang") === l && b.textContent === M.LANG_META[l].name)));
   const dirs = async (l) => { await click(host.querySelector('[data-blog-setlang="' + l + '"]'), M, 30); return ["input", "textarea"].map(t => host.querySelector(t).getAttribute("dir")).concat(host.querySelectorAll("input")[1].getAttribute("dir")).join(); };
   ok("what is typed into is right-to-left for an Arabic article only (title, summary, text)", (await dirs("ar")) === "rtl,rtl,rtl" && (await dirs("hi")) === "ltr,ltr,ltr" && (await dirs("th")) === "ltr,ltr,ltr");
   await click(host.querySelector('[data-blog-setlang="hi"]'), M, 30);
@@ -436,7 +451,7 @@ console.log("admin: ten languages in the lists and the filter, the migration hin
   const msg1 = (host.querySelector('[role="status"]') || {}).textContent || "";
   ok("saving a Hindi draft before the migration: the hint names supabase-blog-hi-es-fr-ar-migration.sql", /supabase-blog-hi-es-fr-ar-migration\.sql/.test(msg1) && !/ja-ko-ru/.test(msg1), msg1);
   ok("the draft row went out with lang hi", globalThis.__writes.length === 1 && globalThis.__writes[0].row.lang === "hi" && globalThis.__writes[0].row.title === "Hindi draft" && globalThis.__writes[0].row.published === false);
-  for (const [l, want] of [["ar", "supabase-blog-hi-es-fr-ar-migration.sql"], ["es", "supabase-blog-hi-es-fr-ar-migration.sql"], ["fr", "supabase-blog-hi-es-fr-ar-migration.sql"], ["ja", "supabase-blog-ja-ko-ru-migration.sql"], ["ru", "supabase-blog-ja-ko-ru-migration.sql"]]) {
+  for (const [l, want] of [["ar", "supabase-blog-hi-es-fr-ar-migration.sql"], ["es", "supabase-blog-hi-es-fr-ar-migration.sql"], ["fr", "supabase-blog-hi-es-fr-ar-migration.sql"], ["de", "supabase-blog-de-migration.sql"], ["ja", "supabase-blog-ja-ko-ru-migration.sql"], ["ru", "supabase-blog-ja-ko-ru-migration.sql"]]) {
     await click(host.querySelector('[data-blog-setlang="' + l + '"]'), M, 30); await click(host.querySelector("[data-blog-draft]"), M, 120);
     const m = (host.querySelector('[role="status"]') || {}).textContent || "";
     ok("saving a " + l + " draft before its migration names " + want, m.includes(want) && (want.includes("hi-es") ? !m.includes("ja-ko-ru") : !m.includes("hi-es-fr-ar")), m);
@@ -448,7 +463,7 @@ console.log("admin: ten languages in the lists and the filter, the migration hin
 {
   await reset(); globalThis.__stats = { totals: { views: 10, readers: 5, gates: 2, clicks: 1, devices: 7 }, rows: [{ lang: "ar", slug: "a", title: "AR-STAT", views: 5, readers: 2, gates: 1, clicks: 0, total: 9 }, { lang: "es", slug: "b", title: "ES-STAT", views: 5, readers: 3, gates: 1, clicks: 1, total: 8 }], daily: [], allTime: 17 };
   const { host } = await mount(M.h(M.BlogStatsCard, { lang: "en", range: "30" })), fl = [...host.querySelectorAll("[data-blog-stats-lang]")];
-  ok("the readers card filters its table by All and the ten languages", fl.length === 11 && LANGS.every(l => fl.some(b => b.getAttribute("data-blog-stats-lang") === l && b.textContent === M.LANG_META[l].name)) && host.querySelectorAll("[data-blog-stats-table] tbody tr").length === 2);
+  ok("the readers card filters its table by All and the eleven languages", fl.length === LANGS.length + 1 && LANGS.every(l => fl.some(b => b.getAttribute("data-blog-stats-lang") === l && b.textContent === M.LANG_META[l].name)) && host.querySelectorAll("[data-blog-stats-table] tbody tr").length === 2);
   await click(fl.find(b => b.getAttribute("data-blog-stats-lang") === "ar"), M, 40);
   ok("the Arabic filter keeps only the Arabic article, shown with its upper-case code", host.querySelectorAll("[data-blog-stats-table] tbody tr").length === 1 && /AR-STAT/.test(host.textContent) && /AR/.test(host.querySelector("[data-blog-stats-table] tbody tr b").textContent));
   await click(fl.find(b => b.getAttribute("data-blog-stats-lang") === "hi"), M, 40);

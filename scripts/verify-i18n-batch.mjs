@@ -2,7 +2,7 @@
 //   node scripts/verify-i18n-batch.mjs <in.json> <out.json> [langs=ja,ko,ru]
 // in.json  : [{ k, en, file }]
 // out.json : { "<k>": { "<lang>": "..." }, ... }   (one language per file is fine: pass only that language in the third argument)
-// Languages: ja ko ru hi ar zh (own script) and es fr (Latin script: told apart from English by function words, see LATIN below).
+// Languages: ja ko ru hi ar zh (own script) and es fr de (Latin script: told apart from English by function words, see LATIN below).
 // A string passes when it keeps the English text's structure: the same {0} {1} holes, the same line breaks, the same **bold** pairs,
 // the same emoji and the same digits and Latin brand words, and it is written in the target script.
 // Exit code 0 only when nothing fails.
@@ -27,6 +27,7 @@ const SCRIPT = {
 const LATIN = {
   es: "de la que el en y a los se del las un por con no una su para es al lo como más pero sus le ya o este sí porque esta entre cuando muy sin sobre también me hasta hay donde quien desde todo nos durante tu te mi tus mis vez puedes puede ver hacer tiene tienes cada nuevo nueva primer toca elige siguiente".split(" "),
   fr: "de la le les des du un une et en que qui dans pour pas est sur avec ce se ne vous tu nous mon ton son ses au aux plus mais ou où par comme votre vos ta tes ma mes cette ces il elle être avoir fait faire chaque nouveau nouvelle premier suivant choisis".split(" "),
+  de: "der die das den dem des ein eine einen einem einer und oder nicht ist sind du dir dich dein deine deinen deinem mit für auf von zu im in am an bei nach aus wie was wenn dann noch auch nur mehr als wird werden kannst hast bist jetzt neu neue neuen nächste nächsten wähle spiele tippe jede jeden alle alles schon sehr gut zum zur über unter".split(" "),
 };
 const EN_WORDS = "the of and to in is that for it with as on are be this by at from or an not you your have has will can new each next first choose play tap".split(" ");
 function latinLooksRight(lg, text) {
@@ -75,7 +76,7 @@ for (const row of src) {
     }
     for (const w of KEEP) if (w.length > 3 && row.en.includes(w) && !t.includes(w)) wrn(row.k, lg, `brand "${w}" missing`);
     if (t.length > row.en.length * 3 + 40) wrn(row.k, lg, "much longer than the English");
-    if ((lg === "es" || lg === "fr") && row.en.length > 12 && t.trim() === row.en.trim() && !/^[\W\d_A-Z]+$/.test(row.en.trim())) wrn(row.k, lg, "identical to the English");
+    if ((lg === "es" || lg === "fr" || lg === "de") && row.en.length > 12 && t.trim() === row.en.trim() && !/^[\W\d_A-Z]+$/.test(row.en.trim())) wrn(row.k, lg, "identical to the English");
   }
 }
 const extra = Object.keys(out).filter(k => !src.some(r => r.k === k));

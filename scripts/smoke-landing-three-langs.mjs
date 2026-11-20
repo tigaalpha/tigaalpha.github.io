@@ -1,7 +1,7 @@
 /* Landing page smoke test: renders the REAL shipped bundle
    (landing/bundle/index.template-*.js) in jsdom ten times — once per
    language (th, en, zh, since 2026-11-11 ja, ko, ru, and since 2026-11-13
-   hi, es, fr, ar) — and asserts what a visitor actually reads.
+   hi, es, fr, ar, and since 2026-11-20 de) — and asserts what a visitor actually reads.
 
    The file keeps its original name (scripts/smoke-landing-three-langs.mjs,
    `npm run verify:landing`) although it now covers ten languages.
@@ -32,8 +32,8 @@ import { buildSync } from "esbuild";
 
 const ROOT = process.env.LANDING_ROOT || ".";
 const B = join(ROOT, "landing/bundle");
-const ALL = ["th", "en", "zh", "ja", "ko", "ru", "hi", "es", "fr", "ar"];
-const NEWL = ["hi", "es", "fr", "ar"];                       // added 2026-11-13
+const ALL = ["th", "en", "zh", "ja", "ko", "ru", "hi", "es", "fr", "ar", "de"];
+const NEWL = ["hi", "es", "fr", "ar", "de"];                 // added 2026-11-13 (de: 2026-11-20)
 const idx = readdirSync(B).find((f) => f.startsWith("index.template-") && f.endsWith(".js"));
 if (!idx) { console.error("FAIL no landing bundle"); process.exit(1); }
 const code = readFileSync(join(B, idx), "utf8");
@@ -148,6 +148,7 @@ const EXPECT = {
   es: { proof1: "canciones propias, todas para tocar", proof3: "gratis para probar, sin tarjeta", days: "7 días", songs: "100,000+" },
   fr: { proof1: "chansons de notre cru, toutes jouables", proof3: "d'essai gratuit, sans carte bancaire", days: "7 jours", songs: "100,000+" },
   ar: { proof1: "أغنية من تأليفنا، وكلها قابلة للعزف", proof3: "تجربة مجانية، بلا بطاقة بنكية", days: "7 أيام", songs: "100,000+" },
+  de: { proof1: "eigene Lieder, alle zum Mitspielen", proof3: "kostenlos testen, ohne Kreditkarte", days: "7 Tage", songs: "100,000+" },
 };
 
 for (const lang of ALL) {
@@ -210,8 +211,8 @@ for (const lang of ALL) {
      each labelled with its short name, and the page itself in the right
      <html lang> with the right title (what a visitor and a screen reader get) */
   const pills = [...doc.querySelectorAll(".lp-lang")];
-  if (pills.length === 10 && pills.map((b) => b.getAttribute("lang")).join() === ALL.join()) ok(`${lang}: ten language pills in order ${ALL.join(" ")}`);
-  else no(`${lang}: ten language pills`, pills.map((b) => b.getAttribute("lang")).join());
+  if (pills.length === ALL.length && pills.map((b) => b.getAttribute("lang")).join() === ALL.join()) ok(`${lang}: ${ALL.length} language pills in order ${ALL.join(" ")}`);
+  else no(`${lang}: ${ALL.length} language pills`, pills.map((b) => b.getAttribute("lang")).join());
   const on = pills.filter((b) => b.getAttribute("aria-pressed") === "true").map((b) => b.getAttribute("lang"));
   if (on.length === 1 && on[0] === lang) ok(`${lang}: the ${lang} pill is the pressed one`);
   else no(`${lang}: pressed pill`, on.join());
@@ -220,6 +221,8 @@ for (const lang of ALL) {
   else no(`${lang}: pill labels`, JSON.stringify(shortOf));
   if (shortOf.hi === "हिन्दी" && shortOf.es === "ES" && shortOf.fr === "FR" && shortOf.ar === "عربي") ok(`${lang}: pill labels हिन्दी / ES / FR / عربي fit the pill`);
   else no(`${lang}: new pill labels`, JSON.stringify(shortOf));
+  if (shortOf.de === "DE") ok(`${lang}: pill label DE fits the pill`);
+  else no(`${lang}: pill label DE`, JSON.stringify(shortOf));
   if (doc.documentElement.lang === lang) ok(`${lang}: <html lang> is "${lang}" after mount`);
   else no(`${lang}: html lang`, doc.documentElement.lang);
   /* direction: right to left for Arabic and for nobody else, set on <html> by the page itself */
@@ -261,13 +264,14 @@ const PAGES = [["landing/index.html", "th", "https://www.tigaalpha.com/landing/"
   ["landing-hi/index.html", "hi", "https://www.tigaalpha.com/landing-hi/", "hi_IN"],
   ["landing-es/index.html", "es", "https://www.tigaalpha.com/landing-es/", "es_ES"],
   ["landing-fr/index.html", "fr", "https://www.tigaalpha.com/landing-fr/", "fr_FR"],
-  ["landing-ar/index.html", "ar", "https://www.tigaalpha.com/landing-ar/", "ar_AR"]];
+  ["landing-ar/index.html", "ar", "https://www.tigaalpha.com/landing-ar/", "ar_AR"],
+  ["landing-de/index.html", "de", "https://www.tigaalpha.com/landing-de/", "de_DE"]];
 const HREFLANG = [["th", "https://www.tigaalpha.com/landing/"], ["en", "https://www.tigaalpha.com/landing-en/"],
   ["zh-Hans", "https://www.tigaalpha.com/landing-zh/"], ["ja", "https://www.tigaalpha.com/landing-ja/"],
   ["ko", "https://www.tigaalpha.com/landing-ko/"], ["ru", "https://www.tigaalpha.com/landing-ru/"],
   ["hi", "https://www.tigaalpha.com/landing-hi/"], ["es", "https://www.tigaalpha.com/landing-es/"],
   ["fr", "https://www.tigaalpha.com/landing-fr/"], ["ar", "https://www.tigaalpha.com/landing-ar/"],
-  ["x-default", "https://www.tigaalpha.com/landing-en/"]];
+  ["de", "https://www.tigaalpha.com/landing-de/"], ["x-default", "https://www.tigaalpha.com/landing-en/"]];
 const titles = new Set(), descs = new Set();
 const t0 = (h, re) => (h.match(re) || [])[1] || "";      // the first capture of a regex over a page, or ""
 for (const [f0, want, canon, og] of PAGES) {
@@ -283,7 +287,7 @@ for (const [f0, want, canon, og] of PAGES) {
   /* every page lists all ten (itself included) with the right codes, and the
      x-default stays the English page, exactly as before */
   const alts = [...h.matchAll(/<link rel="alternate" hreflang="([^"]+)" href="([^"]+)"/g)].map((x) => [x[1], x[2]]);
-  if (JSON.stringify(alts) === JSON.stringify(HREFLANG)) ok(`${f0}: hreflang lists th, en, zh-Hans, ja, ko, ru, hi, es, fr, ar + x-default (landing-en) — a cluster of ten`);
+  if (JSON.stringify(alts) === JSON.stringify(HREFLANG)) ok(`${f0}: hreflang lists th, en, zh-Hans, ja, ko, ru, hi, es, fr, ar, de + x-default (landing-en) — a cluster of ${PAGES.length}`);
   else no(`${f0}: hreflang set`, JSON.stringify(alts));
   /* dir="rtl" is on the Arabic page's root element and on no other page's (every other root stays exactly <html lang="..."> as it was) */
   const rootTag = (h.match(/<html[^>]*>/) || [""])[0];
@@ -331,15 +335,15 @@ for (const [f0, want, canon, og] of PAGES) {
     if (/Premium|プレミアム|프리미엄|Премиум|प्रीमियम|بريميوم|Max\b/.test(h.replace(/<script type="module"[\s\S]*?<\/script>/g, ""))) no(`${f0}: names a plan tier in its markup`);
     else ok(`${f0}: no plan tier in the markup (title, description, JSON-LD, crawler text)`);
     const root = (h.match(/<div id="root">([\s\S]*?)<\/div>\s*<noscript>/) || [])[1] || "";
-    const wantHint = { ja: /[぀-ヿ一-鿿]/, ko: /[가-힯]/, ru: /[Ѐ-ӿ]/, hi: /[\u0900-\u097F]/, ar: /[\u0600-\u06FF]/, es: /Preguntas frecuentes/, fr: /Questions fréquentes/ }[code];
+    const wantHint = { ja: /[぀-ヿ一-鿿]/, ko: /[가-힯]/, ru: /[Ѐ-ӿ]/, hi: /[\u0900-\u097F]/, ar: /[\u0600-\u06FF]/, es: /Preguntas frecuentes/, fr: /Questions fréquentes/, de: /Häufige Fragen/ }[code];
     if (wantHint.test(root) && /id="seo-copy"/.test(root)) ok(`${f0}: crawler text (#seo-copy) is written in ${code}`);
     else no(`${f0}: crawler text language`);
     if (/blog\/[a-z]{2}\//.test(root) && root.includes(`/blog/${code}/`)) ok(`${f0}: crawler text links /blog/${code}/`);
     else no(`${f0}: blog link`);
   }
 }
-if (titles.size === 10) ok("ten distinct <title>s"); else no("titles are distinct", [...titles].join(" | "));
-if (descs.size === 10) ok("ten distinct descriptions"); else no("descriptions are distinct");
+if (titles.size === PAGES.length) ok(`${PAGES.length} distinct <title>s`); else no("titles are distinct", [...titles].join(" | "));
+if (descs.size === PAGES.length) ok(`${PAGES.length} distinct descriptions`); else no("descriptions are distinct");
 
 /* ── the copy the page is built from, per language ──────────────────── */
 console.log("== the copy source of truth, ten languages ==");
@@ -436,9 +440,9 @@ const MUST = {
 };
 /* the C-major run in solfege, the one place a language writes the same notes differently */
 const SOLFEGE = { th: "โด เร มี ฟา ซอล ลา ที โด", en: "do re mi fa sol la ti do", zh: "do re mi fa sol la si do", ja: "ド レ ミ ファ ソ ラ シ ド", ko: "도 레 미 파 솔 라 시 도", ru: "до ре ми фа соль ля си до",
-  hi: "डो रे मी फा सो ला सी डो", es: "do re mi fa sol la si do", fr: "do ré mi fa sol la si do", ar: "دو ري مي فا صول لا سي دو" };
+  hi: "डो रे मी फा सो ला सी डो", es: "do re mi fa sol la si do", fr: "do ré mi fa sol la si do", ar: "دو ري مي فا صول لا سي دو", de: "do re mi fa sol la si do" };
 const WHOLEHALF = { th: "เต็ม–เต็ม–ครึ่ง–เต็ม–เต็ม–เต็ม–ครึ่ง", en: "whole–whole–half–whole–whole–whole–half", zh: "全–全–半–全–全–全–半", ja: "全音–全音–半音–全音–全音–全音–半音", ko: "온음–온음–반음–온음–온음–온음–반음", ru: "тон–тон–полутон–тон–тон–тон–полутон",
-  hi: "होल–होल–हाफ़–होल–होल–होल–हाफ़", es: "tono–tono–semitono–tono–tono–tono–semitono", fr: "ton–ton–demi-ton–ton–ton–ton–demi-ton", ar: "نغمة–نغمة–نصف–نغمة–نغمة–نغمة–نصف" };
+  hi: "होल–होल–हाफ़–होल–होल–होल–हाफ़", es: "tono–tono–semitono–tono–tono–tono–semitono", fr: "ton–ton–demi-ton–ton–ton–ton–demi-ton", ar: "نغمة–نغمة–نصف–نغمة–نغمة–نغمة–نصف", de: "Ganzton–Ganzton–Halbton–Ganzton–Ganzton–Ganzton–Halbton" };
 for (const l of LESSONSC) {
   for (const lang of ALL) {
     const a = l.answer[lang];
@@ -473,24 +477,25 @@ else no("triad demo notes", maj + " / " + min);
 
 /* ── the language plumbing in landing-copy.ts ─────────────────────────── */
 console.log("== language plumbing ==");
-if (JSON.stringify(LANGS_C) === JSON.stringify(ALL)) ok("LANGS = th en zh ja ko ru hi es fr ar"); else no("LANGS", LANGS_C.join());
+if (JSON.stringify(LANGS_C) === JSON.stringify(ALL)) ok("LANGS = th en zh ja ko ru hi es fr ar de"); else no("LANGS", LANGS_C.join());
 if (ALL.every((l) => FLAGS_C[l] && FLAGN_C[l] && SHORT_C[l])) ok("every language has a flag, a name and a short label"); else no("flag / name / short label missing");
 if (FLAGS_C.ja === "🇯🇵" && FLAGS_C.ko === "🇰🇷" && FLAGS_C.ru === "🇷🇺") ok("flags 🇯🇵 🇰🇷 🇷🇺"); else no("new flags");
 if (FLAGN_C.ja === "日本語" && FLAGN_C.ko === "한국어" && FLAGN_C.ru === "Русский") ok("names 日本語 / 한국어 / Русский"); else no("new language names");
 if (FLAGS_C.hi === "🇮🇳" && FLAGS_C.es === "🇪🇸" && FLAGS_C.fr === "🇫🇷" && FLAGS_C.ar === "🇸🇦") ok("flags 🇮🇳 🇪🇸 🇫🇷 🇸🇦"); else no("flags of hi / es / fr / ar");
 if (FLAGN_C.hi === "हिन्दी" && FLAGN_C.es === "Español" && FLAGN_C.fr === "Français" && FLAGN_C.ar === "العربية") ok("names हिन्दी / Español / Français / العربية"); else no("names of hi / es / fr / ar");
+if (FLAGS_C.de === "🇩🇪" && FLAGN_C.de === "Deutsch" && SHORT_C.de === "DE") ok("de: flag 🇩🇪, name Deutsch, short label DE"); else no("flag / name / short label of de");
 /* the flags and native names are the app's own (lang-extra.ts LANG_META): a returning visitor must recognise the control */
 {
   const reg = readFileSync("lang-extra.ts", "utf8");
-  const meta = Object.fromEntries([...reg.matchAll(/^\s*(th|en|zh|ja|ko|ru|hi|es|fr|ar): \{ flag: "([^"]+)", name: "([^"]+)"/gm)].map((m) => [m[1], { flag: m[2], name: m[3] }]));
+  const meta = Object.fromEntries([...reg.matchAll(/^\s*(th|en|zh|ja|ko|ru|hi|es|fr|ar|de): \{ flag: "([^"]+)", name: "([^"]+)"/gm)].map((m) => [m[1], { flag: m[2], name: m[3] }]));
   const diff = ALL.filter((l) => !meta[l] || meta[l].flag !== FLAGS_C[l] || meta[l].name !== FLAGN_C[l]);
-  if (!diff.length) ok("all ten flags and native names are the ones in lang-extra.ts LANG_META"); else no("flag / name differs from LANG_META", diff.join());
+  if (!diff.length) ok(`all ${ALL.length} flags and native names are the ones in lang-extra.ts LANG_META`); else no("flag / name differs from LANG_META", diff.join());
   /* right to left: exactly the languages the registry marks rtl, and dirOf() says so */
   const rtlReg = [...reg.matchAll(/^\s*(\w{2,3}): \{[^}\n]*\brtl: true/gm)].map((m) => m[1]).sort().join();
   if (rtlReg === [...RTL_LANGS].sort().join() && rtlReg === "ar" && ALL.every((l) => dirOf(l) === (l === "ar" ? "rtl" : "ltr"))) ok("RTL_LANGS = ar = the languages lang-extra.ts marks rtl; dirOf is rtl for ar only");
   else no("rtl set", `registry "${rtlReg}" landing "${RTL_LANGS.join()}"`);
 }
-if (ALL.every((l) => pickLang(l) === l) && pickLang("de") === "th" && pickLang(undefined) === "th") ok("pickLang follows the URL's language and falls back to th (no navigator sniffing)");
+if (ALL.every((l) => pickLang(l) === l) && pickLang("pt") === "th" && pickLang(undefined) === "th") ok("pickLang follows the URL's language and falls back to th (no navigator sniffing)");
 else no("pickLang");
 const FONTCSS = readFileSync("landing/landing.css", "utf8");
 if (/"Hiragino Sans"/.test(FONTCSS) && /"Malgun Gothic"/.test(FONTCSS) && /"Noto Sans KR"/.test(FONTCSS) && /"Noto Sans JP"/.test(FONTCSS) && /"Apple SD Gothic Neo"/.test(FONTCSS) && /"Yu Gothic"/.test(FONTCSS)) ok("CSS font stack carries the ja / ko faces");
@@ -532,7 +537,14 @@ if (/storeLang\(pgLang\.slice\(0, 2\)\.toLowerCase\(\)\)/.test(PAGE_SRC) && (PAG
 else no("sign-up writes the page language");
 if (AIMOD) {
   const { wireLang, SERVER_LANGS } = AIMOD;
-  for (const lg of ALL) {
+  // languages whose prompt is in the repo's landing-chat but which is not deployed with it yet: they go the fallback way ("en" + a reply-language note) until the owner approves the deploy and SERVER_LANGS lists them
+  const WAITING = ["de"];
+  for (const lg of WAITING) {
+    const w = wireLang(lg, "Wie lese ich Noten?");
+    if (w.lang === "en" && w.question.startsWith("Wie lese ich Noten?") && w.question.includes("Reply in German (Deutsch)")) ok(`landing-chat: ${lg} (not deployed yet) goes as "en" + a note to reply in German`);
+    else no(`landing-chat ${lg} (waiting for the deploy)`, JSON.stringify(w));
+  }
+  for (const lg of ALL.filter(l => !WAITING.includes(l))) {
     const w = wireLang(lg, "How do I read notes?");
     if (w.lang === lg && w.question === "How do I read notes?") ok(`landing-chat: ${lg} is sent as-is`); else no(`landing-chat ${lg}`, JSON.stringify(w));
   }
@@ -542,10 +554,10 @@ if (AIMOD) {
     if (w.lang === "en" && w.question.startsWith("Como leio notas?") && w.question.includes("Reply in")) ok(`landing-chat: an unknown language (${lg}) goes as "en" + a reply-language note`);
     else no(`landing-chat ${lg}`, JSON.stringify(w));
   }
-  if (SERVER_LANGS.join() === ALL.join()) ok("SERVER_LANGS lists exactly what the repo's landing-chat knows (th, en, zh, ja, ko, ru, hi, es, fr, ar; the last four need the function deployed before the client is)"); else no("SERVER_LANGS", SERVER_LANGS.join());
+  if (SERVER_LANGS.join() === ALL.filter(l => !WAITING.includes(l)).join()) ok("SERVER_LANGS lists exactly what the DEPLOYED landing-chat knows (th, en, zh, ja, ko, ru, hi, es, fr, ar; de is in the repo copy and joins the list after the deploy)"); else no("SERVER_LANGS", SERVER_LANGS.join());
 }
 const FN_SRC = existsSync("supabase/functions/landing-chat/index.ts") ? readFileSync("supabase/functions/landing-chat/index.ts", "utf8") : "";
-if (/\["th", "en", "zh", "ja", "ko", "ru", "hi", "es", "fr", "ar"\]\.includes\(body\?\.lang\) \? body\.lang : "th"/.test(FN_SRC)) ok("the repo's landing-chat whitelists all ten languages and SERVER_LANGS matches it (th..ru are deployed since 2026-11-13; hi, es, fr, ar are in the repo's copy and need deploying)");
+if (/\["th", "en", "zh", "ja", "ko", "ru", "hi", "es", "fr", "ar", "de"\]\.includes\(body\?\.lang\) \? body\.lang : "th"/.test(FN_SRC)) ok("the repo's landing-chat whitelists all eleven languages and SERVER_LANGS matches it (th..ru are deployed since 2026-11-13; hi, es, fr, ar, de are in the repo's copy and need deploying)");
 else no("landing-chat whitelist moved — re-read it and update landing-ai.ts SERVER_LANGS");
 /* every language has its own system prompt and its own limit message in the function, and the prompts keep the rules that make it safe (a short answer, notes and fingers, no invented facts) */
 {
@@ -556,14 +568,14 @@ else no("landing-chat whitelist moved — re-read it and update landing-ai.ts SE
   } catch (e) { no("landing-chat SYSTEM / LIMIT_MSG parse", e && e.message); }
   if (SYS && LIM) {
     const miss = ALL.filter((l) => !SYS[l] || !LIM[l]);
-    if (!miss.length && Object.keys(SYS).join() === ALL.join() && Object.keys(LIM).join() === ALL.join()) ok("landing-chat: a system prompt and a limit message for each of the ten languages, in the same order");
+    if (!miss.length && Object.keys(SYS).join() === ALL.join() && Object.keys(LIM).join() === ALL.join()) ok("landing-chat: a system prompt and a limit message for each of the eleven languages, in the same order");
     else no("landing-chat: prompts / limit messages", "missing " + miss.join());
-    const weak = ALL.filter((l) => !(SYS[l].includes("TIGA") && SYS[l].includes("150") && SYS[l].includes("C D E F G A B") && SYS[l].includes("1-5") && SYS[l].includes("**")));
+    const weak = ALL.filter((l) => !(SYS[l] && SYS[l].includes("TIGA") && SYS[l].includes("150") && SYS[l].includes("C D E F G A B") && SYS[l].includes("1-5") && SYS[l].includes("**")));
     if (!weak.length) ok("landing-chat: every prompt names TIGA, the 150-word cap, note names, finger numbers 1-5 and allows only **bold**"); else no("landing-chat: prompt rules missing in", weak.join());
-    const own = NEWL.filter((l) => !{ hi: /[\u0900-\u097F]/, ar: /[\u0600-\u06FF]/, es: /Responde siempre en español/, fr: /Répondez toujours en français/ }[l].test(SYS[l]) || !{ hi: /[\u0900-\u097F]/, ar: /[\u0600-\u06FF]/, es: /Se acabaron/, fr: /épuisées/ }[l].test(LIM[l]));
-    if (!own.length) ok("landing-chat: the hi / es / fr / ar prompts tell the model to answer in that language and the limit messages are written in it"); else no("landing-chat: prompt language", own.join());
+    const own = NEWL.filter((l) => !{ hi: /[\u0900-\u097F]/, ar: /[\u0600-\u06FF]/, es: /Responde siempre en español/, fr: /Répondez toujours en français/, de: /auf Deutsch/ }[l].test(SYS[l] || "") || !{ hi: /[\u0900-\u097F]/, ar: /[\u0600-\u06FF]/, es: /Se acabaron/, fr: /épuisées/, de: /kostenlos/ }[l].test(LIM[l] || ""));
+    if (!own.length) ok("landing-chat: the hi / es / fr / ar / de prompts tell the model to answer in that language and the limit messages are written in it"); else no("landing-chat: prompt language", own.join());
     if (/لهجات/.test(SYS.ar) && /0-9/.test(SYS.ar)) ok("landing-chat: the Arabic prompt asks for simple Modern Standard Arabic (no dialect) and Western digits 0-9"); else no("landing-chat: Arabic prompt rules");
-    if (ALL.every((l) => !/Premium|Max\b|3,999|1,490|10,000/.test(SYS[l] + LIM[l]))) ok("landing-chat: no plan tier, price tier or cap is named in any prompt or limit message"); else no("landing-chat: a tier / cap is named");
+    if (ALL.every((l) => !/Premium|Max\b|3,999|1,490|10,000/.test((SYS[l] || "") + (LIM[l] || "")))) ok("landing-chat: no plan tier, price tier or cap is named in any prompt or limit message"); else no("landing-chat: a tier / cap is named");
   }
 }
 
@@ -573,7 +585,7 @@ else no("landing-chat whitelist moved — re-read it and update landing-ai.ts SE
 console.log("== crash screen and sign-up errors speak every landing language ==");
 if (UTILS) {
   const { friendlyAuthError, ErrorBoundary } = UTILS;
-  const NATIVE = { ja: /[぀-ヿ一-鿿]/, ko: /[가-힯]/, ru: /[Ѐ-ӿ]/, hi: /[ऀ-ॿ]/, ar: /[؀-ۿ]/, es: /ya está registrado/, fr: /déjà enregistrée/ };
+  const NATIVE = { ja: /[぀-ヿ一-鿿]/, ko: /[가-힯]/, ru: /[Ѐ-ӿ]/, hi: /[ऀ-ॿ]/, ar: /[؀-ۿ]/, es: /ya está registrado/, fr: /déjà enregistrée/, de: /schon registriert/ };
   const EXTRA = ["ja", "ko", "ru", ...NEWL];
   const bad = [];
   for (const lg of EXTRA) {
@@ -584,7 +596,7 @@ if (UTILS) {
     if (!o.endsWith(" · Something went wrong — please try again") || o.split(" · ")[0].length < 8) bad.push(lg + ":other");
     if (friendlyAuthError("some provider text", lg) !== "some provider text") bad.push(lg + ":passthrough");
   }
-  if (!bad.length) ok("friendlyAuthError: ja / ko / ru / hi / es / fr / ar each answer exists / creds / net / other in their own language + the English tail, and pass an unknown provider message through"); else no("friendlyAuthError", bad.join(" "));
+  if (!bad.length) ok("friendlyAuthError: ja / ko / ru / hi / es / fr / ar / de each answer exists / creds / net / other in their own language + the English tail, and pass an unknown provider message through"); else no("friendlyAuthError", bad.join(" "));
   if (["th", "en", "zh"].every((lg) => /^อีเมลนี้สมัครไว้แล้ว/.test(friendlyAuthError("User already registered", lg)))) ok("friendlyAuthError: th / en / zh keep the Thai-and-English line they always had"); else no("friendlyAuthError th / en / zh changed");
   const texts = (el) => (el == null || typeof el === "boolean" ? [] : typeof el === "string" || typeof el === "number" ? [String(el)] : Array.isArray(el) ? el.flatMap(texts) : texts(el.props && el.props.children));
   const crash = (lg) => {
@@ -596,10 +608,10 @@ if (UTILS) {
   for (const lg of ALL) {
     const t = crash(lg);
     if (!/Something went wrong|Sorry about that/.test(t) || !/Reload|Sorry about that/.test(t)) badCrash.push(lg + ": no English line");
-    if (EXTRA.includes(lg) && !({ ...NATIVE, es: /Algo salió mal/, fr: /Une erreur s'est produite/ }[lg]).test(t)) badCrash.push(lg + ": no native text");
+    if (EXTRA.includes(lg) && !({ ...NATIVE, es: /Algo salió mal/, fr: /Une erreur s'est produite/, de: /Etwas ist schiefgelaufen/ }[lg]).test(t)) badCrash.push(lg + ": no native text");
     if (["th", "en", "zh"].includes(lg) && !/เกิดข้อผิดพลาด/.test(t)) badCrash.push(lg + ": not the Thai default");
   }
-  if (!badCrash.length) ok("ErrorBoundary: the fallback screen reads <html lang> — its own language + English for ja / ko / ru / hi / es / fr / ar, the Thai + English default for th / en / zh"); else no("ErrorBoundary fallback", badCrash.join(" ; "));
+  if (!badCrash.length) ok("ErrorBoundary: the fallback screen reads <html lang> — its own language + English for ja / ko / ru / hi / es / fr / ar / de, the Thai + English default for th / en / zh"); else no("ErrorBoundary fallback", badCrash.join(" ; "));
 }
 
 cleanup();

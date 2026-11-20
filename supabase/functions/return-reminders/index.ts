@@ -21,7 +21,7 @@
 import webpush from "npm:web-push@3.6.7";
 import { createClient } from "npm:@supabase/supabase-js@2";
 
-type Lang = "th" | "en" | "zh" | "ja" | "ko" | "ru" | "hi" | "es" | "fr" | "ar";
+type Lang = "th" | "en" | "zh" | "ja" | "ko" | "ru" | "hi" | "es" | "fr" | "ar" | "de";
 const MSG: Record<number, Record<Lang, { t: string; b: string }>> = {
   1: {
     th: { t: "เพลงประจำวันใหม่รออยู่ 🎵", b: "เล่นเพลงเดียวใน 1 นาที รับเหรียญและ EXP ของวันนี้" },
@@ -34,6 +34,7 @@ const MSG: Record<number, Record<Lang, { t: string; b: string }>> = {
     es: { t: "Te espera una nueva canción del día 🎵", b: "Una sola canción, un minuto más o menos: las monedas y la EXP de hoy son tuyas" },
     fr: { t: "Une nouvelle chanson du jour t'attend 🎵", b: "Une seule chanson, environ une minute : les pièces et l'EXP du jour sont à toi" },
     ar: { t: "أغنية يومية جديدة بانتظارك 🎵", b: "اعزف أغنية واحدة في دقيقة تقريبًا، واكسب عملات اليوم وEXP" },
+    de: { t: "Ein neuer Song des Tages wartet auf dich 🎵", b: "Nur ein Song, etwa eine Minute: Die Münzen und die EXP von heute gehören dir" },
   },
   3: {
     th: { t: "เล่นต่อจากที่ค้างไว้ไหม 🎹", b: "ลองเพลงที่สอง — ได้ดาวเพิ่ม และเห็นว่าคุณเก่งขึ้นแล้ว" },
@@ -46,6 +47,7 @@ const MSG: Record<number, Record<Lang, { t: string; b: string }>> = {
     es: { t: "Continúa donde lo dejaste 🎹", b: "Prueba una segunda canción: ganarás más estrellas y escucharás cómo mejoras" },
     fr: { t: "Reprends là où tu en étais 🎹", b: "Essaie une deuxième chanson : plus d'étoiles à gagner, et tu t'entendras progresser" },
     ar: { t: "أكمل من حيث توقفت 🎹", b: "جرّب أغنية ثانية — ستجمع المزيد من النجوم وتسمع كيف يتحسّن عزفك" },
+    de: { t: "Mach da weiter, wo du aufgehört hast 🎹", b: "Probier einen zweiten Song: mehr Sterne zu holen, und du hörst, wie du besser wirst" },
   },
   7: {
     th: { t: "ครบสัปดาห์แรกแล้ว 🌟", b: "มาดูว่าคุณเก่งขึ้นแค่ไหน แล้วเริ่มสัปดาห์ใหม่ด้วยเพลงเดียว" },
@@ -58,13 +60,14 @@ const MSG: Record<number, Record<Lang, { t: string; b: string }>> = {
     es: { t: "¡Completaste tu primera semana! 🌟", b: "Mira cuánto has avanzado y empieza tu segunda semana con una sola canción" },
     fr: { t: "Ta première semaine est terminée 🌟", b: "Regarde tout le chemin parcouru, puis démarre ta deuxième semaine avec une seule chanson" },
     ar: { t: "اكتمل أسبوعك الأول 🌟", b: "انظر كم تقدّمت، ثم ابدأ الأسبوع الثاني بأغنية واحدة فقط" },
+    de: { t: "Deine erste Woche ist geschafft 🌟", b: "Sieh dir an, wie weit du schon gekommen bist, und starte deine zweite Woche mit nur einem Song" },
   },
 };
 
 
-// The language a person is written to: their own when this table has it (ja ko ru hi es fr ar joined th en zh on 2026-11-17; before that
+// The language a person is written to: their own when this table has it (ja ko ru hi es fr ar joined th en zh on 2026-11-17, de after them; before that
 // they got the English text), Thai when the profile has no language at all (as it always was), English for a language not in the table.
-const pickLang = (l: string | null | undefined): Lang => (!l || l === "th") ? "th" : (["en", "zh", "ja", "ko", "ru", "hi", "es", "fr", "ar"] as string[]).includes(l) ? (l as Lang) : "en";
+const pickLang = (l: string | null | undefined): Lang => (!l || l === "th") ? "th" : (["en", "zh", "ja", "ko", "ru", "hi", "es", "fr", "ar", "de"] as string[]).includes(l) ? (l as Lang) : "en";
 
 const DAY_MS = 86400000;
 

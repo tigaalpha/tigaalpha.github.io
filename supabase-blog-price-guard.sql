@@ -6,7 +6,7 @@
 -- the scheduled tasks of this account, from Supabase cron or from an edge function, so its template cannot be edited from here. Its promo paragraph still says
 -- "... then 799 THB/month" (zh: "每月799泰铢"). This file makes the DATABASE correct whatever that system writes: a BEFORE INSERT / UPDATE trigger on blog_posts rewrites the
 -- old baht price in the body of every article outside Thai:
---     799 THB, 799 THB (no-break space), THB 799, ฿799, 799 baht, 799タイバーツ, 799バーツ, 799바트   ->  US$24.99      (en ja ko ru hi es fr ar)
+--     799 THB, 799 THB (no-break space), THB 799, ฿799, 799 baht, 799タイバーツ, 799バーツ, 799바트   ->  US$24.99      (en ja ko ru hi es fr ar de)
 --     799泰铢, 799 泰铢, 799 THB                                                                      ->  ¥176         (zh)
 -- Thai (th) is never touched: Thai readers pay 799 baht. A number that merely contains 799 (1799, 2799 THB, 7990) is left alone.
 -- The pure function blog_fix_price_text(lang, body) is what the trigger calls, so it can be tested with plain SELECTs (12 cases were run on 2026-11-17, all as expected).

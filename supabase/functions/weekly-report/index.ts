@@ -26,10 +26,11 @@ const MSG: Record<string, { t: string; b: (streak: number) => string }> = {
   hi: { t: "आपकी साप्ताहिक रिपोर्ट तैयार है 📊", b: (streak) => `${streak} दिन की स्ट्रीक — आगे ठीक किस पर ध्यान देना है, यह मैंने आपके लिए चुन लिया है। देखने के लिए टैप करें` },
   es: { t: "Tu informe semanal está listo 📊", b: (streak) => `Días de racha: ${streak}. Ya elegí justo en qué enfocarte a continuación. Toca para verlo` },
   fr: { t: "Ton bilan hebdomadaire est prêt 📊", b: (streak) => `Série de ${streak} jour${streak > 1 ? "s" : ""} — j'ai repéré exactement sur quoi te concentrer ensuite. Touche pour voir` },
+  de: { t: "Dein Wochenbericht ist fertig 📊", b: (streak) => `Serie: ${streak} ${streak === 1 ? "Tag" : "Tage"} — ich habe genau herausgesucht, worauf du dich als Nächstes konzentrieren solltest. Tippe zum Ansehen` },
   ar: { t: "تقريرك الأسبوعي جاهز 📊", b: (streak) => `سلسلة أيامك: ${streak} — اخترت لك بالضبط ما تركّز عليه بعد ذلك. المس لتراه` },
 };
 
-// The language a learner is written to: their own when this table has it (ja ko ru hi es fr ar joined th en zh on 2026-11-17; before that
+// The language a learner is written to: their own when this table has it (ja ko ru hi es fr ar joined th en zh on 2026-11-17, de after them; before that
 // they got the English text), Thai when the profile has no language at all (as it always was), English for a language not in the table.
 const pickLang = (l: string | null | undefined): string => (!l || l === "th") ? "th" : Object.prototype.hasOwnProperty.call(MSG, l) ? l : "en";
 

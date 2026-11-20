@@ -17,7 +17,7 @@ import { useCatalog } from "./use-catalog";
 
 /* ── the language of the early screens (2026-11-16) ──
    Everything below mounts before PianoApp has a `lang` (the gate screens), beside it (the sign-up card, the corner Login modal) or after it has died (the two crash fallbacks).
-   Thai keeps the owner's bilingual "Thai · English" pair. English, Chinese and the seven extra languages (ja ko ru hi es fr ar) read ONLY their own language: the English goes through
+   Thai keeps the owner's bilingual "Thai · English" pair. English, Chinese and the eight extra languages (ja ko ru hi es fr ar de) read ONLY their own language: the English goes through
    the catalog (xl) or, for Chinese, early-zh.ts, and the Thai half is never shown (round 2 did it for the seven, round 3 for English and Chinese).
    Where the language comes from: profile.lang when the learner has chosen one (any of the ten); else the language this device used last (tg_lang_hint: PianoApp writes it on every change and main.tsx
    loads that catalog before the first paint); else the <html lang> the app set; else nothing, which means the Thai / English pair. index.html ships lang="en" before any language is known, so a bare "en"
@@ -189,7 +189,7 @@ export function BannedScreen({ onSignOut, profile }) {   // profile is optional:
 export function friendlyAuthError(msg, lang = "") {
   const m = msg || "";
   if (ownLang(lang)) {
-    // en, zh, ja ko ru hi es fr ar: their own language only (the Thai · English pairs below stay for Thai and for a caller that passes no language). A message the server wrote that we do not know is shown as it came, as it is for Thai.
+    // en, zh, ja ko ru hi es fr ar de: their own language only (the Thai · English pairs below stay for Thai and for a caller that passes no language). A message the server wrote that we do not know is shown as it came, as it is for Thai.
     if (/already registered|already exists/i.test(m)) return xl(lang, "This email is already registered — try logging in instead");
     if (/invalid login credentials/i.test(m)) return xl(lang, "Incorrect email or password");
     if (/email not confirmed/i.test(m)) return xl(lang, "Please confirm your email first — check your inbox");

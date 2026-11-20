@@ -126,7 +126,7 @@ export async function fetchRelated(lang, category, slug, fetchImpl, opts = {}) {
    api/blog-live-catalog.json — titles only, written by the build — and merges it with published rows: a database row wins on the same
    (lang, slug), a slug that exists only as a file is still listed, and a slug published after the build (no file yet) is served as HTML
    for the .html address, the address without .html, and the trailing-slash form, the same as th / en / zh.
-   With no catalog and no rows, the index of a static language is 404 + noindex, never an empty 200 list. Arabic pages come out right-to-left (dir="rtl") from the same page code. */
+   With no catalog and no rows, the index of a static language (and of de, whose articles are all live_only rows) is 404 + noindex, never an empty 200 list. Arabic pages come out right-to-left (dir="rtl") from the same page code. */
 const CATALOG_FILE = new URL("../api/blog-live-catalog.json", import.meta.url);
 const SLUG_OK = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const byTime = (a, b) => (new Date(b.created_at) - new Date(a.created_at)) || String(a.slug).localeCompare(String(b.slug));
@@ -196,7 +196,7 @@ export async function serveBlog(query, fetchImpl, opts) {
     catch { failed = true; }
     const list = rowsForLang(parsed.lang, failed ? [] : db, catalog);
     if (!list.length && failed) return result(503, notFoundHtml(parsed.lang), miss(parsed.lang));
-    if (!list.length && STATIC_BLOG_LANGS.includes(parsed.lang)) return result(404, notFoundHtml(parsed.lang), miss(parsed.lang));
+    if (!list.length && (STATIC_BLOG_LANGS.includes(parsed.lang) || parsed.lang === "de")) return result(404, notFoundHtml(parsed.lang), miss(parsed.lang));   // de has no committed article: until a row exists its index is a 404, like a source-file language
     if (parsed.kind === "feed") {
       return result(200, feedXml(parsed.lang, list), {
         "content-type": "application/rss+xml; charset=utf-8",

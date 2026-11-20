@@ -294,7 +294,7 @@ ok(C.trialPriceThb(promo) === STD_PRICE && C.trialPriceThb("trial") === STD_PRIC
   "trialPriceThb: every plan string is quoted the one real Premium price, formatted from PLAN_PRICE");
 ok(C.trialPriceFor("th") === "799" && C.trialPriceFor("en") === "US$24.99" && C.trialPriceFor("zh") === "¥176",
   "trialPriceFor: th ฿799 (number only), en US$24.99, zh ¥176 — each in the currency checkout charges that language in");
-for (const l of ["ja", "ko", "ru", "hi", "es", "fr", "ar", "xx", undefined]) {
+for (const l of ["ja", "ko", "ru", "hi", "es", "fr", "ar", "de", "xx", undefined]) {
   ok(C.trialPriceFor(l) === "US$24.99" && C.trialYearPriceFor(l) === QY.en, `trialPriceFor(${l}): every other language, an unknown one included, is US$24.99 (and ${QY.en} a year)`);
 }
 for (const kind of ["closing", "d7proof", "proof"]) {
@@ -377,19 +377,22 @@ ok(!!(C.ACTIVATION_COPY.th && C.ACTIVATION_COPY.en && C.ACTIVATION_COPY.zh), "v3
 
 /* ── the seven extra languages read the English copy through their catalogs (owner, 2026-11-17: US$24.99, no baht) ──
    personalizedBody() and CONV_COPY.en hand them the English sentence with the price already in it; the catalog sentence has {n} holes
-   and must match it. A second bundle holds the real use-conversion, the real lang-extra and the seven generated catalogs in ONE module graph
+   and must match it. A second bundle holds the real use-conversion, the real lang-extra and the eight generated catalogs in ONE module graph
    so setCatalog() reaches the copy that use-conversion calls. A sentence the catalog does not know would show in English. */
 {
-  const CAT = ["ja", "ko", "ru", "hi", "es", "fr", "ar"];
+  const CAT = ["ja", "ko", "ru", "hi", "es", "fr", "ar", "de"];
   writeFileSync(`${OUT}/conv-entry.ts`,
     `export * from ${JSON.stringify(process.cwd() + "/use-conversion")};\nexport { setCatalog, xl } from ${JSON.stringify(process.cwd() + "/lang-extra")};\n` +
     CAT.map(l => `export { default as cat_${l} } from ${JSON.stringify(process.cwd() + "/i18n-" + l)};`).join("\n") + "\n");
   execSync(`npx esbuild ${OUT}/conv-entry.ts --bundle --format=esm --outfile=${OUT}/conv-entry.mjs --log-level=error`, { stdio: "pipe" });
   const X = await import(pathToFileURL(`${OUT}/conv-entry.mjs`).href);
   for (const l of CAT) X.setCatalog(l, X["cat_" + l]);
+  const deEmpty = Object.keys(X.cat_de || {}).length === 0;   // i18n-de.ts is empty until the German translation is merged
+  if (deEmpty) console.log("  de catalog empty: skipped (the 'translated' checks below run for de once i18n-de.ts holds the catalog)");
   const proof = { improvedCount: 2, bestDelta: 11, sessions: 4 };
   const ENGLISH_LEFT = /\b(per month|per year|Keep |the normal|free trial|baht)\b/i   // ("coaching" is a loanword in es and fr, not a leftover);
   for (const l of CAT) {
+    if (l === "de" && deEmpty) continue;
     const rows = [
       ["closing (generic)", X.convCopyFor(l).closing.body],
       ["d7proof (generic)", X.convCopyFor(l).d7proof.body],

@@ -17,7 +17,7 @@ import { Component } from "react";
    the duplication cheaper than the import. Nothing here may import from the
    app (that is the entire point of this file). ── */
 
-/* ── ErrorBoundary: VERBATIM from app-shell.tsx for th / en / zh, plus ja / ko / ru / hi / es / fr / ar ──
+/* ── ErrorBoundary: VERBATIM from app-shell.tsx for th / en / zh, plus ja / ko / ru / hi / es / fr / ar / de ──
    The fallback is read before anything else on the page can help, so it picks
    its wording from <html lang> directly instead of from landing-copy. Thai +
    English stays the default for every other language, exactly as before. */
@@ -29,6 +29,7 @@ const CRASH_COPY = {
   es: { title: "Algo salió mal · Something went wrong", sub: "Perdona las molestias. Recarga la página para continuar.", btn: "Recargar · Reload" },
   fr: { title: "Une erreur s'est produite · Something went wrong", sub: "Toutes nos excuses. Veuillez recharger la page.", btn: "Recharger · Reload" },
   ar: { title: "حدث خطأ ما · Something went wrong", sub: "نعتذر عن الإزعاج. يرجى إعادة تحميل الصفحة.", btn: "إعادة التحميل · Reload" },
+  de: { title: "Etwas ist schiefgelaufen · Something went wrong", sub: "Entschuldige die Umstände. Lade die Seite bitte neu.", btn: "Neu laden · Reload" },
 };
 function crashCopy() {
   try {
@@ -68,7 +69,7 @@ export class ErrorBoundary extends Component {
   }
 }
 
-/* ── friendlyAuthError: VERBATIM from app-shell.tsx for th / en / zh; ja / ko / ru / hi / es / fr / ar
+/* ── friendlyAuthError: VERBATIM from app-shell.tsx for th / en / zh; ja / ko / ru / hi / es / fr / ar / de
    get the same sentences in their language, followed by the English one, the
    same "native · English" shape the Thai text already has ── */
 const AUTH_ERR = {
@@ -113,6 +114,12 @@ const AUTH_ERR = {
     creds: "البريد الإلكتروني أو كلمة المرور غير صحيحة · Incorrect email or password",
     net: "تعذّر الاتصال — حاول مرة أخرى · Couldn't connect — please try again",
     other: "حدث خطأ ما — حاول مرة أخرى · Something went wrong — please try again",
+  },
+  de: {
+    exists: "Diese E-Mail-Adresse ist schon registriert — melde dich stattdessen an · This email is already registered — try logging in instead",
+    creds: "E-Mail oder Passwort ist falsch · Incorrect email or password",
+    net: "Keine Verbindung — bitte versuche es noch einmal · Couldn't connect — please try again",
+    other: "Etwas ist schiefgelaufen — bitte versuche es noch einmal · Something went wrong — please try again",
   },
 };
 export function friendlyAuthError(msg, lang = "") {

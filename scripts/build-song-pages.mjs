@@ -187,8 +187,8 @@ ${body}
 }
 
 // sitemap.xml — home, the ten landing pages (hreflang + lastmod; the set is the one in scripts/landing-locales.mjs and landing/index.template.html), privacy, then every song page
-const LANDING = [["th", `${SITE}/landing/`], ["en", `${SITE}/landing-en/`], ["zh", `${SITE}/landing-zh/`], ["ja", `${SITE}/landing-ja/`], ["ko", `${SITE}/landing-ko/`], ["ru", `${SITE}/landing-ru/`], ["hi", `${SITE}/landing-hi/`], ["es", `${SITE}/landing-es/`], ["fr", `${SITE}/landing-fr/`], ["ar", `${SITE}/landing-ar/`]];
-const HREFLANG = { th: "th", en: "en", zh: "zh-Hans", ja: "ja", ko: "ko", ru: "ru", hi: "hi", es: "es", fr: "fr", ar: "ar" };
+const LANDING = [["th", `${SITE}/landing/`], ["en", `${SITE}/landing-en/`], ["zh", `${SITE}/landing-zh/`], ["ja", `${SITE}/landing-ja/`], ["ko", `${SITE}/landing-ko/`], ["ru", `${SITE}/landing-ru/`], ["hi", `${SITE}/landing-hi/`], ["es", `${SITE}/landing-es/`], ["fr", `${SITE}/landing-fr/`], ["ar", `${SITE}/landing-ar/`], ["de", `${SITE}/landing-de/`]];
+const HREFLANG = { th: "th", en: "en", zh: "zh-Hans", ja: "ja", ko: "ko", ru: "ru", hi: "hi", es: "es", fr: "fr", ar: "ar", de: "de" };
 const landingAlts = LANDING.map(([l, h]) => `<xhtml:link rel="alternate" hreflang="${HREFLANG[l] || l}" href="${h}"/>`).join("")
   + `<xhtml:link rel="alternate" hreflang="x-default" href="${SITE}/landing-en/"/>`;
 const lastmod = new Date().toISOString().slice(0, 10);

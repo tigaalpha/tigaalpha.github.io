@@ -121,7 +121,7 @@ function aggKind(n) {
   if (zh && !th) return "zh";
   return !th && !zh && ls.some(x => LATIN.test(x)) ? "en" : null;
 }
-const LANG_TAG = /^(en|th|zh|ja|ko|ru|hi|es|fr|ar)([-_][A-Za-z]+)?$/;   // a language tag is a code, never text (the same list the xl branch below leaves out)
+const LANG_TAG = /^(en|th|zh|ja|ko|ru|hi|es|fr|ar|de)([-_][A-Za-z]+)?$/;   // a language tag is a code, never text (the same list the xl branch below leaves out)
 const GENERATED_CATALOG = /^i18n-[a-z]{2}\.ts$/;   // i18n-ja.ts ...: the translations themselves, never a source
 const counted = new WeakSet();   // English nodes some detector already took (so the script-class pass does not count them twice)
 const inertXl = [];   // file:line of every xl(lang, <object or array>) call: the English inside never reaches the catalog (reported below, not extracted)
@@ -201,7 +201,7 @@ for (const rel of files) {
     if (node.type === "CallExpression" && node.callee.type === "Identifier" && node.callee.name === "xl" && node.arguments.length === 2) {
       // a ternary between two English strings (xl(lang, n === 1 ? "octave" : "octaves")) holds both
       const pickNodes = n => (n && n.type === "ConditionalExpression") ? [...pickNodes(n.consequent), ...pickNodes(n.alternate)] : (strOf(n) ? [n] : []);
-      for (const n of pickNodes(node.arguments[1])) { const en = strOf(n); if (!/^(en|th|zh|ja|ko|ru|hi|es|fr|ar)([-_][A-Za-z]+)?$/.test(en.s)) add(en.s, rel, en.dyn, n); }   // a language tag ("en", "es-ES", "ar-SA") is a code, not text to translate: keep this list in step with ALL_LANGS in lang-extra.ts
+      for (const n of pickNodes(node.arguments[1])) { const en = strOf(n); if (!/^(en|th|zh|ja|ko|ru|hi|es|fr|ar|de)([-_][A-Za-z]+)?$/.test(en.s)) add(en.s, rel, en.dyn, n); }   // a language tag ("en", "es-ES", "ar-SA") is a code, not text to translate: keep this list in step with ALL_LANGS in lang-extra.ts
       if (isAgg(node.arguments[1])) inertXl.push(rel + ":" + node.loc.start.line);   // xl only translates a STRING: handed an object or an array it returns the English object unchanged
     }
     // { th: {..}, en: {..}, zh: {..} } dictionaries (a whole table per language, read back as MAP[lang]): every string leaf of the English table

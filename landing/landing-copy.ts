@@ -1,21 +1,21 @@
 /* ── landing/landing-copy.ts ──
    Every string on marketing landing page 1, in the app's ten languages
-   (th, en, zh, since 2026-11-11 ja, ko, ru, and since 2026-11-13 hi, es, fr, ar).
+   (th, en, zh, since 2026-11-11 ja, ko, ru, since 2026-11-13 hi, es, fr, ar, and since 2026-11-20 de).
 
    Deliberately NOT imported from i18n.ts. That file is 227 kB covering every
    screen in the product, and this page's whole reason for existing is that an
    ad click downloads almost nothing. These are the ~50 strings this page
    actually paints, and the ten flags, which is all it needs. ── */
 
-export const LANGS = ["th", "en", "zh", "ja", "ko", "ru", "hi", "es", "fr", "ar"];
-export const FLAGS = { th: "🇹🇭", en: "🇬🇧", zh: "🇨🇳", ja: "🇯🇵", ko: "🇰🇷", ru: "🇷🇺", hi: "🇮🇳", es: "🇪🇸", fr: "🇫🇷", ar: "🇸🇦" };   // same ten as the app's settings panel (lang-extra.ts LANG_META)
-export const FLAG_NAMES = { th: "ไทย", en: "English", zh: "中文", ja: "日本語", ko: "한국어", ru: "Русский", hi: "हिन्दी", es: "Español", fr: "Français", ar: "العربية" };
+export const LANGS = ["th", "en", "zh", "ja", "ko", "ru", "hi", "es", "fr", "ar", "de"];
+export const FLAGS = { th: "🇹🇭", en: "🇬🇧", zh: "🇨🇳", ja: "🇯🇵", ko: "🇰🇷", ru: "🇷🇺", hi: "🇮🇳", es: "🇪🇸", fr: "🇫🇷", ar: "🇸🇦", de: "🇩🇪" };   // same ten as the app's settings panel (lang-extra.ts LANG_META)
+export const FLAG_NAMES = { th: "ไทย", en: "English", zh: "中文", ja: "日本語", ko: "한국어", ru: "Русский", hi: "हिन्दी", es: "Español", fr: "Français", ar: "العربية", de: "Deutsch" };
 /* The tiny label inside each language pill, next to the flag. Short on purpose:
    ten pills share two rows of five on a 320 px phone, so Russian is "РУС" and
-   not the full "Русский", Spanish and French are the two-letter "ES" / "FR" the
+   not the full "Русский", Spanish, French and German are the two-letter "ES" / "FR" / "DE" the
    way English is "EN", and Arabic is "عربي" (FLAG_NAMES carries the full
    names for the tooltip and screen readers). */
-export const LANG_SHORT = { th: "ไทย", en: "EN", zh: "中文", ja: "日本語", ko: "한국어", ru: "РУС", hi: "हिन्दी", es: "ES", fr: "FR", ar: "عربي" };
+export const LANG_SHORT = { th: "ไทย", en: "EN", zh: "中文", ja: "日本語", ko: "한국어", ru: "РУС", hi: "हिन्दी", es: "ES", fr: "FR", ar: "عربي", de: "DE" };
 
 /* ── which way the page reads ──
    Arabic is right to left. lang-extra.ts has isRtl() / dirOf() for the app. The landing
@@ -33,7 +33,7 @@ export const dirOf = (lang) => (RTL_LANGS.includes(lang) ? "rtl" : "ltr");
    The URL. Nothing else. /landing/ is Thai, /landing-en/ is English,
    /landing-zh/ is Chinese, /landing-ja/ Japanese, /landing-ko/ Korean,
    /landing-ru/ Russian, /landing-hi/ Hindi, /landing-es/ Spanish,
-   /landing-fr/ French, /landing-ar/ Arabic, every time, for everyone.
+   /landing-fr/ French, /landing-ar/ Arabic, /landing-de/ German, every time, for everyone.
    (scripts/landing-locales.mjs writes the matching <html lang> — and dir="rtl"
    for Arabic — into each page; presetLang() in LandingPage1 reads it.)
 
@@ -857,5 +857,86 @@ export const C = {
     errShort: "يجب ألا تقل كلمة المرور عن 6 أحرف",
     errAgree: "يرجى الموافقة على إشعار الخصوصية للمتابعة",
     done: "تم إنشاء الحساب — تحقق من بريدك الإلكتروني لتأكيده، ثم سجّل الدخول.",
+  },
+  /* ── de (2026-11-20) ──
+     Native marketing German, informal "du" (the app's glossary, i18n-src/glossary.md): "KI" for AI,
+     „…“ for quotes and "und" for the ampersand because these strings may reach HTML attributes.
+     Same rules as the others: every {n} placeholder, emoji, \n and number (7, the price, 6, 5, 100,000+)
+     is identical to the English. */
+  de: {
+    htmlTitle: "Probiere eine Klavierstunde mit einem KI-Lehrer aus — TIGA ALPHA",
+    kicker: "KI-KLAVIERLEHRER",
+    welcomeBack: "Schön, dass du wieder da bist — dein Konto ist bereit",
+    welcomeGo: "Weiter zur App →",
+    h1a: "Ein KI-Klavierlehrer, der ",
+    h1b: "dir die Antwort vorspielt",
+    sub: "Tippe jetzt auf die Tasten — ohne Registrierung, ohne Installation. Stelle eine Frage, und TIGA spielt dir die Antwort vor, Finger für Finger.",
+    tapHint: "👆 Tippe auf eine Taste",
+    vb: {
+      h1a: "Spiele Klavier ",
+      h1b: "ab dieser Sekunde",
+      sub: "Tippe auf die Tasten: ohne Registrierung, ohne Installation. Dann lass dir vom KI-Lehrer zeigen, wie es geht, Finger für Finger.",
+    },
+    firstSong: "▶ Spiele dein erstes Lied (ohne Registrierung)",
+    greet: "Hallo, ich bin TIGA, dein KI-Klavierlehrer 🎹\nWähle ein Thema — ich spiele es dir vor.",
+    chipHint: "Tippe auf eine Frage und schau dann auf die Tastatur oben",
+    askPh: "Stelle eine Frage zum Klavier",
+    askBtn: "Fragen",
+    askFree: "Kostenlose Fragen übrig: {n} — eine echte KI antwortet dir, ohne Konto",
+    askThinking: "TIGA denkt nach…",
+    askFailed: "Entschuldige, ich konnte gerade nicht antworten. Magst du noch einmal fragen?",
+    askQuotaTitle: "Frag weiter, ohne Limit 🎹",
+    askTimeTitle: "Hier endet die kostenlose Testphase 🎹",
+    askTimeBody: "Du probierst TIGA jetzt seit drei Minuten — registriere dich kostenlos, um weiterzuspielen und ohne Limit zu fragen. Keine Kreditkarte nötig.",
+    sticky: "Registriere dich — 7 Tage kostenlos, danach US$24.99 pro Monat, ohne Kreditkarte",
+    nudgeLine: "Gefällt dir die Antwort? Registriere dich kostenlos, um ohne Limit zu fragen — und deinen Fortschritt zu speichern.",
+    nudgeBtn: "In 5 Sekunden registrieren",
+    nudgeDismiss: "Später",
+    proof1: "eigene Lieder, alle zum Mitspielen", proof2: "frag sie, was du willst", proof3: "kostenlos testen, ohne Kreditkarte",
+    proofSongs: "100,000+",
+    proofDays: "7 Tage",
+    signupTitleQ: "Deine Frage ist bereit 🎹",
+    signupTitle: "Eröffne dein eigenes Klassenzimmer 🎹",
+    signupBody: "Diese vier Antworten sind fertige Lektionen. Der echte TIGA beantwortet deine eigenen Fragen ohne Limit: Er merkt sich, wo es bei dir hakt, und wählt genau dafür passende Übungen aus. Kostenlos, ohne Kreditkarte.",
+    qLabel: "Deine Frage",
+    google: "Mit Google registrieren / anmelden",
+    googleInApp: "Mit Google registrieren (im echten Browser öffnen)",
+    lineBtn: "Mit LINE registrieren / anmelden",
+    trialLine: "🎁 Kostenlos registrieren — 7 Tage alles testen, danach US$24.99 pro Monat, ohne Kreditkarte",
+    or: "oder",
+    emailBtn: "Mit E-Mail registrieren",
+    emailFullBtn: "Stattdessen mit Passwort registrieren",
+    otpBtn: "Kostenlosen Anmelde-Link per E-Mail erhalten",
+    otpDone: "Link gesendet! Öffne dein E-Mail-Postfach und tippe auf den Link, um mit dem Lernen zu starten — du brauchst kein Passwort.",
+    inApp: "Du hast diese Seite in einer anderen App geöffnet (Facebook / LINE / IG), in der die Google-Schaltfläche meist nicht funktioniert — registriere dich unten per E-Mail oder öffne die Seite zuerst in deinem echten Browser.",
+    namePh: "Wie soll dein Lehrer dich nennen?",
+    emailPh: "E-Mail",
+    passPh: "Passwort (mindestens 6 Zeichen)",
+    agree: "Ich stimme der", agreeLink: "Datenschutzerklärung",
+    agreeTail: " zu und willige ein, dass meine Daten verwendet werden, um die Klavierlektionen anzubieten",
+    marketing: "Neuigkeiten und Angebote erhalten (optional)",
+    submit: "Kostenlos registrieren", submitBusy: "Registrierung läuft…",
+    useGoogle: "Stattdessen Google verwenden",
+    openReal: "Im echten Browser öffnen",
+    openTop: "Im Browser öffnen",
+    openWhy: "Im Browser öffnen — Schaltfläche oben rechts, für vollen Zugriff",
+    openCopied: "Link kopiert — falls sich nichts öffnet, füge ihn in deinen Browser ein",
+    escTitle: "Öffne die Seite in Chrome, um dich mit Google zu registrieren",
+    escBody: "Diese Seite wurde in einer anderen App geöffnet, und Google blockiert dort die Anmeldung — tippe unten auf die Schaltfläche, um deinen echten Browser zu öffnen (der Link ist schon kopiert), oder mach stattdessen mit deiner E-Mail weiter.",
+    escStay: "Hier mit E-Mail weitermachen",
+    gateTitle: "Das spielt wirklich, oder? 🎹",
+    gateSub: "Das macht TIGA Tag für Tag mit dir: ein kostenloses Konto, eine E-Mail-Adresse, und du lernst mit deinem KI-Lehrer. Keine Kreditkarte nötig.",
+    gateBtn: "Kostenlos starten — nur eine E-Mail",
+    gateGoogle: "Mit Google anmelden",
+    heroGoogle: "Kostenlos mit Google registrieren", heroTry: "oder frag zuerst den Lehrer ↓",
+    gateSkip: "Ohne Konto weiterschauen",
+    have: "Du hast schon ein Konto?", haveLink: "In der App anmelden",
+    footTag: "TIGA ALPHA · Klavier lernen mit einem KI-Lehrer",
+    enterApp: "Zur App", privacy: "Datenschutzerklärung", allSongs: "Alle Lieder",
+    errName: "Bitte gib einen Namen ein",
+    errFields: "Bitte gib deine E-Mail-Adresse und dein Passwort ein",
+    errShort: "Das Passwort muss mindestens 6 Zeichen lang sein",
+    errAgree: "Bitte stimme der Datenschutzerklärung zu, um fortzufahren",
+    done: "Konto erstellt — bestätige es über die E-Mail in deinem Postfach und melde dich dann an.",
   },
 };

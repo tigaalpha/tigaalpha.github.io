@@ -379,14 +379,15 @@ console.log("blog-paths.mjs and blog-live.mjs");
 {
   const P = await import(pathToFileURL(path.join(ROOT, "scripts/blog-paths.mjs")).href + "?t=" + Date.now());
   const L = await import(pathToFileURL(path.join(ROOT, "scripts/blog-live.mjs")).href + "?t=" + Date.now());
-  ok(JSON.stringify(P.BLOG_LANGS) === JSON.stringify(ALLL) && JSON.stringify(P.STATIC_BLOG_LANGS) === JSON.stringify(STAT), "blog-paths.mjs knows the ten blog languages and the seven that ship as source files");
-  for (const l of ALLL) {
+  ok(JSON.stringify(P.BLOG_LANGS) === JSON.stringify([...ALLL, "de"]) && JSON.stringify(P.STATIC_BLOG_LANGS) === JSON.stringify(STAT), "blog-paths.mjs knows the eleven blog languages (de last) and the seven that ship as source files (de has none: its articles are live_only rows)");
+  for (const l of [...ALLL, "de"]) {
     ok(P.parseBlogPath(`/blog/${l}/`).kind === "index" && P.parseBlogPath(`/blog/${l}`).lang === l, l + ": the index path is recognised");
     ok(P.parseBlogPath(`/blog/${l}/feed.xml`).kind === "feed" && P.parseBlogPath(`/blog/${l}/page/3`).page === 3, l + ": feed and page/N are recognised");
     const a = P.parseBlogPath(`/blog/${l}/practice-15-minutes-5-methods.html`);
     ok(a.kind === "article" && a.lang === l && a.hint === false, l + ": an article address is recognised");
   }
-  ok(P.parseBlogPath("/blog/xx/foo.html").kind === "bad" && P.parseBlogPath("/blog/de/").kind !== "index" && P.parseBlogPath("/blog/pt/foo.html").kind === "bad" && P.parseBlogPath("/blog/de/feed.xml").kind !== "feed", "an unknown language (xx, de, pt) is still refused");
+  ok(P.parseBlogPath("/blog/xx/foo.html").kind === "bad" && P.parseBlogPath("/blog/it/").kind !== "index" && P.parseBlogPath("/blog/pt/foo.html").kind === "bad" && P.parseBlogPath("/blog/it/feed.xml").kind !== "feed", "an unknown language (xx, it, pt) is still refused");
+  { const x = P.parseBlogPath("/blog/piano-posture-de"), nf = P.notFoundHtml("de"); ok(x.kind === "article" && x.lang === "de" && x.hint === true && x.slug === "piano-posture-de" && nf.includes('<html lang="de">') && !nf.includes("dir=") && nf.includes("Dieser Artikel wurde nicht gefunden") && nf.includes("/blog/de/") && P.sitemapLangBuild([{ slug: "a-de", lang: "de", published: true, created_at: "2026-11-20" }], "https://x.test", "de").urls === 2, "de: the -de hint keeps the whole slug, the not-found page is German and left-to-right, a de row is a sitemap address and the file closes with /blog/de/"); }
   const h = P.parseBlogPath("/blog/piano-posture-ja"); ok(h.kind === "article" && h.lang === "ja" && h.hint === true && h.slug === "piano-posture-ja", "the short address with a -ja hint keeps the whole slug and hints Japanese");
   ok(P.parseBlogPath("/blog/piano-posture-ru").lang === "ru" && P.parseBlogPath("/blog/piano-posture-ko").lang === "ko" && P.parseBlogPath("/blog/piano-posture-zh").lang === "zh", "-ru / -ko / -zh hints");
   ok(["hi", "es", "fr", "ar"].every(l => { const x = P.parseBlogPath(`/blog/piano-posture-${l}`); return x.kind === "article" && x.lang === l && x.hint === true && x.slug === `piano-posture-${l}`; }), "-hi / -es / -fr / -ar hints keep the whole slug and hint their language");
@@ -411,6 +412,16 @@ console.log("blog-paths.mjs and blog-live.mjs");
     ok(feed.status === 404, l + ": ...and the same for the feed");
   }
   const th = await L.serveBlog({ lang: "th" }, mk([])); ok(th.status === 200, "th: an empty list still answers 200 (old behaviour kept)");
+  {   // de (2026-11-20): all of its articles are live_only rows served by this function; no row yet means 404 + noindex like a source-file language
+    const e = await L.serveBlog({ lang: "de" }, mk([])), ef = await L.serveBlog({ lang: "de", rest: "feed.xml" }, mk([]));
+    ok(e.status === 404 && e.headers["x-robots-tag"] === "noindex" && ef.status === 404 && e.body.includes("Dieser Artikel wurde nicht gefunden"), "de: with no database rows the index and the feed are 404 + noindex (German page), not an empty 200 list");
+    const dr = { lang: "de", slug: "klavier-lernen-de", title: "Klavier lernen mit Geduld", excerpt: "Kurze Einheiten helfen.", body: "# Titel\ntext\n", category: "theory", published: true, live_only: true, created_at: "2026-11-20T00:00:00Z", updated_at: "2026-11-20T00:00:00Z" };
+    const di = await L.serveBlog({ lang: "de" }, mk([dr])), da = await L.serveBlog({ lang: "de", rest: "klavier-lernen-de.html" }, mk([dr, { ...dr, lang: "en", slug: "klavier-lernen-de" }]));
+    ok(di.status === 200 && di.headers["content-language"] === "de" && di.body.includes('<html lang="de">') && di.body.includes("/blog/de/klavier-lernen-de.html") && di.body.includes('hreflang="de" href="https://www.tigaalpha.com/blog/de/"'), "de: with a row the index is rendered live, in German, and lists itself as an hreflang alternate");
+    ok(da.status === 200 && da.body.includes('<html lang="de">') && da.body.includes("Musiktheorie") && da.body.includes("Ähnliche Artikel") === false && da.body.includes('hreflang="de"') && da.body.includes('hreflang="en"') && da.body.includes("Melde dich an, um weiterzulesen") && da.body.includes("Alle Artikel"), "de: a live article page is served with the German category, the German back link, the German reading wall and the de + en alternates");
+    const en = await L.serveBlog({ lang: "en" }, mk([{ ...dr, lang: "en", slug: "e1", title: "E" }]));
+    ok(en.status === 200 && !en.body.includes('hreflang="de"'), "the English index lists no German alternate until German articles are announced (the pages that exist stay byte for byte as they were)");
+  }
   const row = { lang: "ja", slug: "live-one", title: "ライブ記事", excerpt: "e", body: "本文\n", category: "tips", published: true, created_at: "2026-11-12T00:00:00Z", updated_at: "2026-11-12T00:00:00Z" };
   const li = await L.serveBlog({ lang: "ja" }, mk([row])); ok(li.status === 200 && li.headers["content-language"] === "ja" && li.body.includes("/blog/ja/live-one.html"), "ja: with database rows the index is rendered live");
   const la = await L.serveBlog({ lang: "ja", rest: "live-one.html" }, mk([row])); ok(la.status === 200 && la.body.includes('<html lang="ja">') && la.headers["content-language"] === "ja", "ja: an article published after the build is served live");

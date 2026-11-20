@@ -42,7 +42,7 @@ export function buildSongFallback(lang, label, result) {
       ? [`ซ้อมโน้ต "${top}" ช้า ๆ 3 ครั้ง ก่อนรวมทั้งท่อน`, "เปิดเท็มโป 0.8x ซ้อมทั้งเพลงอีก 1 รอบ"]
       : ["เปิดเท็มโป 1.2x ท้าตัวเองอีก 1 รอบ", "ลองโหมดมือซ้ายเพิ่มความท้าทาย"],
   };
-  // each English line goes through the catalog on its own (xl on the whole object is inert: it only translates a string), so ja ko ru hi es fr ar read their own language; en keeps the English
+  // each English line goes through the catalog on its own (xl on the whole object is inert: it only translates a string), so ja ko ru hi es fr ar de read their own language; en keeps the English
   const en = {
     weakness: missed.length
       ? xl(lang, `The "${top}" section is shaky — ${missed.length} of ${result.total} notes missed`)

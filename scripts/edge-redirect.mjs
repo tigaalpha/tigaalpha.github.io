@@ -8,7 +8,7 @@ export function redirectTarget(rawUrl, host, proto) {
   const apex = h === "tigaalpha.com";
   let path = url.pathname || "/";
   const htmlSlash = path.length > 1 && path.endsWith("/") && /\.html\/$/.test(path);
-  const langHome = path.match(/^\/(th|en|zh|ja|ko|ru|hi|es|fr|ar)\/?$/);
+  const langHome = path.match(/^\/(th|en|zh|ja|ko|ru|hi|es|fr|ar|de)\/?$/);
   if (!insecure && !apex && !htmlSlash && !langHome) return null;
   if (langHome) {
     const dest = langHome[1] === "th" ? "/landing/" : "/landing-" + langHome[1] + "/";

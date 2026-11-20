@@ -502,18 +502,18 @@ html, body, #root{background:var(--bg)}
 .pgicon{font-size:21px;line-height:1;flex-shrink:0}
 .pginfo{flex:1;min-width:0}
 /* Japanese, Korean and Chinese may break a line between any two characters, so without a floor the header text collapses to one character wide beside the mentor and upgrade pills (Chinese did: "从这里开始" ran down the screen one character per line, 2026-11-16) */
-:root:lang(zh) .pginfo,:root:lang(ja) .pginfo,:root:lang(ko) .pginfo,:root:lang(ru) .pginfo,:root:lang(hi) .pginfo,:root:lang(es) .pginfo,:root:lang(fr) .pginfo,:root:lang(ar) .pginfo{min-width:7.5em}
-/* the Russian pill labels are long too (and Spanish / French run 15-30 % longer than English, Hindi is wider): the header wraps instead of pushing the pills over the text */
-:root:lang(zh) .pgrouphdr,:root:lang(ja) .pgrouphdr,:root:lang(ko) .pgrouphdr,:root:lang(ru) .pgrouphdr,:root:lang(hi) .pgrouphdr,:root:lang(es) .pgrouphdr,:root:lang(fr) .pgrouphdr,:root:lang(ar) .pgrouphdr{flex-wrap:wrap;row-gap:8px}
-:root:lang(zh) .hdr button,:root:lang(ja) .hdr button,:root:lang(ko) .hdr button,:root:lang(ru) .hdr button,:root:lang(hi) .hdr button,:root:lang(es) .hdr button,:root:lang(fr) .hdr button,:root:lang(ar) .hdr button{white-space:nowrap}
-:root:lang(zh) .pgmentor,:root:lang(zh) .pgupgrade,:root:lang(ja) .pgmentor,:root:lang(ko) .pgmentor,:root:lang(ru) .pgmentor,:root:lang(ja) .pgupgrade,:root:lang(ko) .pgupgrade,:root:lang(ru) .pgupgrade,:root:lang(hi) .pgmentor,:root:lang(es) .pgmentor,:root:lang(fr) .pgmentor,:root:lang(ar) .pgmentor,:root:lang(hi) .pgupgrade,:root:lang(es) .pgupgrade,:root:lang(fr) .pgupgrade,:root:lang(ar) .pgupgrade{white-space:nowrap}
-/* hi / es / fr / ar (2026-11-13), the places where text length decides whether a box holds: a word longer than its box breaks (it never widens the box; break-word does not
+:root:lang(zh) .pginfo,:root:lang(ja) .pginfo,:root:lang(ko) .pginfo,:root:lang(ru) .pginfo,:root:lang(hi) .pginfo,:root:lang(es) .pginfo,:root:lang(fr) .pginfo,:root:lang(ar) .pginfo,:root:lang(de) .pginfo{min-width:7.5em}
+/* the Russian pill labels are long too (and Spanish / French / German run 15-30 % longer than English, Hindi is wider): the header wraps instead of pushing the pills over the text */
+:root:lang(zh) .pgrouphdr,:root:lang(ja) .pgrouphdr,:root:lang(ko) .pgrouphdr,:root:lang(ru) .pgrouphdr,:root:lang(hi) .pgrouphdr,:root:lang(es) .pgrouphdr,:root:lang(fr) .pgrouphdr,:root:lang(ar) .pgrouphdr,:root:lang(de) .pgrouphdr{flex-wrap:wrap;row-gap:8px}
+:root:lang(zh) .hdr button,:root:lang(ja) .hdr button,:root:lang(ko) .hdr button,:root:lang(ru) .hdr button,:root:lang(hi) .hdr button,:root:lang(es) .hdr button,:root:lang(fr) .hdr button,:root:lang(ar) .hdr button,:root:lang(de) .hdr button{white-space:nowrap}
+:root:lang(zh) .pgmentor,:root:lang(zh) .pgupgrade,:root:lang(ja) .pgmentor,:root:lang(ko) .pgmentor,:root:lang(ru) .pgmentor,:root:lang(ja) .pgupgrade,:root:lang(ko) .pgupgrade,:root:lang(ru) .pgupgrade,:root:lang(hi) .pgmentor,:root:lang(es) .pgmentor,:root:lang(fr) .pgmentor,:root:lang(ar) .pgmentor,:root:lang(de) .pgmentor,:root:lang(hi) .pgupgrade,:root:lang(es) .pgupgrade,:root:lang(fr) .pgupgrade,:root:lang(ar) .pgupgrade,:root:lang(de) .pgupgrade{white-space:nowrap}
+/* hi / es / fr / ar (2026-11-13; de joined 2026-11-20), the places where text length decides whether a box holds: a word longer than its box breaks (it never widens the box; break-word does not
    change the min-content width, so flex items do not collapse), the header's right-hand group may shrink, the guest login pill ("Iniciar sesión", "Se connecter") keeps one line
    and gives way before it pushes the flag off a 320 px screen, the tab labels keep one line with an ellipsis (ux2-styles.ts) and Devanagari / Arabic get a taller line box in
    the one-line labels that clip (overflow:hidden), where the cream default of 1.2 cuts matras and marks. */
-:root:is(:lang(hi),:lang(es),:lang(fr),:lang(ar)) .tg{overflow-wrap:break-word}
-:root:is(:lang(hi),:lang(es),:lang(fr),:lang(ar)) .hdr-r{min-width:0}
-:root:is(:lang(hi),:lang(es),:lang(fr),:lang(ar)) .hdr .guestloginpill{white-space:nowrap}
+:root:is(:lang(hi),:lang(es),:lang(fr),:lang(ar),:lang(de)) .tg{overflow-wrap:break-word}
+:root:is(:lang(hi),:lang(es),:lang(fr),:lang(ar),:lang(de)) .hdr-r{min-width:0}
+:root:is(:lang(hi),:lang(es),:lang(fr),:lang(ar),:lang(de)) .hdr .guestloginpill{white-space:nowrap}
 :root:is(:lang(hi),:lang(ar)) :is(.tab-lb,.pglabel,.pgdesc,.pchip,.songfiltbtn,.todaybar-lb,.resumebar-lb,.hwbar-tx,.flagitem .fn,.setlangbtn,.draweritem,.drawerlabel,.kn){line-height:1.6}
 :root:is(:lang(hi),:lang(ar)) .tab-lb{padding-block:1px}
 .pglabel{font-family:var(--f-app);font-size:13px;font-weight:700;color:var(--text);letter-spacing:2px;line-height:1.2}

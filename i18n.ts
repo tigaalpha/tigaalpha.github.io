@@ -1086,7 +1086,7 @@ export const STAGES_BY_GROUP = PATHWAY.reduce((acc, s) => {
 export function tr(field, lang) {
   if (field == null) return "";
   if (typeof field === "string") return field;
-  // ja / ko / ru / hi / es / fr / ar: the object's own entry when it has one, else the catalog's translation of its English
+  // ja / ko / ru / hi / es / fr / ar / de: the object's own entry when it has one, else the catalog's translation of its English
   if (isExtraLang(lang)) return by(field, lang) || (field.en ? xlate(lang, field.en) : "") || field.th || Object.values(field)[0] || "";
   return by(field, lang) || field.en || field.th || Object.values(field)[0] || "";
 }

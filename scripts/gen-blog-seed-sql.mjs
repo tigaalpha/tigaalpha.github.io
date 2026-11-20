@@ -33,7 +33,8 @@ const SETS = {
   "ja-ko-ru": { langs: ["ja", "ko", "ru"], sql: "supabase-blog-ja-ko-ru-migration.sql" },
   "hi-es-fr-ar": { langs: ["hi", "es", "fr", "ar"], sql: "supabase-blog-hi-es-fr-ar-migration.sql" },
 };
-const SIX = ["th", "en", "zh", "ja", "ko", "ru"], TEN = [...SIX, "hi", "es", "fr", "ar"];   // the languages the database allowed before this work / allows after it (keep TEN in step with ALL_LANGS in lang-extra.ts)
+const SIX = ["th", "en", "zh", "ja", "ko", "ru"], TEN = [...SIX, "hi", "es", "fr", "ar"];   // the languages the database allowed before this work / allows after it (TEN is what THIS migration widens the checks to)
+const LATER = ["de"];   // languages added after this migration (2026-11-20): supabase-blog-de-migration.sql widens the checks to eleven and seeds no articles; ALL_LANGS in lang-extra.ts must equal TEN + LATER
 const list = (a) => "(" + a.map(l => `'${l}'`).join(",") + ")";                            // ('th','en',...) as the SQL files write it
 const ROWS_OF = (sqlPath) => sqlPath.replace(/\.sql$/, "") + "-rows.json";                  // supabase-blog-x-migration.sql -> supabase-blog-x-migration-rows.json
 const cmp = (a, b) => (a < b ? -1 : a > b ? 1 : 0);
@@ -115,11 +116,12 @@ function viewsFunction(src, name) {
   if (start < 0) die(`supabase-blog-views-migration.sql has no "create or replace function public.${name}("`);
   const g = new RegExp(`^grant execute on function public\\.${name}\\([^\\n]*\\n`, "m").exec(src.slice(start));
   if (!g) die(`supabase-blog-views-migration.sql: no "grant execute on function public.${name}(" line after the function`);
-  // the reader-counter migration said six languages until 2026-11-16 and says ten since (main widened it): either text gives the same ten-language body
-  const block = src.slice(start, start + g.index + g[0].length), six = block.split(list(SIX)), ten = block.split(list(TEN));
-  if (six.length === 2 && ten.length === 1) return six.join(list(TEN));
-  if (ten.length === 2 && six.length === 1) return block;
-  die(`public.${name} in supabase-blog-views-migration.sql holds the six-language list ${six.length - 1} times and the ten-language list ${ten.length - 1} times, expected exactly one of them once (was the file changed? then update this generator)`);
+  // the reader-counter migration said six languages until 2026-11-16, ten until 2026-11-20 and says eleven since (German): every text gives the same ten-language body this migration was applied with
+  const block = src.slice(start, start + g.index + g[0].length), ELEVEN = [...TEN, ...LATER];
+  const forms = [SIX, TEN, ELEVEN].map(l => block.split(list(l)));
+  const hits = forms.map(f => f.length - 1);
+  if (hits.filter(n => n > 0).length === 1 && hits.reduce((a, b) => a + b, 0) === 1) return forms.find(f => f.length === 2).join(list(TEN));
+  die(`public.${name} in supabase-blog-views-migration.sql holds the six-, ten- and eleven-language lists ${hits.join(" / ")} times, expected exactly one of them once (was the file changed? then update this generator)`);
 }
 /* problems the table or jsonb would only report at insert time: a NUL or a lone surrogate cannot be stored, a title or body cannot be empty, a (lang, slug) cannot repeat */
 function rowProblems(rows, langs) {
@@ -343,9 +345,9 @@ if (SET.langs.some(l => !STATIC_LANGS.includes(l))) die("STATIC_LANGS in scripts
 const posts = postsOf(SET.langs), rows = rowsOf(posts), rowsText = JSON.stringify(rows);
 const problems = [...skippedSources(posts, SET.langs), ...rowProblems(rows, SET.langs)];
 if (!rows.length || problems.length) die("the " + setName + " rows are not fit to seed:\n  - " + (problems.length ? problems.join("\n  - ") : "no article found in blog-src/" + SET.langs.join("|") + "/"));
-const reg = registryLangs(), drift = !reg || reg.length !== TEN.length || reg.some(l => !TEN.includes(l)) || TEN.some(l => !reg.includes(l));   // an unreadable ALL_LANGS line counts as drift: a check that quietly stops checking is worse than one that stops the run
+const KNOWN = [...TEN, ...LATER], reg = registryLangs(), drift = !reg || reg.length !== KNOWN.length || reg.some(l => !KNOWN.includes(l)) || KNOWN.some(l => !reg.includes(l));   // an unreadable ALL_LANGS line counts as drift: a check that quietly stops checking is worse than one that stops the run
 const driftMsg = !drift ? "" : !reg ? "could not read ALL_LANGS from lang-extra.ts (was the line reformatted or the file moved?): fix registryLangs() in scripts/gen-blog-seed-sql.mjs"
-  : `lang-extra.ts lists ${reg.join(",")} but the migration widens the checks to ${TEN.join(",")}: add the new language to TEN in scripts/gen-blog-seed-sql.mjs and to the checks and functions`;
+  : `lang-extra.ts lists ${reg.join(",")} but the migrations widen the checks to ${KNOWN.join(",")}: add the new language to TEN or LATER in scripts/gen-blog-seed-sql.mjs and to the checks and functions`;
 const built = fetchSql({ posts, langs: SET.langs, rowsText, pinned: sha || "" });
 const summary = `${rows.length} articles: ${built.per}; rows file ${built.bytes} bytes, md5 ${built.md5}`;
 

@@ -1,17 +1,17 @@
 /* ── lang-extra.ts ──
-   Japanese, Korean and Russian (owner, 2026-11-11), then Hindi, Spanish, French and Arabic (owner, 2026-11-13). The app was written in three languages through inline idioms:
+   Japanese, Korean and Russian (owner, 2026-11-11), then Hindi, Spanish, French and Arabic (owner, 2026-11-13), then German (owner, 2026-11-20). The app was written in three languages through inline idioms:
    T(th, en, zh), { th, en, zh } objects and `lang === "th" ? .. : lang === "zh" ? .. : <English>`. Instead of adding a
    fourth, fifth and sixth argument to thousands of call sites, a new language is ONE English-keyed catalog
-   (i18n-ja.ts, i18n-ko.ts, i18n-ru.ts, i18n-hi.ts, i18n-es.ts, i18n-fr.ts, i18n-ar.ts: { "English text": "translation" }) and the English argument of every idiom is looked up in it.
+   (i18n-ja.ts, i18n-ko.ts, i18n-ru.ts, i18n-hi.ts, i18n-es.ts, i18n-fr.ts, i18n-ar.ts, i18n-de.ts: { "English text": "translation" }) and the English argument of every idiom is looked up in it.
    A string with no entry shows its English, so a new or untranslated string is never blank.
    - Keys written with {0} {1} holes stand for template literals (`${n} songs`): the final English string is matched against them.
    - Catalogs are lazy chunks (the React hook that reloads a root lives in use-catalog.ts), loaded when the language is chosen, so Thai, English and Chinese users download none of it.
    - This file imports nothing from the app (i18n.ts and every screen import it), so it can never take part in an import cycle. ── */
 
-export type ExtraLang = "ja" | "ko" | "ru" | "hi" | "es" | "fr" | "ar";
-export const EXTRA_LANGS: ExtraLang[] = ["ja", "ko", "ru", "hi", "es", "fr", "ar"];
-export const ALL_LANGS = ["th", "en", "zh", "ja", "ko", "ru", "hi", "es", "fr", "ar"];
-export const isExtraLang = (l: any): l is ExtraLang => l === "ja" || l === "ko" || l === "ru" || l === "hi" || l === "es" || l === "fr" || l === "ar";
+export type ExtraLang = "ja" | "ko" | "ru" | "hi" | "es" | "fr" | "ar" | "de";
+export const EXTRA_LANGS: ExtraLang[] = ["ja", "ko", "ru", "hi", "es", "fr", "ar", "de"];
+export const ALL_LANGS = ["th", "en", "zh", "ja", "ko", "ru", "hi", "es", "fr", "ar", "de"];
+export const isExtraLang = (l: any): l is ExtraLang => l === "ja" || l === "ko" || l === "ru" || l === "hi" || l === "es" || l === "fr" || l === "ar" || l === "de";
 
 /* one row per language: the flag and native name for pickers, the BCP-47 tag speech engines and date formatters want,
    the <html lang>, and the name the AI tutor is told to answer in */
@@ -26,6 +26,7 @@ export const LANG_META: Record<string, { flag: string; name: string; locale: str
   es: { flag: "🇪🇸", name: "Español", locale: "es-ES", html: "es", ai: "Spanish" },
   fr: { flag: "🇫🇷", name: "Français", locale: "fr-FR", html: "fr", ai: "French" },
   ar: { flag: "🇸🇦", name: "العربية", locale: "ar", html: "ar", ai: "Arabic", rtl: true },   // locale "ar" (not ar-SA): a neutral Modern Standard Arabic; localeOf() below adds -u-nu-latn so Intl prints Western digits 0-9
+  de: { flag: "🇩🇪", name: "Deutsch", locale: "de-DE", html: "de", ai: "German" },
 };
 /* right-to-left languages: the page gets dir="rtl"; pianos, staffs, game canvases and anything drawn with fixed left/right geometry stay direction:ltr (see the RTL block in app-css.ts) */
 export const isRtl = (lang: string) => !!(LANG_META[lang] && LANG_META[lang].rtl);
@@ -40,7 +41,7 @@ export const localeOf = (lang: string) => { const loc = (LANG_META[lang] || LANG
 export const dateLocale = (lang: string) => (lang === "en" ? "en-GB" : localeOf(lang));
 /* The ~50 plain `n.toLocaleString()` calls (EXP, coins, scores, ranks) name no locale at all, so they follow the DEVICE, and on an ar-SA / ar-EG phone they print Arabic-Indic digits beside the
    Western ones everywhere else. While the app language is Arabic, a call that names no locale gets LATN_AR; in every other language the engine's own methods are left exactly as they are
-   (nothing is replaced for th / en / zh / ja / ko / ru / hi / es / fr). Called before the first paint (main.tsx, from tg_lang_hint) and on every language change (App.tsx).
+   (nothing is replaced for th / en / zh / ja / ko / ru / hi / es / fr / de). Called before the first paint (main.tsx, from tg_lang_hint) and on every language change (App.tsx).
    The originals are kept on globalThis, so a second copy of this module (a hot reload, a test) restores the real ones, never a wrapper. */
 const NAT: any = (globalThis as any).__tgNativeLocaleFns || ((globalThis as any).__tgNativeLocaleFns = {
   n: Number.prototype.toLocaleString, d: Date.prototype.toLocaleString, dd: Date.prototype.toLocaleDateString, dt: Date.prototype.toLocaleTimeString,
@@ -114,6 +115,7 @@ function holeText(lang: string, v: string): string {
     if (lang === "ar") return n === 1 ? "الأول" : n === 2 ? "الثاني" : n === 3 ? "الثالث" : n === 4 ? "الرابع" : m[1];
     if (lang === "es") return m[1] + ".º";
     if (lang === "fr") return n === 1 ? "1er" : m[1] + "e";
+    if (lang === "de") return m[1] + ".";
     return m[1] + "-й";
   }
   if (v === "s" || v === "es") return "";   // the English plural suffix: these languages have no such ending, and their translation puts the hole where it would have been
@@ -189,6 +191,7 @@ const loaders: Record<string, () => Promise<{ default: Cat }>> = {
   es: () => import("./i18n-es"),
   fr: () => import("./i18n-fr"),
   ar: () => import("./i18n-ar"),
+  de: () => import("./i18n-de"),
 };
 export function loadCatalog(lang: string): Promise<void> {
   if (!isExtraLang(lang) || cats[lang]) return Promise.resolve();

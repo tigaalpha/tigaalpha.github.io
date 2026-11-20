@@ -6,8 +6,10 @@
 --   select * from public.blog_check_staged('ar');            -- one row per staged article: ok, problems[], len_ratio (translation / Chinese length), share (target-script share)
 --   select * from public.blog_check_staged('ar', false);     -- the same for the already published live_only rows
 --
+-- 2026-11-20: German (de) added: length band 1.7 .. 4.9 (average German article about 6,800 characters), stop-word check not_german, Latin-letter script share (the else branch of blog_script_share).
+--
 -- What a row is checked for: the Chinese source exists; no Han characters or CJK punctuation (except Japanese); the share of the target script among the letters
--- (title / excerpt / body); for en / es / fr a stop-word language check; the price text (US$24.99 everywhere except Thai, which keeps 799; no yuan, no baht, no THB elsewhere);
+-- (title / excerpt / body); for en / es / fr / de a stop-word language check; the price text (US$24.99 everywhere except Thai, which keeps 799; no yuan, no baht, no THB elsewhere);
 -- the stored promo block (public.blog_translation_cta) present verbatim; the same image URLs as the source; heading, bullet and FAQ counts within a small tolerance;
 -- body length against the Chinese length (bands per language); title and excerpt shape (length, no markdown); junk phrases ("translation:", "TODO", ...).
 -- The thresholds were set from the existing published articles of each language (script shares: ar .90-.95, en/es/fr 1.0, hi .91-.95, ja .87-.92, ko .83-.92, ru .94-.97, th .86-.96)
@@ -40,8 +42,8 @@ language sql stable as $$
   with cfg as (
     select
       case p_lang when 'ja' then 0.75 when 'ko' then 0.70 when 'ru' then 0.85 when 'hi' then 0.80 when 'ar' then 0.80 when 'th' then 0.78 else 0.97 end as min_share,
-      case p_lang when 'en' then 1.4 when 'th' then 1.1 when 'ja' then 0.9 when 'ko' then 0.9 when 'ru' then 1.5 when 'hi' then 1.3 when 'es' then 1.5 when 'fr' then 1.6 when 'ar' then 1.2 end as lo,
-      case p_lang when 'en' then 4.0 when 'th' then 3.2 when 'ja' then 2.2 when 'ko' then 2.4 when 'ru' then 4.5 when 'hi' then 3.8 when 'es' then 4.2 when 'fr' then 4.5 when 'ar' then 3.4 end as hi,
+      case p_lang when 'en' then 1.4 when 'th' then 1.1 when 'ja' then 0.9 when 'ko' then 0.9 when 'ru' then 1.5 when 'hi' then 1.3 when 'es' then 1.5 when 'fr' then 1.6 when 'ar' then 1.2 when 'de' then 1.7 end as lo,
+      case p_lang when 'en' then 4.0 when 'th' then 3.2 when 'ja' then 2.2 when 'ko' then 2.4 when 'ru' then 4.5 when 'hi' then 3.8 when 'es' then 4.2 when 'fr' then 4.5 when 'ar' then 3.4 when 'de' then 4.9 end as hi,
       (p_lang in ('ja', 'ko', 'zh')) as cjk,
       (select c.paragraph from public.blog_translation_cta c where c.lang = p_lang) as cta_p,
       (select c.bullets from public.blog_translation_cta c where c.lang = p_lang) as cta_b
@@ -70,6 +72,8 @@ language sql stable as $$
                                    or public.blog_word_share(j.body, array['the','and','of','le','les','des','est','pour','une']) > 0.04) then 'not_spanish' end,
       case when p_lang = 'fr' and (public.blog_word_share(j.body, array['le','la','les','des','de','et','en','un','une','pour','avec','que','est','vous','du']) < 0.15
                                    or public.blog_word_share(j.body, array['the','and','of','el','los','las','que','una','para']) > 0.04) then 'not_french' end,
+      case when p_lang = 'de' and (public.blog_word_share(j.body, array['der','die','das','und','ist','nicht','ein','eine','zu','den','mit','für','auf','sie','ich','du','von','dem','im','es','sich','auch','als','an','bei','nach','wie','wird','kann']) < 0.15
+                                   or public.blog_word_share(j.body, array['the','and','of','to','is','that','with']) > 0.04) then 'not_german' end,
       case when p_lang <> 'th' and j.body !~ 'US\$24\.99' then 'price_missing' end,
       case when p_lang = 'th' and j.body !~ '799' then 'price_missing' end,
       case when p_lang <> 'th' and j.body ~ '(¥|￥)\s*176|799|THB|฿' then 'wrong_price_text' end,

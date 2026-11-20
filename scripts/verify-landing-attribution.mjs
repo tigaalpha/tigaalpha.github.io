@@ -1,4 +1,4 @@
-// Drives the BUILT landing pages (/landing/, and /landing-hi|es|fr|ar/ for the four languages added on 2026-11-13) in headless Chromium with every Supabase call stubbed
+// Drives the BUILT landing pages (/landing/, and /landing-hi|es|fr|ar/ for the four languages added on 2026-11-13, /landing-de/ on 2026-11-20) in headless Chromium with every Supabase call stubbed
 // (nothing is written): the campaign tags reach the "attr" row, ?v=b serves the variant (headline, lit keys,
 // first-song button), the escape from an in-app browser carries the visitor across, and the magic-link
 // redirect carries the visit. Run after `npm run build`:   node scripts/verify-landing-attribution.mjs
@@ -146,9 +146,9 @@ const items = (ev, kind) => ev.filter(e => e.kind === kind).map(e => e.item_id);
   await ctx.close();
 }
 
-/* 5. hi / es / fr / ar (2026-11-13): each page logs its own language, opens in it with its own direction, and the sign-up card's
+/* 5. hi / es / fr / ar (2026-11-13) and de (2026-11-20): each page logs its own language, opens in it with its own direction, and the sign-up card's
    magic link carries that language across (hlg=<lang>), so an account made on /landing-ar/ is filed under Arabic */
-for (const [lg, dir] of [["hi", "ltr"], ["es", "ltr"], ["fr", "ltr"], ["ar", "rtl"]]) {
+for (const [lg, dir] of [["hi", "ltr"], ["es", "ltr"], ["fr", "ltr"], ["ar", "rtl"], ["de", "ltr"]]) {
   {
     const { ctx, p, events, errs } = await newPage(CHROME_UA);
     await p.goto(BASE + "/landing-" + lg + "/?utm_source=fb&utm_campaign=nov", { waitUntil: "load" });
@@ -159,7 +159,7 @@ for (const [lg, dir] of [["hi", "ltr"], ["es", "ltr"], ["fr", "ltr"], ["ar", "rt
     const st = await p.evaluate(() => ({ lang: document.documentElement.lang, dir: document.documentElement.dir, h1: (document.querySelector(".lp-h1") || {}).textContent || "" }));
     ok(st.lang === lg && st.dir === dir, `${lg}: <html lang="${lg}" dir="${dir}"> once the page is up`, JSON.stringify(st));
     ok(st.h1.length > 10 && !/[฀-๿]/.test(st.h1), `${lg}: the headline is in ${lg}, not Thai`, st.h1);
-    ok((await p.$$(".lp-lang")).length === 10, `${lg}: ten language pills`);
+    ok((await p.$$(".lp-lang")).length === 11, `${lg}: eleven language pills`);
     ok(errs.length === 0, `${lg}: no page errors`, errs.join("|"));
     await ctx.close();
   }

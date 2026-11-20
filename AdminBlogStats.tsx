@@ -5,7 +5,7 @@ import { pickT, ALL_LANGS, LANG_META } from "./lang-extra";
 /* Blog readers for the admin analytics (owner 2026-11-07): views, people who stayed 3 seconds (30 until 2026-11-12, 15 until 2026-11-13, 5 until 2026-11-16: the numbers before those dates count a longer stay, so compare across the changes with care), log-in pop-ups shown and tapped, per article and per day.
    Data: public.blog_stats() from supabase-blog-views-migration.sql (top admin only). Until that migration is applied the card says so instead of showing zeros. Shown on the
    Analytics page (it follows that page's range) and at the top of the Blog admin (its own range). A "view" is one device per article per day, a "reader" one that stayed 3 s.
-   Rows carry the article's language (th en zh ja ko ru hi es fr ar); only articles that have a published row in public.blog_posts are counted, so an article of ja ko ru hi es fr ar that still ships only as a committed file (blog-src/) has no numbers until its migration seeds the row. */
+   Rows carry the article's language (th en zh ja ko ru hi es fr ar de); only articles that have a published row in public.blog_posts are counted, so an article of ja ko ru hi es fr ar that still ships only as a committed file (blog-src/) has no numbers until its migration seeds the row. */
 type Stats = { totals: { views: number; readers: number; gates: number; clicks: number; devices: number }; rows: any[]; daily: { day: string; views: number; readers: number }[]; allTime: number };
 const nf = (n: number) => (Number(n) || 0).toLocaleString("en-US");
 export function BlogStatsCard({ lang, range = "30", own = false }: { lang: string; range?: string; own?: boolean }) {
@@ -14,7 +14,7 @@ export function BlogStatsCard({ lang, range = "30", own = false }: { lang: strin
   const days = r === "all" ? 0 : Number(r) || 30;
   const [d, setD] = useState<Stats | null>(null);
   const [st, setSt] = useState<"load" | "ok" | "missing" | "err">("load");
-  const [fl, setFl] = useState("all");   // language filter of the per-article table: "all" or one of the ten languages (ALL_LANGS: th en zh ja ko ru hi es fr ar)
+  const [fl, setFl] = useState("all");   // language filter of the per-article table: "all" or one of the ten languages (ALL_LANGS: th en zh ja ko ru hi es fr ar de)
   useEffect(() => { if (!own) setR(range); }, [range, own]);
   useEffect(() => {
     let off = false; setSt("load");

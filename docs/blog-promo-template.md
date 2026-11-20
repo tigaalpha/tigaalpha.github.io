@@ -27,6 +27,7 @@ The same rules, per language:
 | Code | Language | Price to quote | Landing page |
 |---|---|---|---|
 | ar | Arabic | US$24.99 per month | `https://www.tigaalpha.com/landing-ar/` |
+| de | German | US$24.99 per month | `https://www.tigaalpha.com/landing-de/` |
 | en | English | US$24.99 per month | `https://www.tigaalpha.com/landing-en/` |
 | es | Spanish | US$24.99 per month | `https://www.tigaalpha.com/landing-es/` |
 | fr | French | US$24.99 per month | `https://www.tigaalpha.com/landing-fr/` |
@@ -41,7 +42,7 @@ The same rules, per language:
 
 Each language section below holds one block: the paragraph, one blank line, then three bullet lines (download link, TIGA Studio, about the company). Paste the block for the article's language at the very end of the article, unchanged. It already carries the right price, the right language list and the right landing page for that language, so nothing has to be filled in.
 
-The blocks for ar, en, es, fr, hi, ja, ko, ru and th are the reviewed, final text. They were copied on 2026-11-17 from the table `public.blog_translation_cta` (columns `paragraph` and `bullets`) and compared with it character for character. They sit in fenced code blocks so that nothing is reflowed: copy what is inside the fence, not the fence itself. The blank line between paragraph and bullets is only a separator; it is not stored in either column. The table has no Chinese row, so the zh block is a suggestion (see its section).
+The blocks for ar, en, es, fr, hi, ja, ko, ru and th are the reviewed, final text (the German block is new and is not in the table until its migration is applied). They were copied on 2026-11-17 from the table `public.blog_translation_cta` (columns `paragraph` and `bullets`) and compared with it character for character. They sit in fenced code blocks so that nothing is reflowed: copy what is inside the fence, not the fence itself. The blank line between paragraph and bullets is only a separator; it is not stored in either column. The table has no Chinese row, so the zh block is a suggestion (see its section).
 
 ## Arabic (ar)
 
@@ -83,6 +84,18 @@ TIGA ALPHA est une application d’enseignement du piano par IA, conçue par une
 - Télécharger et commencer : [TIGA ALPHA](https://www.tigaalpha.com/landing-fr/)
 - Cours en présentiel en Thaïlande : [TIGA Studio](https://www.tigastudio.net/)
 - À propos de l’entreprise : [tigaalpha.com](https://www.tigaalpha.com)
+```
+
+## German (de)
+
+Added 2026-11-20. German is the eleventh language of the blog (its articles are `live_only` database rows written by the translation queue, no committed files). This block is the text of the `de` row of `public.blog_translation_cta` that `supabase-blog-de-migration.sql` inserts (WRITTEN, NOT APPLIED until the owner approves it): du-form, same facts and sentence order as the Spanish block, plain ASCII spaces and straight quotes only (the translating agents must reproduce it character for character). It names 11 languages because German joins the ten; the other blocks still say 10 until the sweep of the language claims. The German label of Teacher Aum stays "Teacher Aum" with no gendered title.
+
+```text
+TIGA ALPHA ist eine KI-Klavierlern-App von einem Team in Thailand. Die App gibt es in 11 Sprachen: Thai, Englisch, Chinesisch, Arabisch, Japanisch, Russisch, Spanisch, Französisch, Hindi, Koreanisch und Deutsch. Teacher Aum, CEO von TIGA ALPHA, hat 20 Jahre Erfahrung im Klavierunterricht, und diese Lehrerfahrung prägt jede Lektion. Wenn du spielst, hört die App dir zu und sagt dir, welche Noten oder welche Zählzeiten du als Nächstes üben solltest, damit dein Feedback konkret statt allgemein ausfällt. Nutze sie als App für Online-Klavierunterricht für kurze tägliche Einheiten, folge ihr als komplettem Online-Klavierkurs oder kombiniere sie mit dem Unterricht bei einer Lehrkraft. Egal, ob du bei null anfängst, nach einer langen Pause wieder einsteigst, gemeinsam mit deinen Kindern Musik lernst oder einfach nur zum Spaß spielst: Dein nächster Schritt bleibt immer klar. Wer neu dabei ist, testet Premium 7 Tage lang kostenlos, danach kostet es US$24.99 pro Monat.
+
+- Herunterladen und loslegen: [TIGA ALPHA](https://www.tigaalpha.com/landing-de/)
+- Unterricht vor Ort in Thailand: [TIGA Studio](https://www.tigastudio.net/)
+- Über das Unternehmen: [tigaalpha.com](https://www.tigaalpha.com)
 ```
 
 ## Hindi (hi)

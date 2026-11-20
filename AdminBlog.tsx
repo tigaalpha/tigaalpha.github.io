@@ -4,8 +4,8 @@ import { BlogBody, BlogPost, BLOG_CATS, catName, catLabel } from "./BlogPage";
 import { BlogStatsCard } from "./AdminBlogStats";
 
 import { pickT, ALL_LANGS, LANG_META, dirOf } from "./lang-extra";
-/* Admin: write, edit, publish and delete blog articles in Thai / English / Mandarin / Japanese / Korean / Russian / Hindi / Spanish / French / Arabic (ja ko ru need supabase-blog-ja-ko-ru-migration.sql and hi es fr ar need
-   supabase-blog-hi-es-fr-ar-migration.sql, otherwise the table refuses them), with a category, a cover picture, pictures inside the text and links. The language buttons and the filter are ALL_LANGS driven (ten, native names).
+/* Admin: write, edit, publish and delete blog articles in Thai / English / Mandarin / Japanese / Korean / Russian / Hindi / Spanish / French / Arabic / German (ja ko ru need supabase-blog-ja-ko-ru-migration.sql and hi es fr ar need
+   supabase-blog-hi-es-fr-ar-migration.sql, de needs supabase-blog-de-migration.sql, otherwise the table refuses them), with a category, a cover picture, pictures inside the text and links. The language buttons and the filter are ALL_LANGS driven (ten, native names).
    The articles of ja ko ru hi es fr ar that ship as committed files (blog-src/, shown in the app from blog-data/) are not rows of the table until that migration seeds them, so they do not appear in this list before it.
    The screen's own words stay Thai / English / Chinese (admin screens are not translated); the fields an Arabic article is typed into are right-to-left (dir), the rest of the screen is not.
    Rendered only for admin_tier >= 3 (App.tsx); the table's and the image bucket's RLS (public.is_top_admin()) refuse anyone else even if this screen were reached.
@@ -117,8 +117,8 @@ export function AdminBlog({ lang }: { lang: string }) {
         error = again.error;
         altSkipped = !error;
       }
-      // the file that widens blog_posts_lang_check for the language being saved: ja / ko / ru, or (2026-11-13) hi / es / fr / ar
-      const mig = ["hi", "es", "fr", "ar"].includes(f.lang) ? "supabase-blog-hi-es-fr-ar-migration.sql" : "supabase-blog-ja-ko-ru-migration.sql";
+      // the file that widens blog_posts_lang_check for the language being saved: ja / ko / ru, or (2026-11-13) hi / es / fr / ar, or (2026-11-20) de
+      const mig = f.lang === "de" ? "supabase-blog-de-migration.sql" : ["hi", "es", "fr", "ar"].includes(f.lang) ? "supabase-blog-hi-es-fr-ar-migration.sql" : "supabase-blog-ja-ko-ru-migration.sql";
       if (error) { say(/blog_posts_lang_check/i.test(error.message) ? T(`ฐานข้อมูลยังไม่รองรับภาษานี้ — รัน ${mig} ก่อน`, `The database does not accept this language yet — run ${mig} first`, `数据库尚未支持该语言 — 请先运行 ${mig}`) : /duplicate|unique/i.test(error.message) ? T("มีบทความภาษานี้ที่ใช้ลิงก์สั้นนี้แล้ว ลองเปลี่ยนลิงก์สั้น", "An article in this language already uses this slug — change the slug", "该语言下已有相同链接名的文章，请更换") : error.message); return; }
       const done = publish ? T("เผยแพร่แล้ว ✓", "Published ✓", "已发布 ✓") : T("บันทึกแล้ว ✓", "Saved ✓", "已保存 ✓");
       const note = altSkipped ? " " + T("(คำอธิบายรูปปกยังไม่ถูกบันทึก — คอลัมน์ cover_alt ยังไม่มี)", "(cover description was not saved — the cover_alt column is not there yet)", "（封面说明尚未保存——还没有 cover_alt 列）") : "";

@@ -1,9 +1,10 @@
 // Path rules for a public blog URL. Pure: no network, no files, no article text.
 // The stable address the static build already publishes is /blog/<lang>/<slug>.html.
 // A one-segment /blog/<slug> is the short address some links use; the slug is kept whole (a trailing -zh is only a language hint).
-export const BLOG_LANGS = ["th", "en", "zh", "ja", "ko", "ru", "hi", "es", "fr", "ar"];
+export const BLOG_LANGS = ["th", "en", "zh", "ja", "ko", "ru", "hi", "es", "fr", "ar", "de"];
 const LANGS = new Set(BLOG_LANGS);
 // ja / ko / ru (2026-11-11) and hi / es / fr / ar (2026-11-13) ship as committed source files (blog-src/) and get a REAL index.html, page/N/index.html and feed.xml from the build, so they never depend on the database being filled in.
+// German (2026-11-20) has NO committed articles (not in STATIC_BLOG_LANGS): its articles are live_only database rows served by /api/blog-page, and its sitemap and index come from the functions.
 // Arabic is right-to-left: its pages carry dir="rtl" (the 404 page below and every page build-blog-pages.mjs writes).
 export const STATIC_BLOG_LANGS = ["ja", "ko", "ru", "hi", "es", "fr", "ar"];
 const LANG_ALT = BLOG_LANGS.join("|");
@@ -60,7 +61,7 @@ export function pickPost(rows, lang, hint) {
 }
 
 // A path with no language keeps the original Chinese page (callers and tests compare it byte for byte).
-// A ja / ko / ru / hi / es / fr / ar (or th / en) path must not claim zh-Hans: the tag, title and first line are that language.
+// A ja / ko / ru / hi / es / fr / ar / de (or th / en) path must not claim zh-Hans: the tag, title and first line are that language.
 // Arabic is right-to-left: its page says dir="rtl" (and the one fixed English line below is its own bidi island, so its full stop stays at the end of the sentence).
 const NOT_FOUND = {
   zh: { html: "zh-Hans", title: "找不到这篇文章", line: "这篇公开文章不存在，或还没有发布。" },
@@ -73,8 +74,9 @@ const NOT_FOUND = {
   es: { html: "es", title: "No se encontró este artículo", line: "Este artículo no existe o todavía no está publicado." },
   fr: { html: "fr", title: "Cet article est introuvable", line: "Cet article n'existe pas ou n'est pas encore publié." },
   ar: { html: "ar", dir: "rtl", title: "لم يتم العثور على هذا المقال", line: "هذا المقال غير موجود أو لم يُنشر بعد." },
+  de: { html: "de", title: "Dieser Artikel wurde nicht gefunden", line: "Diesen Artikel gibt es nicht oder er ist noch nicht veröffentlicht." },
 };
-const NOT_FOUND_LINKS = `<a href="https://www.tigaalpha.com/blog/zh/">中文博客</a> · <a href="https://www.tigaalpha.com/blog/en/">English</a> · <a href="https://www.tigaalpha.com/blog/th/">ไทย</a> · <a href="https://www.tigaalpha.com/blog/ja/">日本語</a> · <a href="https://www.tigaalpha.com/blog/ko/">한국어</a> · <a href="https://www.tigaalpha.com/blog/ru/">Русский</a> · <a href="https://www.tigaalpha.com/blog/hi/">हिन्दी</a> · <a href="https://www.tigaalpha.com/blog/es/">Español</a> · <a href="https://www.tigaalpha.com/blog/fr/">Français</a> · <a href="https://www.tigaalpha.com/blog/ar/">العربية</a>`;
+const NOT_FOUND_LINKS = `<a href="https://www.tigaalpha.com/blog/zh/">中文博客</a> · <a href="https://www.tigaalpha.com/blog/en/">English</a> · <a href="https://www.tigaalpha.com/blog/th/">ไทย</a> · <a href="https://www.tigaalpha.com/blog/ja/">日本語</a> · <a href="https://www.tigaalpha.com/blog/ko/">한국어</a> · <a href="https://www.tigaalpha.com/blog/ru/">Русский</a> · <a href="https://www.tigaalpha.com/blog/hi/">हिन्दी</a> · <a href="https://www.tigaalpha.com/blog/es/">Español</a> · <a href="https://www.tigaalpha.com/blog/fr/">Français</a> · <a href="https://www.tigaalpha.com/blog/ar/">العربية</a> · <a href="https://www.tigaalpha.com/blog/de/">Deutsch</a>`;
 export function notFoundHtml(lang) {
   const L = NOT_FOUND[lang] || NOT_FOUND.zh;
   return `<!doctype html>
@@ -92,7 +94,7 @@ export function notFoundHtml(lang) {
 `;
 }
 
-/* The blog sitemap is TEN files, one per language: /sitemap-blog-<lang>.xml for th en zh ja ko ru hi es fr ar (reviews of 2026-11-17).
+/* The blog sitemap is one file per language: /sitemap-blog-<lang>.xml for th en zh ja ko ru hi es fr ar de (reviews of 2026-11-17).
    The protocol allows 50,000 urls and 50 MB in a file, but these files are built in memory and sent in ONE piece by a Vercel Function, and a Function may not answer more than about 4.5 MB (a larger body is refused with
    FUNCTION_RESPONSE_PAYLOAD_TOO_LARGE, a 500 for the crawler; found in review, not measurable from the sandbox: confirm on a preview deployment). With ~11,000 translated articles on top of ~3,000 the single sitemap-blog.xml
    would have been 6 to 9 MB, and because robots.txt and the root sitemap.xml both named it, the sitemap of the WHOLE blog (the old pages too) would have stopped being served.
@@ -135,7 +137,7 @@ export function sitemapLangBuild(posts, site, lang, limits) {
   };
 }
 
-// The blog entries of the ROOT sitemap.xml (a sitemap index): the ten per-language files, listed directly. build-song-pages.mjs writes them at build time; the set is fixed, so it never has to know how many rows exist.
+// The blog entries of the ROOT sitemap.xml (a sitemap index): the per-language files, listed directly. build-song-pages.mjs writes them at build time; the set is fixed, so it never has to know how many rows exist.
 export function blogSitemapIndexEntries(site, lastmod) {
   return BLOG_LANGS.map(lang => `<sitemap><loc>${site}/sitemap-blog-${lang}.xml</loc><lastmod>${lastmod}</lastmod></sitemap>`);
 }

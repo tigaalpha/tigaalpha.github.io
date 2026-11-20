@@ -362,7 +362,7 @@ export const LEVELS = [
    players); 11+ continue on a gently accelerating curve. Level 99 = Legend X,
    the true end of the road — prestige stars only start past THAT point now. */
 const ROMAN = ["", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X"];
-/* The extra languages (ja ko ru hi es fr ar) read tier[lang] first (by() / tr()) and only then the catalog's translation of tier.en; "Novice II" is not a
+/* The extra languages (ja ko ru hi es fr ar de) read tier[lang] first (by() / tr()) and only then the catalog's translation of tier.en; "Novice II" is not a
    catalog key (the base name is, the roman numeral is not text), so every rung that carries a numeral answers for those languages with the translated
    base name + the same numeral. The getter runs when the name is READ, after the catalog chunk has loaded. Non-enumerable: copies, JSON and
    Object.keys see exactly the { min, icon, c, th, en, zh } object they always saw. */
@@ -6638,6 +6638,7 @@ const HEAT_DOW = {
   hi: ["", "सो", "", "बु", "", "शु", ""],
   es: ["", "L", "", "X", "", "V", ""],
   fr: ["", "L", "", "M", "", "V", ""],
+  de: ["", "M", "", "M", "", "F", ""],
   ar: ["", "إث", "", "أر", "", "جم", ""],
 };
 const HeatmapActivity = memo(function HeatmapActivity({ lang }) {
@@ -11162,7 +11163,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
      choice persists — profiles.lang for an account, the local guest profile
      otherwise — so this only decides what someone sees before they choose. */
   const [lang, setLangState] = useState(() => { const l0 = profile.lang || "th"; applyDigitRule(l0); return l0; });   // applyDigitRule: Arabic prints Western digits from the very first render (lang-extra.ts)
-  useCatalog(lang);   // ja / ko / ru / hi / es / fr / ar: loads the catalog of the chosen language and re-renders this tree when it arrives
+  useCatalog(lang);   // ja / ko / ru / hi / es / fr / ar / de: loads the catalog of the chosen language and re-renders this tree when it arrives
   /* The document says which language it is in. Screen readers pick their
      voice from it, the browser picks Thai- or CJK-appropriate fallback fonts
      from it, and the game rooms use it (:lang) to keep letter-spacing off
@@ -11182,7 +11183,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   const [langPickerOpen, setLangPickerOpen] = useState(LANG_PICKER_ENABLED && !profile.lang);
   useEffect(() => { try { localStorage.setItem("tg_lang_hint", lang); } catch (e) {} }, [lang]);
   function setLang(lg) {
-    // a ja / ko / ru / hi / es / fr / ar catalog is a lazy chunk: the language switches once it is here, so nothing is drawn from English first
+    // a ja / ko / ru / hi / es / fr / ar / de catalog is a lazy chunk: the language switches once it is here, so nothing is drawn from English first
     const apply = () => {
       applyDigitRule(lg);   // before the render that shows the new language: its first frame already prints Western digits for Arabic
       setLangState(lg);

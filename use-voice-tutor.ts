@@ -458,7 +458,7 @@ export function useVoiceTutor({ lang, session, profile, homework, setHomework, s
     const lg = langRef.current;
     const list = by(VM_HESIT, lg) || VM_HESIT.en;
     if (lg === "en") { const last = s.split(/\s+/).pop(); return list.includes(last); }
-    // ru / hi / es / fr / ar put spaces between words, so a trailing hesitation is a whole word (or phrase) at the end, never just the same last letters: endsWith("a") called every Spanish
+    // ru / hi / es / fr / ar / de put spaces between words, so a trailing hesitation is a whole word (or phrase) at the end, never just the same last letters: endsWith("a") called every Spanish
     // sentence that ends in "la escala" a trailing "a" and made the tutor wait 850 ms longer. th / zh / ja / ko have no word gaps (or glue particles on), so their tail is compared as before.
     if (lg !== "th" && lg !== "zh" && lg !== "ja" && lg !== "ko") return list.some(w => { const v = String(w).toLowerCase(); return s === v || s.endsWith(" " + v); });
     return list.some(w => s.endsWith(w));
