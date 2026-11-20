@@ -79,11 +79,11 @@ TIGA ALPHA es una app de enseñanza de piano con IA creada por un equipo en Tail
 The French block uses no-break spaces (U+00A0) after `20` and `7` and before each colon. Keep them as they are.
 
 ```text
-TIGA ALPHA est une application d’enseignement du piano par IA, conçue par une équipe basée en Thaïlande. L’application est disponible en 10 langues : thaï, anglais, chinois, arabe, japonais, russe, espagnol, français, hindi et coréen. Teacher Aum, CEO de TIGA ALPHA, compte 20 ans d’expérience dans l’enseignement du piano, et ce bagage pédagogique façonne chaque leçon. Quand vous jouez, l’application vous écoute et vous indique quelles notes ou quels temps travailler ensuite, pour un retour précis plutôt que générique. Utilisez-la comme une application de leçons de piano en ligne pour de courtes séances quotidiennes, suivez-la comme un cours de piano en ligne complet, ou associez-la à des leçons avec un professeur. Que vous partiez de zéro, que vous repreniez après une longue pause, que vous appreniez la musique aux côtés de vos enfants ou que vous jouiez simplement pour le plaisir, votre prochaine étape reste claire. Les nouveaux utilisateurs bénéficient d’un essai Premium gratuit de 7 jours, puis US$24.99 par mois.
+TIGA ALPHA est une application d’enseignement du piano par IA, conçue par une équipe basée en Thaïlande. L’application est disponible en 10 langues : thaï, anglais, chinois, arabe, japonais, russe, espagnol, français, hindi et coréen. Teacher Aum, CEO de TIGA ALPHA, compte 20 ans d’expérience dans l’enseignement du piano, et ce bagage pédagogique façonne chaque leçon. Quand vous jouez, l’application vous écoute et vous indique quelles notes ou quels temps travailler ensuite, pour un retour précis plutôt que générique. Utilisez-la comme une application de leçons de piano en ligne pour de courtes séances quotidiennes, suivez-la comme un cours de piano en ligne complet, ou associez-la à des leçons avec un professeur. Que vous partiez de zéro, que vous repreniez après une longue pause, que vous appreniez la musique aux côtés de vos enfants ou que vous jouiez simplement pour le plaisir, votre prochaine étape reste claire. Les nouveaux utilisateurs bénéficient d’un essai Premium gratuit de 7 jours, puis US$24.99 par mois.
 
-- Télécharger et commencer : [TIGA ALPHA](https://www.tigaalpha.com/landing-fr/)
-- Cours en présentiel en Thaïlande : [TIGA Studio](https://www.tigastudio.net/)
-- À propos de l’entreprise : [tigaalpha.com](https://www.tigaalpha.com)
+- Télécharger et commencer : [TIGA ALPHA](https://www.tigaalpha.com/landing-fr/)
+- Cours en présentiel en Thaïlande : [TIGA Studio](https://www.tigastudio.net/)
+- À propos de l’entreprise : [tigaalpha.com](https://www.tigaalpha.com)
 ```
 
 ## German (de)
