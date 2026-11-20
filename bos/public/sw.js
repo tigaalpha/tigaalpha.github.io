@@ -2,7 +2,7 @@
 // installability plus a usable offline fallback for pages already visited.
 // Registered scoped to /studio/, so it never touches the unrelated site at
 // the repo root.
-const CACHE_NAME = "tiga-bos-shell-v7";
+const CACHE_NAME = "tiga-bos-shell-v8";
 
 self.addEventListener("install", (event) => {
   const scope = self.registration.scope;
@@ -28,7 +28,7 @@ self.addEventListener("fetch", (event) => {
   if (event.request.method !== "GET") return;
 
   event.respondWith(
-    fetch(event.request)
+    fetch(event.request, { cache: "no-cache" })
       .then((response) => {
         const copy = response.clone();
         caches
