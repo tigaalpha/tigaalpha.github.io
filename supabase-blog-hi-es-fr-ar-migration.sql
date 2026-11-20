@@ -23,7 +23,7 @@
 --       generator, only the list changed). Grants and security settings are the originals: security definer, search_path '', execute for anon and authenticated only.
 --       public.blog_stats() and public.blog_purge() carry no language list and are not touched.
 --   A.4 Queues one fetch (pg_net) of supabase-blog-hi-es-fr-ar-migration-rows.json from github.com/tigaalpha/tigaalpha.github.io at the pinned commit.
---   B   Inserts the 48 source articles (hi 12, es 12, fr 12, ar 12) as PUBLISHED rows, but only from a fetched body whose md5 is 216149c924c0b0682935ca51680237be (416856 bytes) and that holds exactly 48 rows. "on conflict (lang, slug) do nothing": a row that
+--   B   Inserts the 48 source articles (hi 12, es 12, fr 12, ar 12) as PUBLISHED rows, but only from a fetched body whose md5 is ab4a963b382f1e329b96892d3aee803f (421885 bytes) and that holds exactly 48 rows. "on conflict (lang, slug) do nothing": a row that
 --       already exists, e.g. one the admin wrote or edited in the app, is never overwritten, and running PART B again changes nothing (only an article deleted in the meantime is inserted again).
 --
 -- Not needed for the static pages: /blog/hi|es|fr|ar/ are built from blog-src/ and work without this file. It is needed for (a) the in-app blog list and the admin screen to show and edit these articles,
@@ -137,9 +137,9 @@ $queue$;
 -- ====================================================================================================================================================================================
 do $seed$
 declare
-  want_md5  constant text := '216149c924c0b0682935ca51680237be';   -- md5 of supabase-blog-hi-es-fr-ar-migration-rows.json: 416856 bytes, 48 rows (hi 12, es 12, fr 12, ar 12)
+  want_md5  constant text := 'ab4a963b382f1e329b96892d3aee803f';   -- md5 of supabase-blog-hi-es-fr-ar-migration-rows.json: 421885 bytes, 48 rows (hi 12, es 12, fr 12, ar 12)
   want_rows constant int  := 48;
-  want_len  constant int  := 416856;
+  want_len  constant int  := 421885;
   got       text;
   arr       jsonb;
   seen      text;
@@ -178,7 +178,7 @@ select p.lang, count(*) as articles, count(*) filter (where p.published) as publ
 --   select p.proname, p.prosecdef, p.proconfig, p.proacl, position('''ar''' in pg_get_functiondef(p.oid)) > 0 as knows_ar from pg_proc p where p.pronamespace = 'public'::regnamespace and p.proname in ('blog_hit','blog_view_counts') order by 1;   -- true, {search_path=""}, anon and authenticated
 --   select relname, relrowsecurity from pg_class where relname in ('blog_posts_backup_hi_es_fr_ar','blog_posts_backup_20261113');                                                                                                                          -- true for both (if the second exists)
 --   -- the seeded rows read back and compared with the file in one number (title, excerpt and body of every row, byte for byte): true and 48 right after PART B; an article the admin edits later makes it false, on purpose
---   select md5(string_agg(p.lang || chr(1) || p.slug || chr(1) || p.title || chr(1) || p.excerpt || chr(1) || p.body, chr(2) order by p.lang collate "C", p.slug collate "C")) = '73691a7cebb0aadf4e914cd9700e7975' as rows_are_the_files_rows, count(*) as articles from public.blog_posts p where p.lang in ('hi','es','fr','ar');
+--   select md5(string_agg(p.lang || chr(1) || p.slug || chr(1) || p.title || chr(1) || p.excerpt || chr(1) || p.body, chr(2) order by p.lang collate "C", p.slug collate "C")) = '9e26b648939fc50e18a2fa35f96b8821' as rows_are_the_files_rows, count(*) as articles from public.blog_posts p where p.lang in ('hi','es','fr','ar');
 --   -- the counter, tried in a transaction that is rolled back (the exception undoes it): the first view is 1 for a new article and the same device again is the same number, an unknown article and an unknown language are -1
 --   do $t$ declare s text; a bigint; b bigint; c bigint; d bigint; begin
 --     select slug into s from public.blog_posts where lang = 'hi' and published order by slug limit 1;

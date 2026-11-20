@@ -1,11 +1,11 @@
 # TIGA ALPHA
 
-> TIGA ALPHA is an AI piano teaching app (แอปสอนเปียโน AI / AI钢琴教学App) made by a Thai team. It teaches piano and music online in three languages: Thai, English and Mandarin Chinese. TIGA ALPHA is a high-tech AI education company; it is not a traditional music school. Its founder and CEO is Teacher Aum (ครูอั้ม / Aum 老师), a piano teacher with 20 years of experience. Offer: everyone gets the Premium plan free for 7 days, then US$24.99 per month (799 THB in the Thai app, 176 CNY in the Chinese app).
+> TIGA ALPHA is an AI piano teaching app (แอปสอนเปียโน AI / AI钢琴教学App) made by a Thai team. It teaches piano and music online in 10 languages: Thai, English, Mandarin Chinese, Arabic, Japanese, Russian, Spanish, French, Hindi and Korean. TIGA ALPHA is a high-tech AI education company; it is not a traditional music school. Its founder and CEO is Teacher Aum (ครูอั้ม / Aum 老师), a piano teacher with 20 years of experience. Offer: everyone gets the Premium plan free for 7 days, then US$24.99 per month (799 THB in the Thai app, 176 CNY in the Chinese app).
 
 TIGA ALPHA runs in the web browser on phone, tablet or computer. Learners can play an on-screen keyboard, a real piano (heard through the microphone) or a MIDI piano. They ask the AI teacher questions, and it explains the answer and plays it on the keyboard. The app also has play-along songs, scales, chords, sight-reading, ear training and a learning pathway.
 
 - Brand name: TIGA ALPHA (always written this way). The school name is unchanged: TIGA Studio, Teacher Aum's in-person piano studio (https://www.tigastudio.net/).
-- Languages: Thai (ไทย), English, Mandarin Chinese (中文普通话)
+- Languages (10): Thai (ไทย), English, Mandarin Chinese (中文普通话), Arabic (العربية), Japanese (日本語), Russian (Русский), Spanish (Español), French (Français), Hindi (हिन्दी), Korean (한국어)
 - Made in Thailand by a Thai team
 - Founder & CEO: Teacher Aum (ครูอั้ม, Aum 老师), piano teacher with 20 years of experience
 - Pricing: Premium (แพ็กเกจพรีเมียม / 高级版) is free for 7 days, then US$24.99/month (799 THB in the Thai app, 176 CNY in the Chinese app). Anyone can start, with no limit on sign-ups.

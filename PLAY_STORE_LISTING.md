@@ -14,7 +14,7 @@ That flag also turns on the Play build rules: self-update off, **no pricing, che
 - **App name (≤30):** TIGA ALPHA — Learn Piano
 - **Short description (≤80):** Learn piano with real songs, an AI teacher, ear training and games.
 - **Full description (≤4000):**
-TIGA ALPHA teaches you piano step by step, in Thai, English or Chinese.
+TIGA ALPHA teaches you piano step by step, in 10 languages: Thai, English, Chinese, Arabic, Japanese, Russian, Spanish, French, Hindi and Korean.
 • Learning Pathway: scales, intervals, chords and sight-reading, one clear step at a time.
 • Play Along: falling-note songs with a live backing band, from folk and classical to jazz — thousands of pieces.
 • AI Teacher and Daily Mentor: ask a question, get a short answer you can play on the keyboard, and a daily plan built from your own practice.
@@ -27,7 +27,7 @@ Free to start, with a 7-day trial of every feature. Needs an internet connection
 - **ชื่อ:** TIGA ALPHA — เรียนเปียโน
 - **คำอธิบายสั้น:** เรียนเปียโนด้วยเพลงจริง ครู AI ฝึกหู และเกมสนุก
 - **คำอธิบายเต็ม:**
-TIGA ALPHA สอนเปียโนทีละขั้น ใช้ได้ทั้งภาษาไทย อังกฤษ และจีน
+TIGA ALPHA สอนเปียโนทีละขั้น ใช้ได้ 10 ภาษา ไทย อังกฤษ จีนกลาง อาหรับ ญี่ปุ่น รัสเซีย สเปน ฝรั่งเศส ฮินดี และเกาหลี
 • เส้นทางการเรียนรู้: สเกล ช่วงเสียง คอร์ด และการอ่านโน้ต ทีละก้าวที่ชัดเจน
 • Play Along: เล่นตามโน้ตที่ไหลลงมา พร้อมวงดนตรีประกอบ ตั้งแต่เพลงพื้นบ้าน คลาสสิก ไปจนถึงแจ๊ส หลายพันเพลง
 • ครู AI และ Daily Mentor: ถามคำถามแล้วได้คำตอบสั้นๆ ที่กดฟังบนคีย์บอร์ดได้ พร้อมแผนฝึกประจำวันจากการฝึกจริงของคุณ
@@ -39,7 +39,7 @@ TIGA ALPHA สอนเปียโนทีละขั้น ใช้ได�
 ### 中文（简体）
 - **名称：** TIGA ALPHA — 学钢琴
 - **简短说明：** 用真实歌曲、AI 老师、练耳和游戏学钢琴。
-- **完整说明：** TIGA ALPHA 一步一步教你弹钢琴，支持泰语、英语和中文。学习路径（音阶、音程、和弦、视奏）、跟弹歌曲（多种风格、数千首）、AI 老师与每日导师、练习模式（用真钢琴或屏幕键盘，应用会听并指出需要改正的音）、练耳与视频课程，以及通过学习来充能的游戏。免费开始，含 7 天全功能试用，需要联网。
+- **完整说明：** TIGA ALPHA 一步一步教你弹钢琴，支持10种语言：泰语、英语、中文、阿拉伯语、日语、俄语、西班牙语、法语、印地语和韩语。学习路径（音阶、音程、和弦、视奏）、跟弹歌曲（多种风格、数千首）、AI 老师与每日导师、练习模式（用真钢琴或屏幕键盘，应用会听并指出需要改正的音）、练耳与视频课程，以及通过学习来充能的游戏。免费开始，含 7 天全功能试用，需要联网。
 
 ### What's new (release notes, ≤500)
 First release on Google Play: Learning Pathway, Play Along, AI Teacher, practice mode, ear training and games.

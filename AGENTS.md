@@ -65,8 +65,8 @@ then push.
 
 ## What this is
 
-TIGA.AI — a live, revenue-generating piano-learning web app (Thai/English/
-Chinese), deployed via GitHub Pages from `main`. React 18 + Vite 5, built as
+TIGA.AI — a live, revenue-generating piano-learning web app (ten languages:
+Thai, English, Chinese, Arabic, Japanese, Russian, Spanish, French, Hindi and Korean), deployed via GitHub Pages from `main`. React 18 + Vite 5, built as
 a single-file SPA (`vite-plugin-singlefile`). Also wrapped with Capacitor
 for a native Android app (debug APK auto-built by
 `.github/workflows/android-debug-build.yml` on every dev-branch push,
@@ -124,6 +124,7 @@ These came from owner decisions and from outages. They apply to every change.
 - **Test the default path.** A test switch (`tg_adv_unlockall`, `tg_test_hook`, ...) that changes which branch runs hides exactly the bugs real players hit (a TDZ crash shipped that way twice). Declare a name before any dependency array or `const` that reads it.
 - **Cloud sync registry**: every `tg_` / `tiga_` localStorage key needs a decision in `cloud-sync.ts`; `npm run verify:cloudsync` fails on a key without one.
 - **Languages**: user-visible strings use the idioms (`T(th, en, zh)`, `pickT`, `xl`, `by(map, lang)`), never `map[lang]` (undefined for the extra languages); extra languages come from `i18n-src/catalog.json` through `scripts/build-i18n-catalogs.mjs`. Arabic is right-to-left: pianos, staffs, game screens and canvases stay `direction:ltr`.
+- **Language lists on public pages** (owner, 2026-11-19): ten languages, order th en zh then by usage (ar ja ru es fr hi ko); titles carry only the number ("10 languages"), descriptions the number + six names + "and 4 more", paragraphs all ten names.
 - **Things the owner said no to**: no play-time / rest reminders, no Skip button on music questions, no "first 10,000 only" scarcity line, no ads until the owner says so, the music college's name never appears in the app, game creatures and vehicles are own drawings (never a studio's name or design), coins and gems are never sold.
 - **Honesty**: say what was NOT seen on a phone and what only a bot or a simulation checked; do not report SQL or edge-function deploys as done before the owner approves them.
 - **Cost of agent work**: a default workflow subagent loads this whole file; for translation, review and read-mostly jobs use `agentType: 'Explore'` (it skips AGENTS.md, ~4x cheaper; it has Bash but no Write/Edit tool, so it writes files with `python3` / `printf` through Bash).

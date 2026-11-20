@@ -3,4 +3,4 @@ TIGA ALPHA
 Site: https://www.tigaalpha.com/
 Studio: https://www.tigastudio.net/
 Contact: the site
-Language: Thai, English, Chinese
+Language: Thai, English, Chinese, Arabic, Japanese, Russian, Spanish, French, Hindi, Korean

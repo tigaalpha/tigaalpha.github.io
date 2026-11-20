@@ -38,19 +38,23 @@
         "th",
         "en",
         "zh",
+        "ar",
         "ja",
-        "ko",
-        "ru"
+        "ru",
+        "es",
+        "fr",
+        "hi",
+        "ko"
       ],
       "countryOfOrigin": {
         "@type": "Country",
         "name": "Thailand"
       },
-      "description": "TIGA ALPHA는 태국에서 만든 AI 피아노 학습 앱이에요. 태국어, 영어, 중국어, 일본어, 한국어, 러시아어로 AI 선생님과 온라인에서 피아노를 배울 수 있어요. 창립자 Aum 선생님은 20년 경력의 피아노 강사예요.",
+      "description": "TIGA ALPHA는 태국에서 만든 AI 피아노 학습 앱이에요. 10개 언어(태국어, 영어, 중국어, 아랍어, 일본어, 러시아어 등)로 AI 선생님과 온라인에서 피아노를 배울 수 있어요. 창립자 Aum 선생님은 20년 경력의 피아노 강사예요.",
       "keywords": "피아노 레슨, 피아노 배우기, 피아노 강좌, 피아노 연주, 음악 레슨, 피아노 코스, 온라인 피아노 레슨, 음악 배우기, 피아노 학습 앱, AI 피아노 레슨, 피아노 교육 앱, 온라인 피아노 레슨 앱, AI 피아노 앱, AI 온라인 피아노 강좌",
       "featureList": [
         "AI piano teacher that explains and plays the answer on the keyboard",
-        "Teaches in Thai, English, Mandarin Chinese, Japanese, Korean and Russian",
+        "Teaches in 10 languages: Thai, English, Mandarin Chinese, Arabic, Japanese, Russian, Spanish, French, Hindi and Korean",
         "Play-along songs, scales, chords and a learning pathway",
         "Sight-reading and ear training",
         "Works with on-screen keys, a real piano via microphone, or a MIDI piano"
@@ -112,7 +116,7 @@
         "url": "https://www.tigaalpha.com/og-card.png"
       },
       "image": "https://www.tigaalpha.com/og-card.png",
-      "description": "TIGA ALPHA is a Thai high-tech AI education company that makes an AI piano teaching app teaching in Thai, English, Mandarin, Japanese, Korean and Russian.",
+      "description": "TIGA ALPHA is a Thai high-tech AI education company that makes an AI piano teaching app teaching in 10 languages: Thai, English, Mandarin, Arabic, Japanese, Russian and 4 more.",
       "foundingLocation": {
         "@type": "Place",
         "name": "Thailand"
@@ -122,9 +126,13 @@
         "th",
         "en",
         "zh",
+        "ar",
         "ja",
-        "ko",
-        "ru"
+        "ru",
+        "es",
+        "fr",
+        "hi",
+        "ko"
       ],
       "founder": {
         "@id": "https://www.tigaalpha.com/#teacher-aum"
@@ -159,10 +167,7 @@
       "knowsLanguage": [
         "th",
         "en",
-        "zh",
-        "ja",
-        "ko",
-        "ru"
+        "zh"
       ],
       "nationality": {
         "@type": "Country",
@@ -202,9 +207,13 @@
         "th",
         "en",
         "zh",
+        "ar",
         "ja",
-        "ko",
-        "ru"
+        "ru",
+        "es",
+        "fr",
+        "hi",
+        "ko"
       ],
       "publisher": {
         "@id": "https://www.tigaalpha.com/#org"
