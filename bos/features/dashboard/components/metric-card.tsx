@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { type LucideIcon } from "lucide-react";
+import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
 
 export type MetricTone = "purple" | "blue" | "green" | "orange";
@@ -14,6 +15,8 @@ interface MetricCardProps {
   /** Green when true, red/orange when false. */
   subtextPositive?: boolean;
   href?: string;
+  /** Small control shown beside the icon (e.g. a hide-figures eye). */
+  action?: ReactNode;
 }
 
 const TONE_STYLE: Record<MetricTone, { icon: string; stroke: string; points: string }> = {
@@ -39,7 +42,7 @@ const TONE_STYLE: Record<MetricTone, { icon: string; stroke: string; points: str
   },
 };
 
-export function MetricCard({ label, value, icon: Icon, tone = "purple", subtext, subtextPositive = true, href }: MetricCardProps) {
+export function MetricCard({ label, value, icon: Icon, tone = "purple", subtext, subtextPositive = true, href, action }: MetricCardProps) {
   const style = TONE_STYLE[tone];
 
   const content = (
@@ -52,8 +55,11 @@ export function MetricCard({ label, value, icon: Icon, tone = "purple", subtext,
             <p className={cn("mt-1 text-xs font-medium", subtextPositive ? "text-emerald-600 dark:text-emerald-400" : "text-orange-600 dark:text-orange-400")}>{subtext}</p>
           ) : null}
         </div>
-        <div className={cn("flex h-10 w-10 shrink-0 items-center justify-center rounded-full", style.icon)}>
-          <Icon className="h-5 w-5" />
+        <div className="flex shrink-0 items-center gap-2">
+          {action}
+          <div className={cn("flex h-10 w-10 shrink-0 items-center justify-center rounded-full", style.icon)}>
+            <Icon className="h-5 w-5" />
+          </div>
         </div>
       </div>
       <svg viewBox="0 0 120 36" className="mt-3 h-9 w-full" aria-hidden>

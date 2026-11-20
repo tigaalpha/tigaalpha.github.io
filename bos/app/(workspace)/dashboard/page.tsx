@@ -225,10 +225,7 @@ export default function DashboardPage() {
           <h1 className="text-2xl font-bold tracking-tight text-secondary dark:text-white">{t("dash.greeting")}</h1>
           <p className="mt-1 text-sm text-secondary/45">{t("dash.sub")}</p>
         </div>
-        <div className="flex items-center gap-3">
-          <CommandSearch />
-          <EyeToggle />
-        </div>
+        <CommandSearch />
       </div>
 
       {/* Phone-only priority strip — the owner's four most-checked cards in
@@ -236,7 +233,7 @@ export default function DashboardPage() {
           iPad never render this block; they keep the original layout below. */}
       {isMobile && (
         <div className="flex flex-col gap-6">
-          <MetricCard label={t("dash.revenue")} value={hideFigures ? MASK : formatCurrency(revenue)} icon={Wallet} tone="green" subtext={t("dash.fromAccounting")} href="/accounting" />
+          <MetricCard label={t("dash.revenue")} value={hideFigures ? MASK : formatCurrency(revenue)} icon={Wallet} tone="green" action={<EyeToggle small />} subtext={t("dash.fromAccounting")} href="/accounting" />
           <RevenueOverviewCard />
           <FinanceCharts />
         </div>
@@ -245,7 +242,7 @@ export default function DashboardPage() {
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <MetricCard label={t("dash.totalStudents")} value={totalStudents} icon={Users} tone="purple" subtext={t("dash.allTimeCrm")} href="/students" />
         <MetricCard label={t("dash.lessonsThisWeek")} value={lessonsThisWeek} icon={CalendarDays} tone="blue" subtext={tfmt(lang, "dash.todayCount", { n: today.length })} href="/calendar" />
-        {!isMobile && <MetricCard label={t("dash.revenue")} value={hideFigures ? MASK : formatCurrency(revenue)} icon={Wallet} tone="green" subtext={t("dash.fromAccounting")} href="/accounting" />}
+        {!isMobile && <MetricCard label={t("dash.revenue")} value={hideFigures ? MASK : formatCurrency(revenue)} icon={Wallet} tone="green" action={<EyeToggle small />} subtext={t("dash.fromAccounting")} href="/accounting" />}
         <MetricCard
           label={t("dash.pendingPayments")}
           value={pendingPayments}

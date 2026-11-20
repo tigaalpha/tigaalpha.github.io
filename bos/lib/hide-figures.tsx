@@ -37,22 +37,27 @@ export function useHideFigures(): [boolean, () => void] {
   return [hidden, toggle];
 }
 
-export function EyeToggle({ className }: { className?: string }) {
+export function EyeToggle({ className, small }: { className?: string; small?: boolean }) {
   const [hidden, toggle] = useHideFigures();
   const label = hidden ? "แสดงตัวเลข" : "ซ่อนตัวเลข";
   return (
     <button
       type="button"
-      onClick={toggle}
+      onClick={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        toggle();
+      }}
       aria-label={label}
       aria-pressed={hidden}
       title={label}
       className={cn(
-        "flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-line/10 bg-card text-secondary/60 transition-colors hover:bg-line/[0.05] hover:text-secondary dark:border-white/10 dark:hover:bg-white/[0.06]",
+        small ? "h-8 w-8" : "h-10 w-10",
+        "flex shrink-0 items-center justify-center rounded-full border border-line/10 bg-card text-secondary/60 transition-colors hover:bg-line/[0.05] hover:text-secondary dark:border-white/10 dark:hover:bg-white/[0.06]",
         className,
       )}
     >
-      {hidden ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+      {hidden ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
     </button>
   );
 }

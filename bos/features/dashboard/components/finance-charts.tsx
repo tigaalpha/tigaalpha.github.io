@@ -19,7 +19,7 @@ import { createClient } from "@/services/supabase/client";
 import { createRepositories } from "@/services/repositories";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { HiddenPanel, MASK, useHideFigures } from "@/lib/hide-figures";
+import { EyeToggle, HiddenPanel, MASK, useHideFigures } from "@/lib/hide-figures";
 import { aggregateByMonth, formatBaht, type MonthlyPoint } from "@/lib/finance";
 
 // Neon palette — revenue keeps purple, expense orange, profit green everywhere
@@ -90,10 +90,13 @@ export function FinanceCharts() {
             <CardTitle>รายได้ / ค่าใช้จ่าย / กำไร</CardTitle>
             <CardDescription>ตั้งแต่ต้นปีถึงปัจจุบัน จากรายการในหน้า Accounting</CardDescription>
           </div>
-          <Button variant="ghost" size="sm" onClick={() => setShowTable((v) => !v)}>
-            {showTable ? <BarChart3 className="h-4 w-4" /> : <Table2 className="h-4 w-4" />}
-            {showTable ? "ดูเป็นกราฟ" : "ดูเป็นตาราง"}
-          </Button>
+          <div className="flex items-center gap-1">
+            <Button variant="ghost" size="sm" onClick={() => setShowTable((v) => !v)}>
+              {showTable ? <BarChart3 className="h-4 w-4" /> : <Table2 className="h-4 w-4" />}
+              {showTable ? "ดูเป็นกราฟ" : "ดูเป็นตาราง"}
+            </Button>
+            <EyeToggle small />
+          </div>
         </CardHeader>
         <CardContent>
           {hideFigures ? (
@@ -144,7 +147,8 @@ export function FinanceCharts() {
       </Card>
 
       <Card className="order-first md:order-none">
-        <CardHeader>
+        <CardHeader className="flex-row items-start justify-between space-y-0">
+          <div>
           <CardTitle>สัดส่วนรายได้</CardTitle>
           <CardDescription>
             {hideFigures
@@ -153,6 +157,8 @@ export function FinanceCharts() {
               ? `รายได้ ${formatBaht(totals.revenue)} (100%) = ค่าใช้จ่าย ${expensePct.toFixed(1)}% + กำไร ${profitPct.toFixed(1)}%`
               : "กำลังโหลด…"}
           </CardDescription>
+          </div>
+          <EyeToggle small />
         </CardHeader>
         <CardContent>
           {hideFigures ? (

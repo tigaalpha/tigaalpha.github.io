@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { createClient } from "@/services/supabase/client";
 import { createRepositories } from "@/services/repositories";
 import { useT } from "@/lib/language-context";
-import { HiddenPanel, useHideFigures } from "@/lib/hide-figures";
+import { EyeToggle, HiddenPanel, useHideFigures } from "@/lib/hide-figures";
 import { aggregateByMonth, formatBaht, type MonthlyPoint } from "@/lib/finance";
 
 const GRID = "rgba(100, 116, 139, 0.14)";
@@ -40,7 +40,10 @@ export function RevenueOverviewCard() {
     <Card>
       <CardHeader className="flex-row items-center justify-between space-y-0">
         <CardTitle>{t("revenue.title")}</CardTitle>
-        <span className="rounded-full border border-line/10 bg-line/[0.03] px-2.5 py-1 text-xs text-secondary/45 dark:border-white/5 dark:bg-white/[0.03]">{t("revenue.thisYear")}</span>
+        <div className="flex items-center gap-2">
+          <span className="rounded-full border border-line/10 bg-line/[0.03] px-2.5 py-1 text-xs text-secondary/45 dark:border-white/5 dark:bg-white/[0.03]">{t("revenue.thisYear")}</span>
+          <EyeToggle small />
+        </div>
       </CardHeader>
       <CardContent>
         {hideFigures ? (
