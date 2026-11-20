@@ -47,7 +47,8 @@ function ChartTooltip({ active, payload, label }: { active?: boolean; payload?: 
 }
 
 export function FinanceCharts() {
-  const [hideFigures] = useHideFigures();
+  const [hideBars] = useHideFigures("finance-bars");
+  const [hideDonut] = useHideFigures("finance-donut");
   const [monthly, setMonthly] = useState<MonthlyPoint[] | null>(null);
   const [showTable, setShowTable] = useState(false);
 
@@ -95,11 +96,11 @@ export function FinanceCharts() {
               {showTable ? <BarChart3 className="h-4 w-4" /> : <Table2 className="h-4 w-4" />}
               {showTable ? "ดูเป็นกราฟ" : "ดูเป็นตาราง"}
             </Button>
-            <EyeToggle small />
+            <EyeToggle id="finance-bars" small />
           </div>
         </CardHeader>
         <CardContent>
-          {hideFigures ? (
+          {hideBars ? (
             <HiddenPanel height={240} />
           ) : !monthly || !totals ? (
             <div className="h-64 animate-pulse rounded-xl bg-line/[0.03] dark:bg-white/[0.03]" />
@@ -151,17 +152,17 @@ export function FinanceCharts() {
           <div>
           <CardTitle>สัดส่วนรายได้</CardTitle>
           <CardDescription>
-            {hideFigures
+            {hideDonut
               ? `รายได้ ${MASK} (100%) = ค่าใช้จ่าย ${MASK} + กำไร ${MASK}`
               : totals
               ? `รายได้ ${formatBaht(totals.revenue)} (100%) = ค่าใช้จ่าย ${expensePct.toFixed(1)}% + กำไร ${profitPct.toFixed(1)}%`
               : "กำลังโหลด…"}
           </CardDescription>
           </div>
-          <EyeToggle small />
+          <EyeToggle id="finance-donut" small />
         </CardHeader>
         <CardContent>
-          {hideFigures ? (
+          {hideDonut ? (
             <HiddenPanel height={288} />
           ) : !totals ? (
             <div className="h-72 animate-pulse rounded-xl bg-line/[0.03] dark:bg-white/[0.03]" />

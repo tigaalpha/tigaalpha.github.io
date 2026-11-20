@@ -4,7 +4,7 @@ import { useCallback, useSyncExternalStore } from "react";
 import { Eye, EyeOff } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-const KEY = "bos_hide_figures";
+const KEY = "bos_hide_figures:";
 const EVENT = "bos-hide-figures";
 export const MASK = "••••••";
 
@@ -17,28 +17,28 @@ function subscribe(cb: () => void) {
   };
 }
 
-function read(): boolean {
+function read(id: string): boolean {
   try {
-    return window.localStorage.getItem(KEY) === "1";
+    return window.localStorage.getItem(KEY + id) === "1";
   } catch {
     return false;
   }
 }
 
-/** One switch for every money figure and chart; remembered on this device. */
-export function useHideFigures(): [boolean, () => void] {
-  const hidden = useSyncExternalStore(subscribe, read, () => false);
+/** A hide switch per card (its own `id`), remembered on this device. */
+export function useHideFigures(id: string): [boolean, () => void] {
+  const hidden = useSyncExternalStore(subscribe, () => read(id), () => false);
   const toggle = useCallback(() => {
     try {
-      window.localStorage.setItem(KEY, read() ? "0" : "1");
+      window.localStorage.setItem(KEY + id, read(id) ? "0" : "1");
     } catch {}
     window.dispatchEvent(new Event(EVENT));
-  }, []);
+  }, [id]);
   return [hidden, toggle];
 }
 
-export function EyeToggle({ className, small }: { className?: string; small?: boolean }) {
-  const [hidden, toggle] = useHideFigures();
+export function EyeToggle({ id, className, small }: { id: string; className?: string; small?: boolean }) {
+  const [hidden, toggle] = useHideFigures(id);
   const label = hidden ? "แสดงตัวเลข" : "ซ่อนตัวเลข";
   return (
     <button

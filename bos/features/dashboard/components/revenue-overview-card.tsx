@@ -24,7 +24,7 @@ function RevenueTooltip({ active, payload, label }: { active?: boolean; payload?
 
 export function RevenueOverviewCard() {
   const t = useT();
-  const [hideFigures] = useHideFigures();
+  const [hideFigures] = useHideFigures("revenue-overview");
   const [monthly, setMonthly] = useState<MonthlyPoint[] | null>(null);
 
   useEffect(() => {
@@ -42,7 +42,7 @@ export function RevenueOverviewCard() {
         <CardTitle>{t("revenue.title")}</CardTitle>
         <div className="flex items-center gap-2">
           <span className="rounded-full border border-line/10 bg-line/[0.03] px-2.5 py-1 text-xs text-secondary/45 dark:border-white/5 dark:bg-white/[0.03]">{t("revenue.thisYear")}</span>
-          <EyeToggle small />
+          <EyeToggle id="revenue-overview" small />
         </div>
       </CardHeader>
       <CardContent>

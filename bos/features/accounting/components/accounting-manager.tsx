@@ -30,7 +30,7 @@ interface AccountingManagerProps {
 const DATE_FMT = "yyyy-MM-dd";
 
 export function AccountingManager({ transactions, startDate, endDate, onRangeChange, onChanged, initialCustomerId, initialCourseId }: AccountingManagerProps) {
-  const [hide] = useHideFigures();
+  const [hide] = useHideFigures("accounting");
   const [type, setType] = useState<TransactionType>("income");
   const [category, setCategory] = useState(INCOME_CATEGORIES[0]!);
   const [amount, setAmount] = useState("");
@@ -227,7 +227,7 @@ export function AccountingManager({ transactions, startDate, endDate, onRangeCha
   return (
     <div className="space-y-6">
       <div className="flex justify-end">
-        <EyeToggle />
+        <EyeToggle id="accounting" />
       </div>
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <SummaryCard
