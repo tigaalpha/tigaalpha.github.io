@@ -2,6 +2,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Users2, BarChart3 } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
+import { CornerEye, Money } from "@/lib/hide-figures";
 import type { SalesStatus } from "@/types/database";
 
 interface TeacherPerformanceRow {
@@ -33,7 +34,7 @@ export function ReportsView({
   const renewalRate = funnel.renew_pending + funnel.renewed > 0 ? Math.round((funnel.renewed / (funnel.renew_pending + funnel.renewed)) * 100) : 0;
 
   const metrics = [
-    { label: "Revenue", value: formatCurrency(revenue) },
+    { label: "Revenue", value: <Money id="report-revenue">{formatCurrency(revenue)}</Money>, eye: "report-revenue" },
     { label: "Total Bookings", value: totalBookings },
     { label: "Completed Lessons", value: completedBookings },
     { label: "Cancelled Lessons", value: cancelledBookings },
@@ -50,7 +51,8 @@ export function ReportsView({
     <div className="space-y-6">
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {metrics.map((metric) => (
-          <Card key={metric.label}>
+          <Card key={metric.label} className="relative">
+            {"eye" in metric && metric.eye ? <CornerEye id={metric.eye} /> : null}
             <CardHeader>
               <CardTitle className="text-sm font-medium text-secondary/60">{metric.label}</CardTitle>
             </CardHeader>

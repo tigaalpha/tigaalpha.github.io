@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
 import { describeFunctionError, formatCurrency } from "@/lib/utils";
+import { CornerEye, Money } from "@/lib/hide-figures";
 
 interface PayrollEntry {
   teacherId: string;
@@ -115,31 +116,35 @@ export function TaxReportView() {
       ) : (
         <>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <Card>
+            <Card className="relative">
+              <CornerEye id="tax-income" />
               <CardHeader>
                 <CardTitle className="text-sm text-secondary/60">รายรับรวม</CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-2xl font-semibold text-success">{formatCurrency(report.income)}</p>
+                <p className="text-2xl font-semibold text-success"><Money id="tax-income">{formatCurrency(report.income)}</Money></p>
               </CardContent>
             </Card>
-            <Card>
+            <Card className="relative">
+              <CornerEye id="tax-expense" />
               <CardHeader>
                 <CardTitle className="text-sm text-secondary/60">รายจ่ายรวม</CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-2xl font-semibold text-danger">{formatCurrency(report.expense)}</p>
+                <p className="text-2xl font-semibold text-danger"><Money id="tax-expense">{formatCurrency(report.expense)}</Money></p>
               </CardContent>
             </Card>
-            <Card>
+            <Card className="relative">
+              <CornerEye id="tax-profit" />
               <CardHeader>
                 <CardTitle className="text-sm text-secondary/60">กำไร (ฐาน PND 90)</CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-2xl font-semibold text-secondary">{formatCurrency(report.profit)}</p>
+                <p className="text-2xl font-semibold text-secondary"><Money id="tax-profit">{formatCurrency(report.profit)}</Money></p>
               </CardContent>
             </Card>
-            <Card>
+            <Card className="relative">
+              <CornerEye id="tax-payroll" />
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-sm text-secondary/60">
                   ค่าแรงครู
@@ -147,13 +152,14 @@ export function TaxReportView() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-2xl font-semibold text-secondary">{formatCurrency(report.teacherPayroll)}</p>
+                <p className="text-2xl font-semibold text-secondary"><Money id="tax-payroll">{formatCurrency(report.teacherPayroll)}</Money></p>
               </CardContent>
             </Card>
           </div>
 
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-            <Card>
+            <Card className="relative">
+              <CornerEye id="tax-due" />
               <CardHeader>
                 <CardTitle>ภาษีที่ต้องชำระ/นำส่ง</CardTitle>
                 <CardDescription>ตัวเลขช่วยยื่น — ตรวจกับเอกสารจริงก่อนยื่นผ่านระบบสรรพากร</CardDescription>
@@ -164,20 +170,21 @@ export function TaxReportView() {
                     <p className="text-sm font-medium text-secondary">VAT 7% จากรายรับ</p>
                     <p className="text-xs text-secondary/50">เฉพาะเมื่อจด VAT — ตั้งค่าได้ที่ Settings (vat_registered)</p>
                   </div>
-                  <p className="font-semibold text-secondary">{formatCurrency(report.vatAmount)}</p>
+                  <p className="font-semibold text-secondary"><Money id="tax-due">{formatCurrency(report.vatAmount)}</Money></p>
                 </div>
                 <div className="flex items-center justify-between rounded-xl border border-line/10 p-3">
                   <div>
                     <p className="text-sm font-medium text-secondary">หัก ณ ที่จ่ายครู (PND 3) {Math.round(report.withholdingRate * 100)}%</p>
-                    <p className="text-xs text-secondary/50">ยอดจ่ายครู {formatCurrency(report.teacherPayroll)}</p>
+                    <p className="text-xs text-secondary/50">ยอดจ่ายครู <Money id="tax-due">{formatCurrency(report.teacherPayroll)}</Money></p>
                   </div>
-                  <p className="font-semibold text-warning">{formatCurrency(report.totalWithholding)}</p>
+                  <p className="font-semibold text-warning"><Money id="tax-due">{formatCurrency(report.totalWithholding)}</Money></p>
                 </div>
                 <p className="rounded-lg bg-secondary/5 px-3 py-2 text-xs text-secondary/50">{report.disclaimer}</p>
               </CardContent>
             </Card>
 
-            <Card>
+            <Card className="relative">
+              <CornerEye id="tax-teachers" />
               <CardHeader>
                 <CardTitle>สรุปรายครู (PND 3)</CardTitle>
               </CardHeader>
@@ -189,7 +196,7 @@ export function TaxReportView() {
                     <div key={p.teacherId} className="flex items-center justify-between rounded-xl border border-line/10 px-3 py-2">
                       <p className="text-sm text-secondary">{p.teacherName}</p>
                       <p className="text-sm text-secondary/70">
-                        {formatCurrency(p.gross)} — หัก ณ ที่จ่าย <span className="text-warning">{formatCurrency(p.withholding)}</span>
+                        <Money id="tax-teachers">{formatCurrency(p.gross)} — หัก ณ ที่จ่าย <span className="text-warning">{formatCurrency(p.withholding)}</span></Money>
                       </p>
                     </div>
                   ))

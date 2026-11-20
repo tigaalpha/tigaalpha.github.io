@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useSyncExternalStore } from "react";
+import { useCallback, useSyncExternalStore, type ReactNode } from "react";
 import { Eye, EyeOff } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -72,4 +72,15 @@ export function HiddenPanel({ height = 240 }: { height?: number }) {
       <EyeOff className="h-4 w-4" /> ซ่อนตัวเลขอยู่
     </div>
   );
+}
+
+/** A money figure that follows the hide switch of the card `id`. */
+export function Money({ id, children }: { id: string; children: ReactNode }) {
+  const [hidden] = useHideFigures(id);
+  return <>{hidden ? MASK : children}</>;
+}
+
+/** The eye, pinned to the top-right corner of a `relative` card. */
+export function CornerEye({ id }: { id: string }) {
+  return <EyeToggle id={id} small className="absolute right-3 top-3 z-10" />;
 }

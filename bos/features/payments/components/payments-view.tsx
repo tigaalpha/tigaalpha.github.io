@@ -27,6 +27,7 @@ import { Input } from "@/components/ui/input";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn, describeFunctionError, formatCurrency } from "@/lib/utils";
+import { CornerEye, Money } from "@/lib/hide-figures";
 import type { PaymentWithCustomer } from "@/services/repositories/payments.repository";
 import type { TransferSlipWithPayment } from "@/services/repositories/transfer-slips.repository";
 import type { Tables } from "@/types/database";
@@ -248,7 +249,8 @@ export function PaymentsView() {
 
       {/* stats */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <Card>
+        <Card className="relative">
+          <CornerEye id="pay-stat-pending" />
           <CardContent className="flex items-center gap-3 pt-6">
             <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-warning/10">
               <Clock3 className="h-5 w-5 text-warning" />
@@ -256,19 +258,20 @@ export function PaymentsView() {
             <div className="min-w-0">
               <p className="text-xs text-secondary/50">รอชำระ (pending)</p>
               <p className="truncate text-lg font-semibold text-secondary">
-                {(pending ?? []).length} ใบ · {loading ? "…" : formatCurrency(pendingTotal)}
+                {(pending ?? []).length} ใบ · {loading ? "…" : <Money id="pay-stat-pending">{formatCurrency(pendingTotal)}</Money>}
               </p>
             </div>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="relative">
+          <CornerEye id="pay-stat-paid" />
           <CardContent className="flex items-center gap-3 pt-6">
             <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-success/10">
               <CheckCircle2 className="h-5 w-5 text-success" />
             </div>
             <div className="min-w-0">
               <p className="text-xs text-secondary/50">จ่ายแล้วเดือนนี้</p>
-              <p className="truncate text-lg font-semibold text-secondary">{loading ? "…" : formatCurrency(paidThisMonth)}</p>
+              <p className="truncate text-lg font-semibold text-secondary">{loading ? "…" : <Money id="pay-stat-paid">{formatCurrency(paidThisMonth)}</Money>}</p>
             </div>
           </CardContent>
         </Card>
@@ -335,7 +338,7 @@ export function PaymentsView() {
                 <div className="flex flex-col gap-2">
                   <p className="text-sm text-secondary/70">
                     <Banknote className="mr-1 inline h-4 w-4" />
-                    {formatCurrency(created.amount)} บาท
+                    <Money id="pay-pending-list">{formatCurrency(created.amount)}</Money> บาท
                   </p>
                   <Button variant="outline" size="sm" onClick={() => copyText(created.instructions, "created")}>
                     {copied === "created" ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
@@ -401,7 +404,8 @@ export function PaymentsView() {
       </Card>
 
       {/* pending list */}
-      <Card>
+      <Card className="relative">
+        <CornerEye id="pay-pending-list" />
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Clock3 className="h-4 w-4 text-warning" />
@@ -430,7 +434,7 @@ export function PaymentsView() {
                     ) : null}
                   </div>
                   <div className="flex shrink-0 flex-col items-end gap-2">
-                    <p className="text-lg font-semibold text-secondary">{formatCurrency(Number(p.amount))}</p>
+                    <p className="text-lg font-semibold text-secondary"><Money id="pay-pending-list">{formatCurrency(Number(p.amount))}</Money></p>
                     {p.qr_url || p.qr_base64 ? (
                       /* eslint-disable-next-line @next/next/no-img-element */
                       <img
@@ -477,7 +481,8 @@ export function PaymentsView() {
       </Card>
 
       {/* paid / cancelled */}
-      <Card>
+      <Card className="relative">
+        <CornerEye id="pay-history" />
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <CheckCircle2 className="h-4 w-4 text-success" />
@@ -498,7 +503,7 @@ export function PaymentsView() {
                   </p>
                 </div>
                 <div className="flex shrink-0 items-center gap-3">
-                  <p className="font-semibold text-secondary">{formatCurrency(Number(p.amount))}</p>
+                  <p className="font-semibold text-secondary"><Money id="pay-history">{formatCurrency(Number(p.amount))}</Money></p>
                   <Badge variant={PAY_STATUS_UI[p.status].variant}>{PAY_STATUS_UI[p.status].label}</Badge>
                 </div>
               </div>
@@ -510,7 +515,8 @@ export function PaymentsView() {
       </Card>
 
       {/* transfer slips */}
-      <Card>
+      <Card className="relative">
+        <CornerEye id="pay-slips" />
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <FileWarning className="h-4 w-4 text-primary-accent" />
@@ -549,7 +555,7 @@ export function PaymentsView() {
                   <div className="min-w-0">
                     <p className="text-sm font-semibold text-secondary">{s.customerName ?? "ลูกค้าไม่ทราบชื่อ"}</p>
                     <p className="text-sm text-secondary/70">
-                      {s.extracted_amount != null ? formatCurrency(Number(s.extracted_amount)) : "—"} บาท
+                      <Money id="pay-slips">{s.extracted_amount != null ? formatCurrency(Number(s.extracted_amount)) : "—"}</Money> บาท
                       {s.extracted_reference ? <span className="ml-2 text-secondary/50">อ้างอิง {s.extracted_reference}</span> : null}
                     </p>
                     <p className="text-xs text-secondary/50">

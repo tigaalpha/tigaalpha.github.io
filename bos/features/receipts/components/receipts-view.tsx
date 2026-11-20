@@ -8,6 +8,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
 import { formatCurrency } from "@/lib/utils";
+import { CornerEye, Money } from "@/lib/hide-figures";
 import type { ReceiptWithCustomer } from "@/services/repositories/receipts.repository";
 
 function StatusBadge({ receipt }: { receipt: ReceiptWithCustomer }) {
@@ -39,7 +40,8 @@ export function ReceiptsView() {
   return (
     <div className="space-y-3">
       {receipts.map((receipt) => (
-        <Card key={receipt.id}>
+        <Card key={receipt.id} className="relative">
+          <CornerEye id={`receipt-${receipt.id}`} />
           <CardContent className="flex items-center justify-between gap-3 pt-6">
             <div className="min-w-0">
               <p className="font-medium text-secondary">{receipt.receipt_number}</p>
@@ -47,7 +49,7 @@ export function ReceiptsView() {
               <p className="text-xs text-secondary/40">{new Date(receipt.issued_at).toLocaleDateString("th-TH")}</p>
             </div>
             <div className="flex shrink-0 flex-col items-end gap-1.5">
-              <p className="font-semibold text-secondary">{formatCurrency(receipt.amount)}</p>
+              <p className="mt-8 font-semibold text-secondary"><Money id={`receipt-${receipt.id}`}>{formatCurrency(receipt.amount)}</Money></p>
               <StatusBadge receipt={receipt} />
               {receipt.drive_file_url ? (
                 <a href={receipt.drive_file_url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-xs text-primary-accent underline">
