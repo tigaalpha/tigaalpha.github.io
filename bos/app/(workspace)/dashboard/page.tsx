@@ -251,9 +251,15 @@ export default function DashboardPage() {
           iPad never render this block; they keep the original layout below. */}
       {isMobile && (
         <div className="flex flex-col gap-6">
-          <MetricCard label={t("dash.revenue")} value={hideFigures ? MASK : formatCurrency(revenue)} icon={Wallet} tone="green" action={<EyeToggle id="revenue-card" small />} subtext={t("dash.fromAccounting")} href="/accounting" />
+          {/* iPad: the three chart cards lead (owner, 2026-11-20), the revenue number follows */}
+          {!isTablet && (
+            <MetricCard label={t("dash.revenue")} value={hideFigures ? MASK : formatCurrency(revenue)} icon={Wallet} tone="green" action={<EyeToggle id="revenue-card" small />} subtext={t("dash.fromAccounting")} href="/accounting" />
+          )}
           <RevenueOverviewCard />
           <FinanceCharts />
+          {isTablet && (
+            <MetricCard label={t("dash.revenue")} value={hideFigures ? MASK : formatCurrency(revenue)} icon={Wallet} tone="green" action={<EyeToggle id="revenue-card" small />} subtext={t("dash.fromAccounting")} href="/accounting" />
+          )}
         </div>
       )}
 
