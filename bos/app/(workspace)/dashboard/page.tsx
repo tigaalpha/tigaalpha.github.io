@@ -156,17 +156,22 @@ export default function DashboardPage() {
   const [isTablet, setIsTablet] = useState(false);
   useEffect(() => {
     const phone = window.matchMedia("(min-width: 768px)");
-    const tablet = window.matchMedia("(min-width: 768px) and (max-width: 1400px) and (pointer: coarse)");
+    const tablet = window.matchMedia("(min-width: 768px) and (max-width: 1400px)");
+    const coarse = window.matchMedia("(pointer: coarse)");
+    // iPadOS Safari in "desktop site" mode can report a fine pointer, so a
+    // multi-touch screen counts as a tablet too.
     const apply = () => {
       setIsPhone(!phone.matches);
-      setIsTablet(tablet.matches);
+      setIsTablet(tablet.matches && (coarse.matches || navigator.maxTouchPoints > 1));
     };
     apply();
     phone.addEventListener("change", apply);
     tablet.addEventListener("change", apply);
+    coarse.addEventListener("change", apply);
     return () => {
       phone.removeEventListener("change", apply);
       tablet.removeEventListener("change", apply);
+      coarse.removeEventListener("change", apply);
     };
   }, []);
   const isMobile = isPhone || isTablet;
