@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
 import { formatCurrency, cn } from "@/lib/utils";
+import { EyeToggle, MASK, useHideFigures } from "@/lib/hide-figures";
 import { getPeriodKey, periodLabel, type Granularity } from "@/lib/period-grouping";
 import { SplitTransactionButton } from "@/features/accounting/components/split-transaction-button";
 import type { Tables, TransactionType } from "@/types/database";
@@ -42,6 +43,7 @@ interface TransactionBreakdownProps {
 }
 
 export function TransactionBreakdown({ transactions, type, onChanged }: TransactionBreakdownProps) {
+  const [hide] = useHideFigures(`breakdown-${type}`);
   const [granularity, setGranularity] = useState<Granularity>("month");
   const [collapsedKeys, setCollapsedKeys] = useState<Set<string>>(new Set());
 
@@ -98,8 +100,9 @@ export function TransactionBreakdown({ transactions, type, onChanged }: Transact
               <config.icon className={cn("h-4 w-4", toneClass)} />
               {config.title}
             </CardTitle>
-            <CardDescription>ย้อนหลังตั้งแต่รายการแรกจนถึงปัจจุบัน — รวม {formatCurrency(grandTotal)}</CardDescription>
+            <CardDescription>ย้อนหลังตั้งแต่รายการแรกจนถึงปัจจุบัน — รวม {hide ? MASK : formatCurrency(grandTotal)}</CardDescription>
           </div>
+          <div className="flex items-center gap-2">
           <div className="flex flex-wrap overflow-hidden rounded-xl border border-line/10">
             {GRANULARITY_OPTIONS.map((opt) => (
               <button
@@ -111,6 +114,8 @@ export function TransactionBreakdown({ transactions, type, onChanged }: Transact
                 {opt.label}
               </button>
             ))}
+          </div>
+          <EyeToggle id={`breakdown-${type}`} small />
           </div>
         </CardHeader>
       </Card>
@@ -129,7 +134,7 @@ export function TransactionBreakdown({ transactions, type, onChanged }: Transact
                     <p className="text-xs text-secondary/50">{period.transactions.length} รายการ</p>
                   </div>
                   <div className="flex items-center gap-3">
-                    <span className={cn("text-base font-semibold", toneClass)}>{formatCurrency(period.total)}</span>
+                    <span className={cn("text-base font-semibold", toneClass)}>{hide ? MASK : formatCurrency(period.total)}</span>
                     {isOpen ? <ChevronUp className="h-4 w-4 text-secondary/40" /> : <ChevronDown className="h-4 w-4 text-secondary/40" />}
                   </div>
                 </button>
@@ -150,7 +155,7 @@ export function TransactionBreakdown({ transactions, type, onChanged }: Transact
                           </div>
                           <span className={cn("shrink-0 text-sm font-semibold sm:pl-3", toneClass)}>
                             {config.sign}
-                            {formatCurrency(t.amount)}
+                            {hide ? MASK : formatCurrency(t.amount)}
                           </span>
                           {type === "income" && !t.customer_id ? (
                             <SplitTransactionButton transaction={t} onDone={onChanged} />
