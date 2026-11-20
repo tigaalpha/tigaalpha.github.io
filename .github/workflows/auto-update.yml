@@ -171,7 +171,7 @@ jobs:
           # copies of the Thai one.
           grep -q '<html lang="th">' _site/landing/index.html    || { echo "landing/ is not Thai"; exit 1; }
           grep -q '<html lang="en">' _site/landing-en/index.html || { echo "landing-en/ is not English"; exit 1; }
-          grep -q '<html lang="zh">' _site/landing-zh/index.html || { echo "landing-zh/ is not Chinese"; exit 1; }
+          grep -q '<html lang="zh' _site/landing-zh/index.html || { echo "landing-zh/ is not Chinese"; exit 1; }
           echo "published: 3 landing URLs + their root-level mirrors"
 
       - name: Upload Pages artifact
