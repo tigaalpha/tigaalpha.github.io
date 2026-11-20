@@ -19,7 +19,7 @@ import { createClient } from "@/services/supabase/client";
 import { createRepositories } from "@/services/repositories";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { EyeToggle, HiddenPanel, MASK, useHideFigures } from "@/lib/hide-figures";
+import { EyeToggle, MASK, useHideFigures } from "@/lib/hide-figures";
 import { aggregateByMonth, formatBaht, type MonthlyPoint } from "@/lib/finance";
 
 // Neon palette — revenue keeps purple, expense orange, profit green everywhere
@@ -100,9 +100,7 @@ export function FinanceCharts() {
           </div>
         </CardHeader>
         <CardContent>
-          {hideBars ? (
-            <HiddenPanel height={240} />
-          ) : !monthly || !totals ? (
+          {!monthly || !totals ? (
             <div className="h-64 animate-pulse rounded-xl bg-line/[0.03] dark:bg-white/[0.03]" />
           ) : showTable ? (
             <div className="overflow-x-auto">
@@ -119,9 +117,9 @@ export function FinanceCharts() {
                   {monthly.map((m) => (
                     <tr key={m.monthKey} className="border-b border-line/10 text-secondary last:border-0 dark:border-white/5">
                       <td className="py-2 pr-4">{m.monthLabel}</td>
-                      <td className="py-2 pr-4">{formatBaht(m.revenue)}</td>
-                      <td className="py-2 pr-4">{formatBaht(m.expense)}</td>
-                      <td className="py-2">{formatBaht(m.profit)}</td>
+                      <td className="py-2 pr-4">{hideBars ? MASK : formatBaht(m.revenue)}</td>
+                      <td className="py-2 pr-4">{hideBars ? MASK : formatBaht(m.expense)}</td>
+                      <td className="py-2">{hideBars ? MASK : formatBaht(m.profit)}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -134,8 +132,8 @@ export function FinanceCharts() {
                 <BarChart data={monthly} margin={{ top: 8, right: 8, left: 0, bottom: 0 }} barGap={2}>
                   <CartesianGrid strokeDasharray="3 3" stroke={PALETTE.grid} vertical={false} />
                   <XAxis dataKey="monthLabel" stroke={PALETTE.text} fontSize={12} tickLine={false} axisLine={{ stroke: PALETTE.grid }} />
-                  <YAxis stroke={PALETTE.text} fontSize={12} tickLine={false} axisLine={false} tickFormatter={(v: number) => `${Math.round(v / 1000)}K`} />
-                  <Tooltip content={<ChartTooltip />} />
+                  <YAxis stroke={PALETTE.text} fontSize={12} tickLine={false} axisLine={false} tickFormatter={(v: number) => (hideBars ? "" : `${Math.round(v / 1000)}K`)} />
+                  {!hideBars && <Tooltip content={<ChartTooltip />} />}
                   <Legend wrapperStyle={{ fontSize: 12 }} />
                   <Bar dataKey="revenue" name="รายได้" fill={PALETTE.revenue} radius={[4, 4, 0, 0]} />
                   <Bar dataKey="expense" name="ค่าใช้จ่าย" fill={PALETTE.expense} radius={[4, 4, 0, 0]} />
@@ -162,9 +160,7 @@ export function FinanceCharts() {
           <EyeToggle id="finance-donut" small />
         </CardHeader>
         <CardContent>
-          {hideDonut ? (
-            <HiddenPanel height={288} />
-          ) : !totals ? (
+          {!totals ? (
             <div className="h-72 animate-pulse rounded-xl bg-line/[0.03] dark:bg-white/[0.03]" />
           ) : (
             <div className="flex flex-col items-center gap-6 sm:flex-row sm:justify-around">
@@ -176,12 +172,12 @@ export function FinanceCharts() {
                         <Cell key={entry.name} fill={entry.color} />
                       ))}
                     </Pie>
-                    <Tooltip formatter={(value, name, entry) => [`${formatBaht(Number(value))} (${(entry.payload as { pct: number }).pct.toFixed(1)}%)`, name]} />
+                    {!hideDonut && <Tooltip formatter={(value, name, entry) => [`${formatBaht(Number(value))} (${(entry.payload as { pct: number }).pct.toFixed(1)}%)`, name]} />}
                   </PieChart>
                 </ResponsiveContainer>
                 <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
                   <span className="text-xs text-secondary/40">Total</span>
-                  <span className="text-xl font-bold text-secondary dark:text-white">{formatBaht(totals.revenue)}</span>
+                  <span className="text-xl font-bold text-secondary dark:text-white">{hideDonut ? MASK : formatBaht(totals.revenue)}</span>
                   <span className="text-[10px] uppercase tracking-widest text-secondary/35">THB</span>
                 </div>
               </div>
@@ -193,7 +189,7 @@ export function FinanceCharts() {
                       {entry.name}
                     </span>
                     <span className="font-medium text-secondary dark:text-white">
-                      {entry.pct.toFixed(0)}% <span className="text-secondary/40">({formatBaht(entry.value)})</span>
+                      {entry.pct.toFixed(0)}% <span className="text-secondary/40">({hideDonut ? MASK : formatBaht(entry.value)})</span>
                     </span>
                   </li>
                 ))}

@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { createClient } from "@/services/supabase/client";
 import { createRepositories } from "@/services/repositories";
 import { useT } from "@/lib/language-context";
-import { EyeToggle, HiddenPanel, useHideFigures } from "@/lib/hide-figures";
+import { EyeToggle, useHideFigures } from "@/lib/hide-figures";
 import { aggregateByMonth, formatBaht, type MonthlyPoint } from "@/lib/finance";
 
 const GRID = "rgba(100, 116, 139, 0.14)";
@@ -46,9 +46,7 @@ export function RevenueOverviewCard() {
         </div>
       </CardHeader>
       <CardContent>
-        {hideFigures ? (
-          <HiddenPanel height={260} />
-        ) : !monthly ? (
+        {!monthly ? (
           <div className="h-64 animate-pulse rounded-xl bg-line/[0.03] dark:bg-white/[0.03]" />
         ) : (
           <ResponsiveContainer width="100%" height={260}>
@@ -66,9 +64,9 @@ export function RevenueOverviewCard() {
                 fontSize={12}
                 tickLine={false}
                 axisLine={false}
-                tickFormatter={(v: number) => `${Math.round(v / 1000)}K`}
+                tickFormatter={(v: number) => (hideFigures ? "" : `${Math.round(v / 1000)}K`)}
               />
-              <Tooltip content={<RevenueTooltip />} />
+              {!hideFigures && <Tooltip content={<RevenueTooltip />} />}
               <Area
                 type="monotone"
                 dataKey="revenue"
