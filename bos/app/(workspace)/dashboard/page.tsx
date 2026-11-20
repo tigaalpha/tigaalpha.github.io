@@ -149,14 +149,27 @@ export default function DashboardPage() {
   // nav, so iPad keeps the current desktop order untouched. The server render
   // starts as desktop (false) and the effect flips phones before data
   // resolves, so no wrong-order flash is ever shown.
-  const [isMobile, setIsMobile] = useState(false);
+  // iPad (owner, 2026-11-20): the same money-first order, for touch tablets
+  // only (a coarse pointer between 768px and 1400px), so laptops and desktops
+  // keep the desktop layout.
+  const [isPhone, setIsPhone] = useState(false);
+  const [isTablet, setIsTablet] = useState(false);
   useEffect(() => {
-    const mq = window.matchMedia("(min-width: 768px)");
-    const apply = () => setIsMobile(!mq.matches);
+    const phone = window.matchMedia("(min-width: 768px)");
+    const tablet = window.matchMedia("(min-width: 768px) and (max-width: 1400px) and (pointer: coarse)");
+    const apply = () => {
+      setIsPhone(!phone.matches);
+      setIsTablet(tablet.matches);
+    };
     apply();
-    mq.addEventListener("change", apply);
-    return () => mq.removeEventListener("change", apply);
+    phone.addEventListener("change", apply);
+    tablet.addEventListener("change", apply);
+    return () => {
+      phone.removeEventListener("change", apply);
+      tablet.removeEventListener("change", apply);
+    };
   }, []);
+  const isMobile = isPhone || isTablet;
 
   if (loadError) {
     return (
@@ -228,7 +241,7 @@ export default function DashboardPage() {
         <CommandSearch />
       </div>
 
-      {/* Phone-only priority strip — the owner's four most-checked cards in
+      {/* Phone and iPad priority strip — the owner's four most-checked cards in
           importance order: revenue first, then the revenue views. Desktop and
           iPad never render this block; they keep the original layout below. */}
       {isMobile && (
