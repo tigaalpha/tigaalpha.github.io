@@ -537,14 +537,8 @@ if (/storeLang\(pgLang\.slice\(0, 2\)\.toLowerCase\(\)\)/.test(PAGE_SRC) && (PAG
 else no("sign-up writes the page language");
 if (AIMOD) {
   const { wireLang, SERVER_LANGS } = AIMOD;
-  // languages whose prompt is in the repo's landing-chat but which is not deployed with it yet: they go the fallback way ("en" + a reply-language note) until the owner approves the deploy and SERVER_LANGS lists them
-  const WAITING = ["de"];
-  for (const lg of WAITING) {
-    const w = wireLang(lg, "Wie lese ich Noten?");
-    if (w.lang === "en" && w.question.startsWith("Wie lese ich Noten?") && w.question.includes("Reply in German (Deutsch)")) ok(`landing-chat: ${lg} (not deployed yet) goes as "en" + a note to reply in German`);
-    else no(`landing-chat ${lg} (waiting for the deploy)`, JSON.stringify(w));
-  }
-  for (const lg of ALL.filter(l => !WAITING.includes(l))) {
+  // every landing language is deployed in landing-chat (de since v8, 2026-11-20), so each one is sent as itself. A language that is in the repo's copy but NOT deployed yet must be kept out of SERVER_LANGS (it then goes the fallback way, "en" + a reply-language note) until the owner approves the deploy.
+  for (const lg of ALL) {
     const w = wireLang(lg, "How do I read notes?");
     if (w.lang === lg && w.question === "How do I read notes?") ok(`landing-chat: ${lg} is sent as-is`); else no(`landing-chat ${lg}`, JSON.stringify(w));
   }
@@ -554,10 +548,10 @@ if (AIMOD) {
     if (w.lang === "en" && w.question.startsWith("Como leio notas?") && w.question.includes("Reply in")) ok(`landing-chat: an unknown language (${lg}) goes as "en" + a reply-language note`);
     else no(`landing-chat ${lg}`, JSON.stringify(w));
   }
-  if (SERVER_LANGS.join() === ALL.filter(l => !WAITING.includes(l)).join()) ok("SERVER_LANGS lists exactly what the DEPLOYED landing-chat knows (th, en, zh, ja, ko, ru, hi, es, fr, ar; de is in the repo copy and joins the list after the deploy)"); else no("SERVER_LANGS", SERVER_LANGS.join());
+  if (SERVER_LANGS.join() === ALL.join()) ok("SERVER_LANGS lists exactly what the DEPLOYED landing-chat knows (th, en, zh, ja, ko, ru, hi, es, fr, ar, de — landing-chat v8, 2026-11-20)"); else no("SERVER_LANGS", SERVER_LANGS.join());
 }
 const FN_SRC = existsSync("supabase/functions/landing-chat/index.ts") ? readFileSync("supabase/functions/landing-chat/index.ts", "utf8") : "";
-if (/\["th", "en", "zh", "ja", "ko", "ru", "hi", "es", "fr", "ar", "de"\]\.includes\(body\?\.lang\) \? body\.lang : "th"/.test(FN_SRC)) ok("the repo's landing-chat whitelists all eleven languages and SERVER_LANGS matches it (th..ru are deployed since 2026-11-13; hi, es, fr, ar, de are in the repo's copy and need deploying)");
+if (/\["th", "en", "zh", "ja", "ko", "ru", "hi", "es", "fr", "ar", "de"\]\.includes\(body\?\.lang\) \? body\.lang : "th"/.test(FN_SRC)) ok("the repo's landing-chat whitelists all eleven languages and SERVER_LANGS matches it (all eleven are deployed: th..ru since 2026-11-13, hi, es, fr, ar since 2026-11-16, de since 2026-11-20)");
 else no("landing-chat whitelist moved — re-read it and update landing-ai.ts SERVER_LANGS");
 /* every language has its own system prompt and its own limit message in the function, and the prompts keep the rules that make it safe (a short answer, notes and fingers, no invented facts) */
 {
