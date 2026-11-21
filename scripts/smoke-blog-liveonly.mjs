@@ -87,17 +87,20 @@ const fx = (name, rows) => { const f = path.join(tmp, name + ".json"); fs.writeF
 
 /* ── helpers ── */
 function listFiles(dir) { const out = []; const walk = (d) => { for (const e of fs.readdirSync(d, { withFileTypes: true })) { const p = path.join(d, e.name); if (e.isDirectory()) walk(p); else out.push(path.relative(dir, p).split(path.sep).join("/")); } }; if (fs.existsSync(dir)) walk(dir); return out.sort(); }
+// The preview gate (owner 2026-11-21) changed the article pages on purpose: the reader block, the cut of the article and the gating markup of the JSON-LD are left out of every comparison with an older generator
+// (they have their own tests, scripts/smoke-blog-gate.mjs); everything else must still be byte for byte what the old generator wrote.
+const gateFree = (t) => String(t).replace(/<!--tg-gate:v\d+-->[\s\S]*?<!--\/tg-gate-->/g, "<!--READER-->").replace(/<!--tg-cut:v\d+-->[\s\S]*?<div class="tg-locked"[^>]*>/g, "").replace(/<\/div><!--\/tg-cut-->/g, "").replace(/"isAccessibleForFree":false,"hasPart":\{[^}]*\},/g, "");
 function diffTrees(a, b) {
   const fa = listFiles(a), fb = listFiles(b), sa = new Set(fa), sb = new Set(fb), d = [];
   for (const f of fa) if (!sb.has(f)) d.push("only in the first: " + f);
   for (const f of fb) if (!sa.has(f)) d.push("only in the second: " + f);
-  for (const f of fa) if (sb.has(f) && !fs.readFileSync(path.join(a, f)).equals(fs.readFileSync(path.join(b, f)))) d.push("differs: " + f);
+  for (const f of fa) if (sb.has(f)) { const x = fs.readFileSync(path.join(a, f)), y = fs.readFileSync(path.join(b, f)); if (!(f.endsWith(".html") ? gateFree(x.toString("utf8")) === gateFree(y.toString("utf8")) : x.equals(y))) d.push("differs: " + f); }
   return d;
 }
 const MOVE = ` (if the page output was changed on purpose after ${BASELINE_REF}, move BLOG_BASELINE_REF to the commit before that change)`;
 const gitShow = (rel) => { try { return execFileSync("git", ["show", `${BASELINE_REF}:${rel}`], { cwd: ROOT, encoding: "utf8", maxBuffer: 64 * 1024 * 1024, stdio: ["ignore", "pipe", "ignore"] }); } catch { return null; } };
 const read = (rel) => fs.readFileSync(path.join(ROOT, rel), "utf8");
-const writeRoot = (root, files) => { for (const [rel, text] of Object.entries(files)) { fs.mkdirSync(path.dirname(path.join(root, rel)), { recursive: true }); fs.writeFileSync(path.join(root, rel), text); } };
+const writeRoot = (root, files) => { for (const [rel, text] of Object.entries(files)) { fs.mkdirSync(path.dirname(path.join(root, rel)), { recursive: true }); fs.writeFileSync(path.join(root, rel), text); } if (/blog-gate\.mjs/.test(files["scripts/build-blog-pages.mjs"] || "")) { const rel = "scripts/blog-gate.mjs"; fs.mkdirSync(path.dirname(path.join(root, rel)), { recursive: true }); fs.writeFileSync(path.join(root, rel), read(rel)); } };   // the current generator imports the preview gate: a sandbox with it gets that file too (an older generator does not import it)
 const runGen = (script, env) => execFileSync(process.execPath, [script], { env: { ...process.env, SITE_URL: SITE, ...env }, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"], maxBuffer: 64 * 1024 * 1024 });
 const CUR = { "scripts/build-blog-pages.mjs": read("scripts/build-blog-pages.mjs"), "scripts/blog-paths.mjs": read("scripts/blog-paths.mjs"), "scripts/blog-live.mjs": read("scripts/blog-live.mjs"), "supabase-client.ts": read("supabase-client.ts") };
 const BASE = Object.fromEntries(Object.keys(CUR).map(k => [k, gitShow(k)]));
@@ -255,7 +258,7 @@ heading("live function: a live-only article is a normal article page");
   const staticPage = fs.readFileSync(path.join(A.out, "en/clone-static.html"), "utf8");
   const norm = (h) => h.split("clone-static").join("clone-live").replace(/<nav class="rel"[\s\S]*?<\/nav>/, "");
   ok(norm(staticPage) === norm(out.body), "its HTML is the HTML the generator writes for the same article as a static row (slug aside, related box aside)");
-  ok(out.body.includes("<h1>Clone article</h1>") && out.body.includes('rel="canonical" href="' + SITE + '/blog/en/clone-live.html"') && out.body.includes('"@type":"BlogPosting"') && /<!--tg-gate:v\d+-->/.test(out.body) && out.body.includes('id="tg-gate"'), "h1, canonical to the .html address, BlogPosting JSON-LD and the reading wall are there");
+  ok(out.body.includes("<h1>Clone article</h1>") && out.body.includes('rel="canonical" href="' + SITE + '/blog/en/clone-live.html"') && out.body.includes('"@type":"BlogPosting"') && /<!--tg-gate:v\d+-->/.test(out.body) && !out.body.includes('id="tg-gate"'), "h1, canonical to the .html address, BlogPosting JSON-LD and the reader block are there");
   const leak = /.{0,60}(live_only|live-only).{0,60}/.exec(out.body);
   ok(!leak, "the flag does not leak into the page" + (leak ? ": " + leak[0] : ""));
   const plain = await live.serveBlog({ lang: "en", rest: "clone-live.html" }, makeApi(DB.map(r => ({ ...r, live_only: false }))).fetchImpl, OPTS);
@@ -797,7 +800,7 @@ if (!haveBase) {
     compared++;
     // the cache policy was changed on purpose (2026-11-18: CACHE_ARTICLE / CACHE_LIST, asserted above and in the sitemap test); every other header is still compared
     const noCache = (h) => { const c = { ...h }; delete c["cache-control"]; return JSON.stringify(c); };
-    if (a.status !== b.status || a.body !== b.body || noCache(a.headers) !== noCache(b.headers) || (b.status === 200 && !/s-maxage=\d+/.test(b.headers["cache-control"] || ""))) differ.push(what);
+    if (a.status !== b.status || (typeof a.body === "string" ? gateFree(a.body) !== gateFree(b.body) : a.body !== b.body) || noCache(a.headers) !== noCache(b.headers) || (b.status === 200 && !/s-maxage=\d+/.test(b.headers["cache-control"] || ""))) differ.push(what);
   };
   for (const r of publishedDb) await same(`${r.lang}/${r.slug}`, { lang: r.lang, rest: r.slug + ".html" });
   await same("en index", { lang: "en" }); await same("en index page 2", { lang: "en", page: "2" }); await same("ja index", { lang: "ja" }); await same("en feed", { lang: "en", rest: "feed.xml" }); await same("th index (one hidden row only)", { lang: "th" });

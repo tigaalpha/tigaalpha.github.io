@@ -8,6 +8,7 @@
 // Run by `npm run build` after build-song-pages.mjs (it appends to that script's sitemap.xml). SITE_URL overrides the domain.
 import fs from "node:fs"; import path from "node:path"; import { fileURLToPath } from "node:url";
 import { BLOG_LANGS, STATIC_BLOG_LANGS as STATIC_LANGS, totalFromContentRange } from "./blog-paths.mjs";
+import { gateTail, patchArticle } from "./blog-gate.mjs";
 export { STATIC_LANGS };
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const SITE = (process.env.SITE_URL || "https://www.tigaalpha.com").replace(/\/+$/, "");
@@ -138,55 +139,15 @@ const indexLangs = (self) => Object.keys(LG).filter(l => (INDEX_LANGS ? (!GATED_
 const indexAlts = (self) => indexLangs(self).map(l => `<link rel="alternate" hreflang="${LG[l].html}" href="${SITE}/blog/${l}/">`).join("") + `<link rel="alternate" hreflang="x-default" href="${SITE}/blog/en/">\n`;
 const indexSm = () => indexLangs().map(l => [LG[l].html, `${SITE}/blog/${l}/`]).concat([["x-default", `${SITE}/blog/en/`]]);
 const CATN = { tips: { th: "เทคนิคการฝึก", en: "Practice tips", zh: "练习技巧", ja: "練習のコツ", ko: "연습 팁", ru: "Советы по занятиям", hi: "अभ्यास के टिप्स", es: "Consejos de práctica", fr: "Conseils de pratique", ar: "نصائح للتدريب", de: "Übetipps" }, theory: { th: "ทฤษฎีดนตรี", en: "Music theory", zh: "乐理", ja: "音楽理論", ko: "음악 이론", ru: "Теория музыки", hi: "संगीत सिद्धांत", es: "Teoría musical", fr: "Théorie musicale", ar: "نظرية الموسيقى", de: "Musiktheorie" }, songs: { th: "เพลงและเพลงฝึก", en: "Songs", zh: "曲目", ja: "曲と練習曲", ko: "곡과 연습곡", ru: "Песни и пьесы", hi: "गाने और अभ्यास के टुकड़े", es: "Canciones y piezas", fr: "Morceaux et pièces", ar: "أغانٍ وقطع للتدريب", de: "Lieder und Übungsstücke" }, news: { th: "ข่าวและประกาศ", en: "News", zh: "新闻公告", ja: "お知らせ", ko: "소식과 공지", ru: "Новости", hi: "समाचार और घोषणाएँ", es: "Noticias", fr: "Actualités", ar: "الأخبار والإعلانات", de: "News" }, story: { th: "เรื่องราว", en: "Stories", zh: "故事", ja: "ストーリー", ko: "이야기", ru: "Истории", hi: "कहानियाँ", es: "Historias", fr: "Histoires", ar: "قصص", de: "Geschichten" } };
-/* ── the reading gate (owner 2026-11-04) ──
-   Anyone may read an article without an account — that is what lets search send people here. After THIRTY SECONDS of actual reading (it was one minute until 2026-11-07, owner) (time the tab is
-   visible; a tab in the background does not count) a pop-up opens in the middle of the screen and invites the reader to log in or sign up free for
-   the TIGA AI app. It is a plain link into the app, because the app's login card (Google, e-mail link, password) is the one place accounts are
-   made: "Google" goes to /?go=google, which starts the Google sign-in at once (App.tsx), "sign up" and "log in" open that card on its own tab
-   (?wall=signup | ?wall=login, app-shell.tsx). Every link carries utm_source=blog&utm_campaign=<article> so the admin funnel can say how many
-   members this channel brings.
-   Rules it keeps (owner 2026-11-07, third version: "the pop-up must not be closable, to read on you have to log in"): it never shows to someone who already has a
-   session in this browser; it has NO close button, no Esc and no tap-outside; the page behind is inert and locked, and the wall lifts only when a session appears
-   (the reader logged in, even in another tab). A reader who met it is walled again at once for 24 hours (localStorage tg_blog_walled), so a reload or another article is
-   no way round. Crawlers are never walled (BOT) and the article's JSON-LD says isAccessibleForFree false with the article as the gated part, which is Google's
-   way of telling a login wall from cloaking. The SEO cost of an uncloseable wall (Google's intrusive-interstitial rule) is the owner's accepted trade-off;
-   the text is data-nosnippet so it never replaces the article's snippet. The test door: with
-   localStorage.tg_test_hook = "1" the page reads ?gate_ms=<ms> instead of 3000. */
-// de (2026-11-20): "du", button words as in the German app ("Weiter mit Google", "Anmelden").
-// hi / es / fr / ar (owner 2026-11-13): hi "aap", es "tú", fr "vous", ar Modern Standard with masculine-singular imperatives; the button words follow the app's catalog ("Continue with Google", "Log in", "Sign up"). The product name "TIGA AI" (and, in es,
-// "Inicia sesión") carries a no-break space (U+00A0, written \u00a0 in the strings), so a 320 px phone never splits the name over two lines or leaves one word of the log-in link alone.
-const GATE_T = {
-  th: { title: "ล็อกอินเพื่ออ่านต่อ", sub: "ล็อกอินหรือสมัครสมาชิกฟรีเพื่ออ่านบทความนี้ต่อ แล้วเริ่มเรียนเปียโนฟรีผ่านแอป TIGA AI ได้ทันที", google: "ล็อกอินด้วย Google", signup: "สมัครสมาชิกฟรี", login: "มีบัญชีอยู่แล้ว? เข้าสู่ระบบ", trial: "ล็อกอินเพื่อทดลองเรียนเปียโนฟรี 7 วัน โดยไม่ต้องใช้บัตรเครดิต" },
-  en: { title: "Log in to keep reading", sub: "Log in or sign up free to read the rest of this article, then start learning piano for free with the TIGA AI app.", google: "Continue with Google", signup: "Sign up free", login: "Already a member? Log in", trial: "Log in to try piano lessons free for 7 days — no credit card needed." },
-  zh: { title: "登录后继续阅读", sub: "免费登录或注册即可继续阅读本文，并通过 TIGA AI 应用免费学习钢琴。", google: "使用 Google 继续", signup: "免费注册", login: "已有账号？登录", trial: "登录即可免费试学钢琴 7 天，无需信用卡。" },
-  ja: { title: "続きを読むにはログイン", sub: "無料でログインまたは会員登録すると、この記事の続きを読めます。そのままTIGA AIアプリで、ピアノを無料で学び始められます。", google: "Googleで続ける", signup: "無料で会員登録", login: "アカウントをお持ちの方はログイン", trial: "ログインして、ピアノのレッスンを7日間無料で体験。クレジットカードは不要です。" },
-  ko: { title: "계속 읽으려면 로그인하세요", sub: "무료로 로그인하거나 가입하면 이 글의 나머지를 읽을 수 있고, 바로 TIGA AI 앱에서 피아노를 무료로 배우기 시작할 수 있어요.", google: "Google로 계속하기", signup: "무료로 가입하기", login: "이미 회원이신가요? 로그인", trial: "로그인하고 피아노 레슨을 7일 동안 무료로 체험하세요. 신용카드는 필요 없어요." },
-  ru: { title: "Войдите, чтобы читать дальше", sub: "Войдите или зарегистрируйтесь бесплатно, чтобы дочитать эту статью, а затем начните бесплатно учиться играть на фортепиано в приложении TIGA AI.", google: "Продолжить через Google", signup: "Зарегистрироваться бесплатно", login: "Уже есть аккаунт? Войти", trial: "Войдите и 7 дней бесплатно пробуйте уроки фортепиано — банковская карта не нужна." },
-  hi: { title: "आगे पढ़ने के लिए लॉग इन करें", sub: "इस लेख का बाकी हिस्सा पढ़ने के लिए मुफ़्त में लॉग इन करें या साइन अप करें, फिर TIGA\u00a0AI ऐप से मुफ़्त में पियानो सीखना शुरू करें।", google: "Google से जारी रखें", signup: "मुफ़्त में साइन अप करें", login: "पहले से सदस्य हैं? लॉग इन करें", trial: "लॉग इन करें और 7 दिन तक पियानो के पाठ मुफ़्त में आज़माएँ — क्रेडिट कार्ड की ज़रूरत नहीं।" },
-  es: { title: "Inicia sesión para seguir leyendo", sub: "Inicia sesión o regístrate gratis para leer el resto de este artículo y empieza a aprender piano gratis con la app TIGA\u00a0AI.", google: "Continuar con Google", signup: "Regístrate gratis", login: "¿Ya eres miembro? Inicia\u00a0sesión", trial: "Inicia sesión para probar clases de piano gratis durante 7\u00a0días, sin tarjeta de crédito." },
-  fr: { title: "Connectez-vous pour continuer à lire", sub: "Connectez-vous ou inscrivez-vous gratuitement pour lire la suite de cet article, puis commencez à apprendre le piano gratuitement avec l'application TIGA\u00a0AI.", google: "Continuer avec Google", signup: "S'inscrire gratuitement", login: "Déjà membre\u00a0? Se connecter", trial: "Connectez-vous pour essayer les cours de piano gratuitement pendant 7\u00a0jours, sans carte bancaire." },
-  ar: { title: "سجّل الدخول لمواصلة القراءة", sub: "سجّل الدخول أو أنشئ حسابًا مجانًا لقراءة بقية هذا المقال، ثم ابدأ تعلّم البيانو مجانًا عبر تطبيق TIGA\u00a0AI.", google: "المتابعة باستخدام Google", signup: "إنشاء حساب مجاني", login: "لديك حساب بالفعل؟ تسجيل الدخول", trial: "سجّل الدخول لتجرّب دروس البيانو مجانًا لمدة 7 أيام، دون الحاجة إلى بطاقة ائتمان." },
-  de: { title: "Melde dich an, um weiterzulesen", sub: "Melde dich kostenlos an oder registriere dich, um den Rest dieses Artikels zu lesen, und lerne dann kostenlos Klavier mit der App TIGA\u00a0AI.", google: "Weiter mit Google", signup: "Kostenlos registrieren", login: "Schon Mitglied? Anmelden", trial: "Melde dich an und probiere die Klavierstunden 7\u00a0Tage kostenlos aus, ohne Kreditkarte." },
-};
-const GATE_CSS = `#tg-gate{position:fixed;inset:0;z-index:2147483000;display:flex;align-items:center;justify-content:center;padding:16px;background:rgba(34,26,21,.95);-webkit-backdrop-filter:blur(16px);backdrop-filter:blur(16px);overscroll-behavior:contain;animation:tgGf .22s ease-out}#tg-gate[hidden]{display:none}
-.tg-g-card{position:relative;box-sizing:border-box;width:100%;max-width:400px;max-height:calc(100vh - 32px);overflow:auto;background:#fff;color:#2a211b;border:1px solid #eee3d8;border-radius:18px;padding:28px 22px 14px;text-align:center;box-shadow:0 18px 60px rgba(60,30,10,.35);font:16px/1.5 ${FONT_STACK};animation:tgGu .28s cubic-bezier(.2,.8,.2,1)}
-.tg-g-badge{display:inline-block;border:2px solid #d97757;color:#d97757;border-radius:12px;padding:5px 14px;font-weight:800;font-size:19px;letter-spacing:1px}
-.tg-g-card h2{margin:14px 0 6px;font-size:22px;line-height:1.3;font-weight:800}.tg-g-card p{margin:0 0 16px;color:#6f5f53;font-size:15px;line-height:1.55}
-.tg-g-card p.tg-g-trial{margin:0 0 16px;padding:10px 12px;border-radius:12px;background:#fff3ec;color:#9a4424;font-size:15px;font-weight:700;line-height:1.5}
-.tg-g-card a.tg-g-btn{display:flex;align-items:center;justify-content:center;gap:10px;box-sizing:border-box;width:100%;min-height:48px;padding:12px 14px;margin:0 0 10px;border-radius:12px;font-size:16px;font-weight:700;text-decoration:none;cursor:pointer}
-.tg-g-google{background:#fff;color:#3c4043;border:1.5px solid #dadce0}.tg-g-signup{background:#d97757;color:#fff;border:1.5px solid #d97757}
-.tg-g-card a.tg-g-login{display:block;margin:2px 0 4px;padding:8px;color:#b85a3a;font-size:15px;font-weight:700;text-decoration:none}
-.tg-g-card a:focus-visible,.tg-g-card button:focus-visible{outline:3px solid #d9775799;outline-offset:2px}
-@keyframes tgGf{from{opacity:0}to{opacity:1}}@keyframes tgGu{from{opacity:0;transform:translateY(14px) scale(.98)}to{opacity:1;transform:none}}
-@media (max-width:380px),(max-height:650px){#tg-gate{padding:10px}.tg-g-card{max-height:calc(100vh - 20px);padding:18px 16px 8px}.tg-g-badge{font-size:17px;padding:4px 12px}.tg-g-card h2{margin:10px 0 4px;font-size:20px}.tg-g-card p{margin:0 0 10px;font-size:14px;line-height:1.45}.tg-g-card p.tg-g-trial{margin:0 0 12px;padding:8px 10px;font-size:14px;line-height:1.4}.tg-g-card a.tg-g-btn{min-height:46px;padding:9px 12px;margin:0 0 8px}.tg-g-card a.tg-g-login{padding:6px;margin:0}}
-@media (prefers-reduced-motion:reduce){#tg-gate,.tg-g-card{animation:none}}`;
-// Taller lines in the wall for the scripts that need them (the card is centred in every language, so nothing here moves it): Devanagari marks above and below the line, Arabic stacked vowel marks.
-const GATE_LANG_CSS = {
-  hi: `.tg-g-card{line-height:1.7}.tg-g-card h2{line-height:1.5}.tg-g-card p{line-height:1.75}`,
-  ar: `[dir=rtl] .tg-g-card{line-height:1.7}[dir=rtl] .tg-g-card h2{line-height:1.6}[dir=rtl] .tg-g-card p{line-height:1.85}`,
-};
-const gateLangCss = (lang) => GATE_LANG_CSS[lang] || "";
-const GMARK = `<svg width="20" height="20" viewBox="0 0 48 48" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9.1 3.6l6.8-6.8C35.9 2.4 30.4 0 24 0 14.6 0 6.5 5.4 2.6 13.2l7.9 6.2C12.4 13.6 17.7 9.5 24 9.5z"/><path fill="#4285F4" d="M46.1 24.5c0-1.6-.1-3.1-.4-4.5H24v9h12.4c-.5 2.9-2.2 5.3-4.6 6.9l7.4 5.7c4.3-4 6.9-9.9 6.9-17.1z"/><path fill="#FBBC05" d="M10.5 28.6c-.5-1.4-.8-3-.8-4.6s.3-3.2.8-4.6l-7.9-6.2C.9 16.4 0 20.1 0 24s.9 7.6 2.6 10.8l7.9-6.2z"/><path fill="#34A853" d="M24 48c6.5 0 11.9-2.1 15.9-5.8l-7.4-5.7c-2.1 1.4-4.9 2.3-8.5 2.3-6.3 0-11.6-4.1-13.5-9.9l-7.9 6.2C6.5 42.6 14.6 48 24 48z"/></svg>`;
+/* ── the preview gate (owner 2026-11-21) ── the cut, the unlock card and its words live in scripts/blog-gate.mjs
+   Readers without an account see the first 30% of an article; the other 70% waits behind an inline unlock card (log in or sign up free with Google or e-mail, "free, no credit card"). It replaces the 3-second
+   pop-up wall (marker tg-gate:v7, owner 2026-11-16) and every earlier timer wall (history: docs/agents-history.md and git). blog-gate.mjs cuts the article (gateTail) and writes the card; this file calls it
+   (articleHtml for a page being rendered, patchArticle for a page kept from an earlier build) and writes the reader script at the end of the page (gateHtml: view / read / gate / click counts, lifting the gate
+   when a session appears). The card is a plain link into the app, because the app's login card (Google, e-mail link, password) is the one place accounts are made: "Google" goes to /?go=google (App.tsx starts the
+   Google sign-in at once), "sign up" and "log in" open that card on its own tab (?wall=signup | ?wall=login, app-shell.tsx); every link carries utm_source=blog&utm_campaign=<article> so the admin funnel can say
+   how many members this channel brings. Members, crawlers and browsers without JavaScript see the whole article (the full text is in the HTML: a gate, not cloaking); the JSON-LD says isAccessibleForFree false with
+   cssSelector .tg-locked only on a page that really has a locked part. */
+const gateBase = (lang, slug) => `${SITE}/?utm_source=blog&utm_medium=seo&utm_campaign=${encodeURIComponent(slug)}&lg=${lang}`;
 const J = (v) => JSON.stringify(v).replace(/</g, "\\u003c");   // JSON inside an inline <script>: never let a slug close it
 const VIEWS_CSS = `.tg-views{color:#7a6a5e;white-space:nowrap}.tg-cv{display:block;margin-top:6px;color:#8a7a6e;font-size:13px}`;
 // In a right-to-left page the badge is its own bidi island: the number keeps its digits in order and the Arabic unit does not pull the "·" and the eye to the wrong side of the date.
@@ -202,22 +163,18 @@ const VIEWS_SEP = (lang) => lang === "ja" || lang === "ko" ? "" : " ";
 const LOC_JS = (lang) => ["th", "en", "zh"].includes(lang) ? `LANG==="th"?"th-TH":LANG==="zh"?"zh-CN":"en-US"` : J(({ ja: "ja-JP", ko: "ko-KR", ru: "ru-RU", hi: "hi-IN", es: "es-ES", fr: "fr-FR", ar: "ar-u-nu-latn", de: "de-DE" })[lang] || "en-US");
 /* The reader script of an article page (owner 2026-11-07): one shared reading clock does three jobs. (1) It counts the visit and shows the number of readers beside the date
    ("👁 1,234 views"): public.blog_hit() (supabase-blog-views-migration.sql) counts one view per device per article per day and returns the all-time number. (2) After 3 seconds of
-   reading it records a "read" and, for someone with no session in this browser, opens the log-in pop-up (one minute until 2026-11-07, 30 seconds until 2026-11-12, 15 seconds until 2026-11-13, 5 seconds until 2026-11-16 — owner 2026-11-13: "5 seconds, in every language: most readers stay under 10 seconds, so sign them up in the first 10"; owner 2026-11-16: "3 seconds", and the pop-up says that the 7-day trial needs no credit card). (3) It records when the pop-up was shown and
-   tapped. Every call fails soft: before the migration is applied the page shows no number and nothing else changes. Crawlers are not counted. A page kept from an earlier build is re-patched
-   between the two markers, so the committed pages follow the generator. */
-const GATE_MARK = "<!--tg-gate:v7-->", GATE_END = "<!--/tg-gate-->";
+   reading it records a "read". (3) Since 2026-11-21 it also serves the preview gate (scripts/blog-gate.mjs): it lifts the class tg-gated from <html> when a session appears in this browser
+   (the reader logged in, even in another tab, or came back through the back / forward cache), records `gate` when half of the unlock card is on screen and `click` (keepalive) when one of its
+   links is tapped, and remembers the article (tg_blog_return) so the app can bring the reader back after the log-in. Until 2026-11-21 it opened the 3-second pop-up wall instead.
+   Every call fails soft: before the migration is applied the page shows no number and nothing else changes. Crawlers are not counted. A page kept from an earlier build is re-patched
+   between the two markers, so the committed pages follow the generator. The test door: with localStorage.tg_test_hook = "1" the page reads ?read_ms=<ms> instead of 3000. */
+const GATE_MARK = "<!--tg-gate:v8-->", GATE_END = "<!--/tg-gate-->";
 function gateHtml(lang, slug) {
-  const T = GATE_T[lang] || GATE_T.en;
-  const base = `${SITE}/?utm_source=blog&utm_medium=seo&utm_campaign=${encodeURIComponent(slug)}&lg=${lang}`;
-  const L = (x) => esc(`${base}&${x}`);
-  const js = `(function(){var D=document,W=window,LS=null,SS=null,MS=3000,READ=0,OPEN=false,GOAL,SENT=0,API=${J(URL_)},KEY=${J(KEY)},LANG=${J(lang)},SLUG=${J(slug)},VID="",BOT=false,OFF=false,LBL=${J(VIEWS_LBL[lang] || VIEWS_LBL.en)},badge=null,MEM=null;
+  const js = `(function(){var D=document,W=window,LS=null,SS=null,H=D.documentElement,MS=3000,READ=0,SENT=0,SEEN=0,API=${J(URL_)},KEY=${J(KEY)},LANG=${J(lang)},SLUG=${J(slug)},VID="",BOT=false,OFF=false,LBL=${J(VIEWS_LBL[lang] || VIEWS_LBL.en)},badge=null;
 try{LS=W.localStorage}catch(e){}try{SS=W.sessionStorage}catch(e){}
 try{BOT=/googlebot|bingbot|baiduspider|yandex|duckduckbot|applebot|slurp|crawler|spider|lighthouse|headlesschrome|prerender|facebookexternalhit|ahrefsbot|semrushbot|gptbot|claudebot|petalbot|bytespider/i.test(navigator.userAgent||"")}catch(e){}
 function isAuth(){try{if(LS)for(var i=0;i<LS.length;i++){var k=LS.key(i);if(k&&/^sb-.*-auth-token$/.test(k)&&LS.getItem(k))return true}}catch(e){}return false}
-try{if(LS&&LS.getItem("tg_test_hook")==="1"){var q=/[?&]gate_ms=(\\d+)/.exec(location.search);if(q){MS=+q[1]}}}catch(e){}
-GOAL=MS;
-/* a reader who already met the wall (within the last 24 hours, in this browser) meets it again at once on any article: reloading or opening another one is not a way round */
-try{var wt=+(LS&&LS.getItem("tg_blog_walled"))||0;if(wt&&Date.now()-wt<86400000)GOAL=0}catch(e){}
+try{if(LS&&LS.getItem("tg_test_hook")==="1"){var q=/[?&]read_ms=(\\d+)/.exec(location.search);if(q){MS=+q[1]}}}catch(e){}
 try{OFF=!!(SS&&SS.getItem("tg_blog_rpc_off"))}catch(e){}
 function rnd(){var s="",c="abcdefghijklmnopqrstuvwxyz0123456789",n=20,j;try{var a=new Uint8Array(n);W.crypto.getRandomValues(a);for(j=0;j<n;j++)s+=c.charAt(a[j]%36)}catch(e){s="";for(j=0;j<n;j++)s+=c.charAt(Math.floor(Math.random()*36))}return s}
 function okId(v){return /^[A-Za-z0-9_-]{8,64}$/.test(v||"")}
@@ -232,18 +189,29 @@ function show(n){if(typeof n!=="number"||!(n>=1))return;var b=badgeEl();if(!b)re
 /* the view is counted once the page is really in front of the reader: not while it is only prerendered, not in a tab that was opened in the background and never looked at */
 var VIEWED=0;function view(){if(VIEWED)return;if(D.prerendering||D.hidden)return;VIEWED=1;hit("view",show)}
 if(D.prerendering)D.addEventListener("prerenderingchange",view);D.addEventListener("visibilitychange",function(){last=Date.now();view()});view();
-var el=D.getElementById("tg-gate");
-/* the wall has no close control, no Esc, no tap-outside: it lifts only when a session appears in this browser (the reader logged in, even in another tab) */
-function lock(on){try{D.documentElement.style.overflow=on?"hidden":(el._ov||"");var c=D.body.children;for(var i=0;i<c.length;i++){var n=c[i];if(n===el||n.tagName==="SCRIPT"||n.tagName==="STYLE")continue;if(on){if(!n.hasAttribute("inert")){n.setAttribute("inert","");n.setAttribute("data-tg-inert","1")}}else if(n.getAttribute("data-tg-inert")){n.removeAttribute("inert");n.removeAttribute("data-tg-inert")}}}catch(e){}}
-function closeIt(){if(!OPEN)return;OPEN=false;el.hidden=true;lock(false)}
-function openIt(){OPEN=true;try{LS&&LS.setItem("tg_blog_walled",String(Date.now()))}catch(e){}el._ov=D.documentElement.style.overflow;lock(true);el.hidden=false;ev("blog_gate_shown",{slug:SLUG});hit("gate");var b=el.querySelector("[data-gate=google]");if(b&&b.focus)try{b.focus({preventScroll:true})}catch(e){}}
+function gated(){return /(^|\\s)tg-gated(\\s|$)/.test(H.className)}
+/* the reader has a session now (logged in, even in another tab): the rest of the article is theirs */
+function lift(){try{H.className=H.className.replace(/(^|\\s)tg-gated(?=\\s|$)/g,"")}catch(e){}}
 /* the reading clock: a gap of more than 1.5 s between two 250 ms ticks means the page was frozen or throttled (another app, a locked phone), and that time is not reading */
-var last=Date.now();setInterval(function(){var n=Date.now(),d=n-last;last=n;if(D.hidden||d>1500||d<0)return;if(OPEN){if(isAuth())closeIt();return}READ+=d;if(!SENT&&READ>=MS){SENT=1;hit("read");ev("blog_read",{slug:SLUG,seconds:Math.round(READ/1000)})}if(el&&!BOT&&READ>=GOAL&&!isAuth())openIt()},250);
-W.addEventListener("pageshow",function(e){last=Date.now();if(e&&e.persisted&&OPEN&&isAuth())closeIt()});
-if(!el)return;
-el.addEventListener("click",function(e){var t=e.target;while(t&&t!==el){if(t.getAttribute&&t.getAttribute("data-gate")){ev("blog_gate_click",{method:t.getAttribute("data-gate"),slug:SLUG});hit("click",null,true);try{if(LS){var p=JSON.parse(LS.getItem("tg_guest_profile")||"{}")||{};p.lang=LANG;LS.setItem("tg_guest_profile",JSON.stringify(p))}}catch(e){}return}t=t.parentNode}});
-if(W.__tgGate===undefined)W.__tgGate={open:function(){if(!OPEN&&!isAuth())openIt()},state:function(){return{open:OPEN,read:READ,auth:isAuth()}}};})();`;
-  return `${GATE_MARK}<style>${forLang(GATE_CSS, lang)}${gateLangCss(lang)}${viewsCss(lang)}</style><div id="tg-gate" role="dialog" aria-modal="true" aria-labelledby="tg-gate-t" data-nosnippet hidden><div class="tg-g-card"><div class="tg-g-badge">TIGA ALPHA</div><h2 id="tg-gate-t">${esc(T.title)}</h2><p>${esc(T.sub)}</p><p class="tg-g-trial">${esc(T.trial || GATE_T.en.trial)}</p><a class="tg-g-btn tg-g-google" data-gate="google" rel="nofollow" href="${L("go=google")}">${GMARK}${esc(T.google)}</a><a class="tg-g-btn tg-g-signup" data-gate="signup" rel="nofollow" href="${L("wall=signup")}">${esc(T.signup)}</a><a class="tg-g-login" data-gate="login" rel="nofollow" href="${L("wall=login")}">${esc(T.login)}</a></div></div><script>${js}</script>${GATE_END}`;
+var last=Date.now();setInterval(function(){var n=Date.now(),d=n-last;last=n;if(D.hidden||d>1500||d<0)return;READ+=d;if(!SENT&&READ>=MS){SENT=1;hit("read");ev("blog_read",{slug:SLUG,seconds:Math.round(READ/1000)})}if(gated()&&isAuth())lift()},250);
+W.addEventListener("storage",function(){if(gated()&&isAuth())lift()});
+W.addEventListener("pageshow",function(e){last=Date.now();if(gated()&&isAuth())lift()});
+var card=D.getElementById("tg-unlock");
+/* the unlock card counts as shown once half of it is on screen (and only for a gated reader), and as tapped on a click; the article is remembered so the app can bring the reader back after the log-in */
+function seen(){if(SEEN||!gated())return;SEEN=1;ev("blog_gate_shown",{slug:SLUG});hit("gate")}
+if(card&&!BOT){
+if(W.IntersectionObserver){try{var io=new IntersectionObserver(function(es){for(var i=0;i<es.length;i++)if(es[i].isIntersecting){seen();io.disconnect();break}},{threshold:.5});io.observe(card)}catch(e){}}
+card.addEventListener("click",function(e){var t=e.target;while(t&&t!==card){if(t.getAttribute&&t.getAttribute("data-gate")){ev("blog_gate_click",{method:t.getAttribute("data-gate"),slug:SLUG});hit("click",null,true);try{if(LS){var p=JSON.parse(LS.getItem("tg_guest_profile")||"{}")||{};p.lang=LANG;LS.setItem("tg_guest_profile",JSON.stringify(p));LS.setItem("tg_blog_return",JSON.stringify({p:location.pathname,t:Date.now()}))}}catch(e){}return}t=t.parentNode}});
+}
+if(W.__tgGate===undefined)W.__tgGate={state:function(){return{gated:gated(),read:READ,auth:isAuth(),seen:!!SEEN}}};})();`;
+  return `${GATE_MARK}<style>${viewsCss(lang)}</style><script>${js}</script>${GATE_END}`;
+}
+/* The JSON-LD of a page kept from an earlier build: the gated part is named only when the page really has one (cssSelector .tg-locked); a page left whole carries no gating markup. */
+const LD_GATED = /"isAccessibleForFree":false,"hasPart":\{"@type":"WebPageElement","isAccessibleForFree":false,"cssSelector":"[^"]*"\},/;
+function setLdGate(html, gated) {
+  const frag = '"isAccessibleForFree":false,"hasPart":{"@type":"WebPageElement","isAccessibleForFree":false,"cssSelector":".tg-locked"},';
+  if (LD_GATED.test(html)) return gated ? html.replace(LD_GATED, () => frag) : html.replace(LD_GATED, "");
+  return gated ? html.replace('"@type":"BlogPosting","@id"', () => '"@type":"BlogPosting",' + frag + '"@id"') : html;
 }
 /* The article lists show the same number on every card (one call per list). Patched into kept pages like the gate. */
 const IDX_MARK = "<!--tg-idx:v1-->", IDX_END = "<!--/tg-idx-->";
@@ -292,13 +260,15 @@ export function articleHtml(p, set, related = []) {
   const desc = p.excerpt || plainText(p.body).slice(0, 155);
   const articleBody = plainText(p.body).slice(0, 8000);
   const words = ["zh", "ja", "ko"].includes(p.lang) ? articleBody.replace(/\s/g, "").length : articleBody.split(/\s+/).filter(Boolean).length;   // no spaces between words in Chinese / Japanese, so characters are counted (Korean the same way, by the owner's rule)
+  // the preview gate: the body is cut at about 30% (blog-gate.mjs); the other blocks, the related list and the call-to-action sit inside .tg-locked
+  const g = gateTail(body(p.body) + relatedHtml(p.lang, related) + `<p><a class="cta" href="${SITE}/">${L.cta}</a></p>`, { lang: p.lang, base: gateBase(p.lang, p.slug) });
   const ld = { "@context": "https://schema.org", "@graph": [
-    { "@type": "BlogPosting", "@id": canon + "#article", isAccessibleForFree: false, hasPart: { "@type": "WebPageElement", isAccessibleForFree: false, cssSelector: "article" }, headline: p.title, keywords: KW[p.lang], isPartOf: { "@id": `${SITE}/blog/${p.lang}/#blog` }, about: { "@id": SITE + "/#app" }, articleSection: (CATN[p.category || "tips"] || {})[p.lang] || undefined, description: desc, articleBody, wordCount: words, inLanguage: L.html, datePublished: p.created_at, dateModified: p.updated_at || p.created_at, mainEntityOfPage: { "@type": "WebPage", "@id": canon }, url: canon, image: { "@type": "ImageObject", url: safeUrl(p.cover_url || "") || `${SITE}/og-card.png` }, author: { "@id": SITE + "/#teacher-aum" }, publisher: { "@id": SITE + "/#org" } },
+    { "@type": "BlogPosting", "@id": canon + "#article", ...(g.gated ? { isAccessibleForFree: false, hasPart: { "@type": "WebPageElement", isAccessibleForFree: false, cssSelector: ".tg-locked" } } : {}), headline: p.title, keywords: KW[p.lang], isPartOf: { "@id": `${SITE}/blog/${p.lang}/#blog` }, about: { "@id": SITE + "/#app" }, articleSection: (CATN[p.category || "tips"] || {})[p.lang] || undefined, description: desc, articleBody, wordCount: words, inLanguage: L.html, datePublished: p.created_at, dateModified: p.updated_at || p.created_at, mainEntityOfPage: { "@type": "WebPage", "@id": canon }, url: canon, image: { "@type": "ImageObject", url: safeUrl(p.cover_url || "") || `${SITE}/og-card.png` }, author: { "@id": SITE + "/#teacher-aum" }, publisher: { "@id": SITE + "/#org" } },
     { "@type": "Person", "@id": SITE + "/#teacher-aum", name: AUM[p.lang], jobTitle: "Founder & CEO, TIGA ALPHA", worksFor: { "@id": SITE + "/#org" }, sameAs: ["https://www.tigastudio.net/", "https://www.tigaalpha.com/"] },
     { "@type": "BreadcrumbList", itemListElement: [{ "@type": "ListItem", position: 1, name: "TIGA ALPHA", item: SITE + "/" }, { "@type": "ListItem", position: 2, name: L.name, item: `${SITE}/blog/${p.lang}/` }, { "@type": "ListItem", position: 3, name: p.title, item: canon }] }, ORG] };
   const d = new Date(p.created_at).toISOString().slice(0, 10);
   const coverAlt = String(p.cover_alt || "").trim() || p.title;
-  return head(p.lang, `${p.title} | TIGA ALPHA`, desc, canon, alts, ld) + `<body>${topbar(p.lang)}<main><article><p class="meta"><a href="${SITE}/blog/${p.lang}/">${arrowBack(p.lang)} ${L.back}</a></p><h1>${esc(p.title)}</h1><p class="meta">${esc(CATN[p.category || "tips"] ? CATN[p.category || "tips"][p.lang] : "")} · <time datetime="${d}">${d}</time></p>${safeUrl(p.cover_url || "") ? `<img src="${safeUrl(p.cover_url)}" alt="${esc(coverAlt)}">` : ""}${body(p.body)}${relatedHtml(p.lang, related)}<p><a class="cta" href="${SITE}/">${L.cta}</a></p></article></main>${gateHtml(p.lang, p.slug)}</body></html>\n`;
+  return head(p.lang, `${p.title} | TIGA ALPHA`, desc, canon, alts, ld) + `<body>${topbar(p.lang)}<main><article><p class="meta"><a href="${SITE}/blog/${p.lang}/">${arrowBack(p.lang)} ${L.back}</a></p><h1>${esc(p.title)}</h1><p class="meta">${esc(CATN[p.category || "tips"] ? CATN[p.category || "tips"][p.lang] : "")} · <time datetime="${d}">${d}</time></p>${safeUrl(p.cover_url || "") ? `<img src="${safeUrl(p.cover_url)}" alt="${esc(coverAlt)}">` : ""}${g.html}</article></main>${gateHtml(p.lang, p.slug)}</body></html>\n`;
 }
 export const INDEX_PAGE = 48;
 const MORE = { th: "หน้าถัดไป", en: "Next page", zh: "下一页", ja: "次のページ", ko: "다음 페이지", ru: "Следующая страница", hi: "अगला पृष्ठ", es: "Página siguiente", fr: "Page suivante", ar: "الصفحة التالية", de: "Nächste Seite" };
@@ -455,6 +425,7 @@ for (const lang of Object.keys(LG)) {
   if (fs.existsSync(indexFile)) fs.rmSync(indexFile);
   urls.push([`${SITE}/blog/${lang}/`, indexSm(), newest]);
 }
+const kept = {};
 if (!fetched) {
   for (const lang of Object.keys(LG)) {
     const dir = path.join(OUT, lang);
@@ -468,7 +439,9 @@ if (!fetched) {
       const fp = path.join(dir, f), h0 = fs.readFileSync(fp, "utf8");
       if (h0.includes("</body>")) {
         let h1 = h0.replace(OLD_GATE, "").replace(lastBody, () => gateHtml(lang, f.slice(0, -5)) + "</body>");
-        if (!h1.includes('"isAccessibleForFree"')) h1 = h1.replace('"@type":"BlogPosting","@id"', '"@type":"BlogPosting","isAccessibleForFree":false,"hasPart":{"@type":"WebPageElement","isAccessibleForFree":false,"cssSelector":"article"},"@id"');
+        const pa = patchArticle(h1, { lang, base: gateBase(lang, f.slice(0, -5)) });   // the preview cut, in place (idempotent: an earlier cut is removed first)
+        h1 = setLdGate(pa.html, pa.state === "gated"); kept[pa.state] = (kept[pa.state] || 0) + 1;
+        if (pa.state === "skipped") console.log("build-blog-pages: could not cut " + lang + "/" + f + " (" + pa.why + ")");
         h1 = addAlternates(h1, f.slice(0, -5), bySlug[f.slice(0, -5)]);   // a translation added after this page was rendered: link to it (and it links back, see the pages written from blog-src)
         if (h1 !== h0) fs.writeFileSync(fp, h1);
       }
@@ -478,6 +451,7 @@ if (!fetched) {
     if (!emittedIndex.has(lang) && fs.existsSync(ip)) { const i0 = fs.readFileSync(ip, "utf8"); const i1 = i0.replace(OLD_IDX, "").replace(lastBody, () => idxHtml(lang) + "</body>"); if (i1 !== i0) fs.writeFileSync(ip, i1); }
   }
 }
+if (!fetched) console.log("build-blog-pages: kept pages " + JSON.stringify(kept));
 const staticPosts = posts.filter(p => STATIC_LANGS.includes(p.lang));
 if (staticPosts.length) { fs.mkdirSync(OUT, { recursive: true }); fs.writeFileSync(path.join(OUT, "sitemap-static.xml"), staticSitemapXml(posts, bySlug)); }
 const sm = path.join(ROOT, "sitemap.xml");

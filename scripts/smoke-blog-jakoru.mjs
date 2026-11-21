@@ -20,7 +20,7 @@ function gen(env, { cwd } = {}) {
   const r = spawnSync("node", [env.__script || GEN], { env: { ...process.env, BLOG_SRC: "", BLOG_FIXTURE: "", BLOG_OFFLINE: "", BLOG_OUT: "", SITE_URL: SITE, ...env, __script: undefined }, encoding: "utf8", cwd });
   return { code: r.status, out: r.stdout, err: r.stderr };
 }
-const src = (lang, slug, o = {}) => ({ lang, slug, category: "tips", title: `${lang.toUpperCase()} title ${slug}`, excerpt: `${lang} excerpt for ${slug}, long enough to read like a summary`, body: "## Head\n\nPara **bold** here.\n\n- a\n- b\n\n1. one\n2. two\n" + "word ".repeat(80), created_at: "2026-11-11", published: true, ...o });
+const src = (lang, slug, o = {}) => ({ lang, slug, category: "tips", title: `${lang.toUpperCase()} title ${slug}`, excerpt: `${lang} excerpt for ${slug}, long enough to read like a summary`, body: "## Head\n\nPara **bold** here. " + "word ".repeat(40) + "\n\n- a\n- b\n\n1. one\n2. two\n\n" + "word ".repeat(60) + "\n\n" + "word ".repeat(60) + "\n\n" + "word ".repeat(40), created_at: "2026-11-11", published: true, ...o });
 
 // ───────── fixtures ─────────
 // the seven languages that ship as source files, and the hreflang tag of each of the ten blog languages
@@ -65,14 +65,14 @@ ok(!fs.existsSync(path.join(OUT, "ko", "Bad_Slug.html")) && !fs.existsSync(path.
 ok(/\(\d+ from blog-src\)/.test(r1.out), "the build reports how many posts came from blog-src: " + (r1.out.match(/\(\d+ from blog-src\)/) || [""])[0]);
 
 console.log("article pages in ja / ko / ru / hi / es / fr / ar");
-// the wall's four lines per language (title, Google button, sign-up button, log-in line); "\u00a0" is the no-break space of hi / es / fr / ar (a phone never splits "TIGA AI"; es keeps "Inicia sesión" together), compared as a plain space
-const wall = { ja: ["続きを読むにはログイン", "Googleで続ける", "無料で会員登録", "ログイン"], ko: ["계속 읽으려면 로그인하세요", "Google로 계속하기", "무료로 가입하기", "로그인"], ru: ["Войдите, чтобы читать дальше", "Продолжить через Google", "Зарегистрироваться бесплатно", "Войти"],
-  hi: ["आगे पढ़ने के लिए लॉग इन करें", "Google से जारी रखें", "मुफ़्त में साइन अप करें", "पहले से सदस्य हैं? लॉग इन करें"],
-  es: ["Inicia sesión para seguir leyendo", "Continuar con Google", "Regístrate gratis", "¿Ya eres miembro? Inicia sesión"],
-  fr: ["Connectez-vous pour continuer à lire", "Continuer avec Google", "S'inscrire gratuitement", "Déjà membre\u00a0? Se connecter"],
-  ar: ["سجّل الدخول لمواصلة القراءة", "المتابعة باستخدام Google", "إنشاء حساب مجاني", "لديك حساب بالفعل؟ تسجيل الدخول"] };
-const nb = (s) => String(s).replace(/\u00a0/g, " ");
-const trialWords = { ja: ["7日間無料", "クレジットカードは不要"], ko: ["7일 동안 무료", "신용카드는 필요 없어요"], ru: ["7 дней бесплатно", "банковская карта не нужна"], hi: ["7 दिन तक पियानो के पाठ मुफ़्त", "क्रेडिट कार्ड की ज़रूरत नहीं"], es: ["gratis durante 7 días", "sin tarjeta de crédito"], fr: ["gratuitement pendant 7 jours", "sans carte bancaire"], ar: ["مجانًا لمدة 7 أيام", "بطاقة ائتمان"] };
+// the unlock card's four lines per language (the "read the rest" title, Google button, sign-up button, log-in line); "\xa0" is the no-break space of hi / es / fr / ar (a phone never splits "TIGA AI"; es keeps "Inicia sesión" together), compared as a plain space
+const wall = { ja: ["無料ログインで、残りの", "Googleで続ける", "無料で会員登録", "ログイン"], ko: ["무료로 로그인하고 나머지", "Google로 계속하기", "무료로 가입하기", "로그인"], ru: ["Войдите бесплатно, чтобы прочитать остальные", "Продолжить через Google", "Зарегистрироваться бесплатно", "Войти"],
+  hi: ["पढ़ने के लिए मुफ़्त में लॉग इन करें", "Google से जारी रखें", "मुफ़्त में साइन अप करें", "पहले से सदस्य हैं? लॉग इन करें"],
+  es: ["Inicia sesión gratis para leer el", "Continuar con Google", "Regístrate gratis", "¿Ya eres miembro? Inicia sesión"],
+  fr: ["Connectez-vous gratuitement pour lire les", "Continuer avec Google", "S'inscrire gratuitement", "Déjà membre\xa0? Se connecter"],
+  ar: ["سجّل الدخول مجانًا لقراءة بقية المقال", "المتابعة باستخدام Google", "إنشاء حساب مجاني", "لديك حساب بالفعل؟ تسجيل الدخول"] };
+const nb = (s) => String(s).replace(/\xa0/g, " ");
+const trialWords = { ja: ["7日間無料", "クレジットカードは不要"], ko: ["7일 동안 무료", "신용카드 필요 없음"], ru: ["7 дней бесплатно", "Банковская карта не нужна"], hi: ["7 दिन तक पियानो के पाठ मुफ़्त", "क्रेडिट कार्ड की ज़रूरत नहीं"], es: ["gratis durante 7 días", "Sin tarjeta de crédito"], fr: ["gratuitement les cours de piano pendant 7 jours", "Sans carte bancaire"], ar: ["مجانًا لمدة 7 أيام", "دون بطاقة ائتمان"] };
 const LOC = { ja: "ja_JP", ko: "ko_KR", ru: "ru_RU", hi: "hi_IN", es: "es_ES", fr: "fr_FR", ar: "ar_AR" }, AUM = { ja: "アウム先生", ko: "아움 선생님", ru: "Учитель Aum", hi: "टीचर Aum", es: "Profe Aum", fr: "Prof Aum", ar: "المعلّم Aum" }, CAT = { ja: "音楽理論", ko: "음악 이론", ru: "Теория музыки", hi: "संगीत सिद्धांत", es: "Teoría musical", fr: "Théorie musicale", ar: "نظرية الموسيقى" }, BACK = { ja: "すべての記事", ko: "모든 글", ru: "Все статьи", hi: "सभी लेख", es: "Todos los artículos", fr: "Tous les articles", ar: "كل المقالات" }, CTA = { ja: "TIGA ALPHAで無料で始めよう", ko: "TIGA ALPHA에서 무료로 시작하기", ru: "Начните учиться бесплатно в TIGA ALPHA", hi: "TIGA ALPHA पर मुफ़्त में शुरू करें", es: "Empieza gratis en TIGA ALPHA", fr: "Commencez gratuitement sur TIGA ALPHA", ar: "ابدأ التعلّم مجانًا على TIGA ALPHA" }, WORDS = { ja: "回閲覧", ko: "회 조회", ru: "просмотров", hi: "व्यूज़", es: "visualizaciones", fr: "vues", ar: "مشاهدة" };
 for (const lang of STAT) {
   const f = path.join(OUT, lang, "piano-posture.html"); ok(fs.existsSync(f), lang + ": the page is written from blog-src");
@@ -88,17 +88,17 @@ for (const lang of STAT) {
   ok(alt.includes(`x-default=${SITE}/blog/en/piano-posture.html`), lang + ": x-default is the English version when there is one");
   ok(alt.includes(`${lang}=${SITE}/blog/${lang}/piano-posture.html`) && alt.includes(`th=${SITE}/blog/th/piano-posture.html`), lang + ": each alternate points at /blog/<lang>/<slug>.html");
   ok(h.includes(`"inLanguage":"${lang}"`) && h.includes('"@type":"BlogPosting"'), lang + ": BlogPosting JSON-LD with inLanguage " + lang);
-  ok(h.includes('"isAccessibleForFree":false') && h.includes('"cssSelector":"article"'), lang + ": gated-content markup");
+  ok(h.includes('"isAccessibleForFree":false') && h.includes('"cssSelector":".tg-locked"') && !h.includes('"cssSelector":"article"'), lang + ": gated-content markup names the locked part");
   ok(h.includes(`"name":"${AUM[lang]}"`), lang + ": the teacher's name in " + lang + " (" + AUM[lang] + ")");
   ok(h.includes(CAT[lang]) && h.includes(BACK[lang]) && h.includes(CTA[lang]), lang + ": category, 'all articles' and call-to-action in " + lang);
   ok(h.includes(`href="${SITE}/blog/${lang}/feed.xml"`), lang + ": the feed is linked from the head");
-  ok(wall[lang].slice(0, 3).every(w => nb(h).includes(nb(w))) && nb(h).includes("TIGA AI"), lang + ": the wall copy is in " + lang + " and names the TIGA AI app");
-  ok(h.includes("<!--tg-gate:v7-->") && h.includes("<!--/tg-gate-->") && (h.match(/id="tg-gate"/g) || []).length === 1, lang + ": one wall, marker <!--tg-gate:v7-->");
+  ok(wall[lang].slice(0, 3).every(w => nb(h).includes(nb(w))) && nb(h).includes("TIGA AI"), lang + ": the unlock card copy is in " + lang + " and names the TIGA AI app");
+  ok(h.includes("<!--tg-gate:v8-->") && h.includes("<!--/tg-gate-->") && h.includes("<!--tg-cut:v1-->") && (h.match(/id="tg-unlock"/g) || []).length === 1 && (h.match(/class="tg-locked"/g) || []).length === 1, lang + ": one unlock card and one locked part, reader block <!--tg-gate:v8-->");
   ok(h.includes(`lg=${lang}`) && h.includes("utm_campaign=piano-posture") && h.includes("go=google") && h.includes("wall=signup") && h.includes("wall=login"), lang + ": wall links carry lg=" + lang + ", the attribution and the three entry points");
   ok(h.includes(`LANG="${lang}"`) && h.includes(`LBL="${WORDS[lang]}"`), lang + ": the reader script knows its language and the unit '" + WORDS[lang] + "'");
-  ok(h.includes("MS=3000") && !/data-gate-close|tg-g-x|tg-g-later/.test(h), lang + ": the wall is the same uncloseable 3 second wall");
-  ok(trialWords[lang].every(w => nb(h).includes(w)) && h.includes("<!--tg-gate:v7-->"), lang + ": the pop-up says the 7-day trial needs no credit card, in " + lang, trialWords[lang].join(" / "));
-  ok(/id="tg-gate"[^>]*data-nosnippet[^>]*hidden/.test(h), lang + ": the pop-up is hidden and marked data-nosnippet");
+  ok(h.includes("MS=3000") && !/data-gate-close|tg-g-x|tg-g-later/.test(h) && !h.includes('id="tg-gate"') && !h.includes("tg-g-card"), lang + ": the read count is 3 s and no pop-up wall is left");
+  ok(trialWords[lang].every(w => nb(h).includes(w)) && h.includes("<!--tg-gate:v8-->"), lang + ": the card says it is free, that no credit card is needed and the 7-day trial, in " + lang, trialWords[lang].join(" / "));
+  ok(/<aside class="tg-unlock" id="tg-unlock" data-nosnippet/.test(h), lang + ": the unlock card is marked data-nosnippet");
   ok(h.includes("<time datetime=\"2026-11-11\">2026-11-11</time>"), lang + ": a plain date string in created_at gives a valid date");
   ok(/class="tg-views"|\.tg-views\{/.test(h), lang + ": the view counter styles are in");
 }
@@ -108,11 +108,11 @@ for (const lang of STAT) {
   ok(/"Hiragino Sans","Yu Gothic","Noto Sans JP","Noto Sans SC"/.test(ja) && !/Malgun/.test(ja), "ja: the page font stack names Japanese faces (before the Chinese one)");
   ok(/"Apple SD Gothic Neo","Malgun Gothic","Noto Sans KR","Noto Sans SC"/.test(ko) && !/Hiragino/.test(ko), "ko: the page font stack names Korean faces");
   ok(!/Hiragino|Malgun/.test(ru) && !/Hiragino|Malgun/.test(en), "ru and en keep the old font stack");
-  ok((ja.match(/Hiragino Sans/g) || []).length === 2, "ja: the wall card uses the same Japanese faces (page and card)");
-  ok(/"Noto Sans Devanagari","Nirmala UI","Mangal","Noto Sans SC"/.test(hi) && (hi.match(/Noto Sans Devanagari/g) || []).length === 2 && !/Hiragino|Malgun|Naskh/.test(hi), "hi: the page and the wall card name the Devanagari faces (Noto Sans Devanagari, Nirmala UI, Mangal)");
-  ok(/font:17px\/1\.75 /.test(hi) && /h1\{line-height:1\.5\}/.test(hi) && /\.tg-g-card h2\{line-height:1\.5\}/.test(hi) && /header\.top a:not\(:first-child\)\{letter-spacing:0\}/.test(hi), "hi: body line-height 1.75, taller headings and wall, no letter-spacing on the blog name");
-  ok(/font:17px\/1\.75 "Noto Naskh Arabic","Noto Sans Arabic",Tahoma,system-ui/.test(ar) && (ar.match(/"Noto Naskh Arabic","Noto Sans Arabic",Tahoma/g) || []).length === 2 && !/Hiragino|Malgun|Devanagari/.test(ar), "ar: the page and the wall card use Noto Naskh Arabic, Noto Sans Arabic, Tahoma, system-ui");
-  ok(/\[dir=rtl\] body\{line-height:1\.85\}/.test(ar) && /\[dir=rtl\] \.tg-g-card p\{line-height:1\.85\}/.test(ar) && /padding-inline-start/.test(ar) && /border-inline-start/.test(ar) && /text-align:start/.test(ar), "ar: line-height 1.85, logical padding / border for lists and quotes, text-align:start");
+  ok((ja.match(/Hiragino Sans/g) || []).length === 1, "ja: the page names the Japanese faces once (the unlock card inherits them)");
+  ok(/"Noto Sans Devanagari","Nirmala UI","Mangal","Noto Sans SC"/.test(hi) && (hi.match(/Noto Sans Devanagari/g) || []).length === 1 && !/Hiragino|Malgun|Naskh/.test(hi), "hi: the page names the Devanagari faces (Noto Sans Devanagari, Nirmala UI, Mangal) and the unlock card inherits them");
+  ok(/font:17px\/1\.75 /.test(hi) && /h1\{line-height:1\.5\}/.test(hi) && /\.tg-u-title\{line-height:1\.5\}/.test(hi) && /header\.top a:not\(:first-child\)\{letter-spacing:0\}/.test(hi), "hi: body line-height 1.75, taller headings and unlock card, no letter-spacing on the blog name");
+  ok(/font:17px\/1\.75 "Noto Naskh Arabic","Noto Sans Arabic",Tahoma,system-ui/.test(ar) && (ar.match(/"Noto Naskh Arabic","Noto Sans Arabic",Tahoma/g) || []).length === 1 && !/Hiragino|Malgun|Devanagari/.test(ar), "ar: the page uses Noto Naskh Arabic, Noto Sans Arabic, Tahoma, system-ui (the unlock card inherits it)");
+  ok(/\[dir=rtl\] body\{line-height:1\.85\}/.test(ar) && /\.tg-u-try\{line-height:1\.85\}/.test(ar) && /padding-inline-start/.test(ar) && /border-inline-start/.test(ar) && /text-align:start/.test(ar), "ar: line-height 1.85, a taller unlock card, logical padding / border for lists and quotes, text-align:start");
   const cssOf = (h) => [...h.matchAll(/<style>([\s\S]*?)<\/style>/g)].map(m => m[1]).join("\n");
   ok(/\[dir=rtl\] time\{direction:ltr;unicode-bidi:isolate\}/.test(ar) && /\[dir=rtl\] \.tg-views,\[dir=rtl\] \.tg-cv\{unicode-bidi:isolate\}/.test(ar) && !/(^|[^-])(left|right)\s*:|margin-left|margin-right|padding-left|padding-right|border-left|border-right/.test(cssOf(ar)), "ar: the date and the reader counter are bidi islands, and no physical left / right property is in its CSS (page and wall)");
   ok(![es, fr].some(h => /Noto Sans Devanagari|Naskh|Hiragino|Malgun/.test(h)) && [es, fr].every(h => h.includes('font:17px/1.75 system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans Thai","Noto Sans SC",sans-serif')), "es and fr keep the old font stack (system-ui, Noto Sans Thai, Noto Sans SC)");
@@ -121,7 +121,7 @@ for (const lang of STAT) {
   ok(/\+""\+LBL/.test(ja) && /\+""\+LBL/.test(ko) && /\+" "\+LBL/.test(ru), "ja and ko put the unit straight after the number, ru with a space");
   ok(/\+" "\+LBL/.test(hi) && /\+" "\+\(n===1\?"visualización":LBL\)/.test(es) && /\+" "\+\(n===1\?"vue":LBL\)/.test(fr) && /\+" "\+\(n===1\?LBL:n===2\?"مشاهدتان":n<=10\?"مشاهدات":LBL\)/.test(ar), "hi puts the unit after a space; es / fr use the singular for one view and Arabic its dual / few / many forms");
   ok(/"wordCount":\d+/.test(ja) && Number(/"wordCount":(\d+)/.exec(ja)[1]) > 100, "ja: the word count counts characters");
-  ok(["hi", "es", "fr", "ar"].every(l => { const w = Number((/"wordCount":(\d+)/.exec(P(l)) || [])[1]); return w > 60 && w < 200; }), "hi / es / fr / ar: the word count counts words (about 90 in the fixture)");
+  ok(["hi", "es", "fr", "ar"].every(l => { const w = Number((/"wordCount":(\d+)/.exec(P(l)) || [])[1]); return w > 150 && w < 400; }), "hi / es / fr / ar: the word count counts words (about 215 in the fixture)");
   ok(/"keywords":"ピアノ指導/.test(ja) && /"keywords":"피아노 교육/.test(ko) && /"keywords":"обучение игре на фортепиано/.test(ru), "keywords in each language");
   ok(/"keywords":"पियानो सिखाना/.test(hi) && /"keywords":"enseñanza de piano/.test(es) && /"keywords":"enseignement du piano/.test(fr) && /"keywords":"تعليم البيانو/.test(ar), "...and in hi / es / fr / ar");
   ok(/"articleSection":"संगीत सिद्धांत"/.test(hi) && /"articleSection":"Teoría musical"/.test(es) && /"articleSection":"Théorie musicale"/.test(fr) && /"articleSection":"نظرية الموسيقى"/.test(ar), "the JSON-LD articleSection is the category in each new language");
@@ -216,7 +216,7 @@ console.log("th / en / zh output is unchanged");
 console.log("the six older languages are not changed by the four new ones");
 {
   // The same rows through the generator as it was before hi / es / fr / ar existed (commit a4a7f95da), when git still has that commit: every article page and feed of th / en / zh / ja / ko / ru byte for byte, the index
-  // pages and the sitemap file the same but for their hreflang links (they name ten languages now). The wall block (between its markers) is left out of the comparison: it has its own tests, and the owner changes it on its own.
+  // pages and the sitemap file the same but for their hreflang links (they name ten languages now). The reader block (between its markers), the preview cut (between <!--tg-cut-->) and the gating markup of the JSON-LD are left out of the comparison: they have their own tests (smoke-blog-gate.mjs), and the owner changes them on its own.
   let old = ""; try { old = execSync("git show a4a7f95da:scripts/build-blog-pages.mjs", { cwd: ROOT, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"], maxBuffer: 1 << 26 }); } catch (e) {}
   if (!old.includes("STATIC_LANGS")) console.log("  - (git has no commit a4a7f95da: no pre-change generator to compare with)");
   else {
@@ -227,7 +227,7 @@ console.log("the six older languages are not changed by the four new ones");
     const none = path.join(tmp, "no-src6"), A = path.join(tmp, "six-old"), B = path.join(tmp, "six-new"); fs.mkdirSync(none, { recursive: true });
     const ra = gen({ __script: path.join(br, "scripts", "build-blog-pages.mjs"), BLOG_FIXTURE: path.join(tmp, "six.json"), BLOG_OUT: A, BLOG_SRC: none }), rb = gen({ BLOG_FIXTURE: path.join(tmp, "six.json"), BLOG_OUT: B, BLOG_SRC: none });
     const walk = (d, base = d, o = []) => { for (const f of fs.readdirSync(d, { withFileTypes: true })) { const p = path.join(d, f.name); if (f.isDirectory()) walk(p, base, o); else o.push(path.relative(base, p)); } return o.sort(); };
-    const noWall = (h) => h.replace(/<!--tg-gate:v\d+-->[\s\S]*?<!--\/tg-gate-->/g, "<!--WALL-->"), noAlt = (h) => h.replace(/<link rel="alternate" hreflang="[^"]+" href="[^"]+">/g, "");
+    const noWall = (h) => h.replace(/<!--tg-gate:v\d+-->[\s\S]*?<!--\/tg-gate-->/g, "<!--WALL-->").replace(/<!--tg-cut:v\d+-->[\s\S]*?<div class="tg-locked"[^>]*>/g, "").replace(/<\/div><!--\/tg-cut-->/g, "").replace(/"isAccessibleForFree":false,"hasPart":\{[^}]*\},/g, ""), noAlt = (h) => h.replace(/<link rel="alternate" hreflang="[^"]+" href="[^"]+">/g, "");
     const fa = ra.code === 0 ? walk(A) : [], fb = rb.code === 0 ? walk(B) : [], diff = [];
     for (const f of fa) { if (!fb.includes(f)) { diff.push(f + ": missing"); continue; } const x = noWall(rd(path.join(A, f))), y = noWall(rd(path.join(B, f))), same = /(^|\/)index\.html$/.test(f) ? noAlt(x) === noAlt(y) : x === y; if (!same) diff.push(f); }
     ok(ra.code === 0 && rb.code === 0 && fa.length === 25 && JSON.stringify(fa) === JSON.stringify(fb), "(both generators ran and wrote the same " + fa.length + " files: 18 article pages, the ja / ko / ru indexes and feeds, the static sitemap)");
@@ -266,7 +266,8 @@ console.log("the real articles in blog-src/ (every source-file language, offline
     const h = rd(f), a = alts(h);
     if (!h.includes(`<html lang="${p.lang}"${p.lang === "ar" ? ' dir="rtl"' : ""}>`) || !h.includes(`<link rel="canonical" href="${me}">`)) problems.push(where + ": <html lang / dir> or canonical");
     if (PLACEHOLDER.test(visibleMarkup(h))) problems.push(where + ": placeholder text");
-    if ((h.match(/id="tg-gate"/g) || []).length !== 1) problems.push(where + ": not exactly one wall");
+    if ((h.match(/id="tg-unlock"/g) || []).length !== 1 || (h.match(/class="tg-locked"/g) || []).length !== 1 || h.includes('id="tg-gate"')) problems.push(where + ": not exactly one unlock card / locked part, or a pop-up wall is left");
+    { const said = +((/class="tg-u-bar"[^>]*><i style="width:(\d+)%/.exec(h) || [])[1]); if (!h.includes("<!--tg-cut:v1-->")) problems.push(where + ": no cut (too short, or a first block that is most of the article)"); else if (!(said >= 15 && said <= 45)) problems.push(where + ": the preview share is " + said + "%"); }
     if (!a.some(([l, u]) => l === HL[p.lang] && u === me) || !a.some(([l]) => l === "x-default") || new Set(a.map(x => x[0])).size !== a.length) problems.push(where + ": hreflang has no self link, no x-default, or a language twice");
     for (const [l, u] of a) { if (l === "x-default") continue; const tf = local(u); if (!fs.existsSync(tf)) problems.push(where + ": hreflang " + l + " points at a file that is not there"); else if (!alts(rd(tf)).some(([, v]) => v === me)) problems.push(where + ": " + l + " does not link back (hreflang has to be reciprocal)"); }
     for (const m of h.matchAll(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/g)) { blocks++; try { JSON.parse(m[1]); } catch (e) { problems.push(where + ": the JSON-LD does not parse"); } }
@@ -364,7 +365,7 @@ console.log("sitemap index gets one more entry (what build-song-pages.mjs writes
 {
   const BP = await import(pathToFileURL(path.join(ROOT, "scripts/blog-paths.mjs")).href + "?idx=" + Date.now());
   const root = path.join(tmp, "root"); fs.mkdirSync(path.join(root, "scripts"), { recursive: true });
-  fs.copyFileSync(GEN, path.join(root, "scripts/build-blog-pages.mjs")); fs.copyFileSync(path.join(ROOT, "scripts/blog-paths.mjs"), path.join(root, "scripts/blog-paths.mjs")); fs.copyFileSync(path.join(ROOT, "supabase-client.ts"), path.join(root, "supabase-client.ts")); fs.cpSync(S, path.join(root, "blog-src"), { recursive: true });
+  fs.copyFileSync(GEN, path.join(root, "scripts/build-blog-pages.mjs")); fs.copyFileSync(path.join(ROOT, "scripts/blog-paths.mjs"), path.join(root, "scripts/blog-paths.mjs")); fs.copyFileSync(path.join(ROOT, "scripts/blog-gate.mjs"), path.join(root, "scripts/blog-gate.mjs")); fs.copyFileSync(path.join(ROOT, "supabase-client.ts"), path.join(root, "supabase-client.ts")); fs.cpSync(S, path.join(root, "blog-src"), { recursive: true });
   const idx = `<?xml version="1.0" encoding="UTF-8"?>\n<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n<sitemap><loc>${SITE}/sitemap-pages.xml</loc><lastmod>2026-11-10</lastmod></sitemap>\n${BP.blogSitemapIndexEntries(SITE, "2026-11-10").join("\n")}\n</sitemapindex>\n`;
   W(path.join(root, "sitemap.xml"), idx);
   const run = () => gen({ __script: path.join(root, "scripts/build-blog-pages.mjs"), BLOG_FIXTURE: path.join(tmp, "posts.json") }, { cwd: root });
@@ -405,6 +406,7 @@ console.log("blog-paths.mjs and blog-live.mjs");
   { const rows2 = ["en", "hi", "es", "fr", "ar"].map(l => ({ slug: "p", lang: l, published: true, created_at: "2026-11-13" }));
     ok(["hi", "es", "fr", "ar"].every(l => { const x = P.sitemapLangBuild(rows2, SITE, l).xml; return x.includes(`<loc>${SITE}/blog/${l}/p.html</loc>`) && x.includes(`<loc>${SITE}/blog/${l}/</loc>`) && !x.includes("/blog/en/") && !x.includes("xhtml"); }) && !P.sitemapLangBuild(rows2, SITE, "ja").xml.includes("<loc>"), "the live sitemap lists hi / es / fr / ar articles and their indexes, one language per file, and nothing for ja"); }
   // the function: it never replaces a good static index with an empty list
+  const LONGBODY = ["## Head", "word ".repeat(40), "word ".repeat(60), "word ".repeat(60), "word ".repeat(40)].join("\n\n");   // long enough for the preview gate
   const mk = (data) => async () => ({ ok: true, json: async () => data });
   for (const l of STAT) {
     const idx = await L.serveBlog({ lang: l }, mk([])), feed = await L.serveBlog({ lang: l, rest: "feed.xml" }, mk([]));
@@ -415,10 +417,10 @@ console.log("blog-paths.mjs and blog-live.mjs");
   {   // de (2026-11-20): all of its articles are live_only rows served by this function; no row yet means 404 + noindex like a source-file language
     const e = await L.serveBlog({ lang: "de" }, mk([])), ef = await L.serveBlog({ lang: "de", rest: "feed.xml" }, mk([]));
     ok(e.status === 404 && e.headers["x-robots-tag"] === "noindex" && ef.status === 404 && e.body.includes("Dieser Artikel wurde nicht gefunden"), "de: with no database rows the index and the feed are 404 + noindex (German page), not an empty 200 list");
-    const dr = { lang: "de", slug: "klavier-lernen-de", title: "Klavier lernen mit Geduld", excerpt: "Kurze Einheiten helfen.", body: "# Titel\ntext\n", category: "theory", published: true, live_only: true, created_at: "2026-11-20T00:00:00Z", updated_at: "2026-11-20T00:00:00Z" };
+    const dr = { lang: "de", slug: "klavier-lernen-de", title: "Klavier lernen mit Geduld", excerpt: "Kurze Einheiten helfen.", body: "# Titel\n" + ["wort ".repeat(40), "wort ".repeat(60), "wort ".repeat(60), "wort ".repeat(40)].join("\n\n"), category: "theory", published: true, live_only: true, created_at: "2026-11-20T00:00:00Z", updated_at: "2026-11-20T00:00:00Z" };
     const di = await L.serveBlog({ lang: "de" }, mk([dr])), da = await L.serveBlog({ lang: "de", rest: "klavier-lernen-de.html" }, mk([dr, { ...dr, lang: "en", slug: "klavier-lernen-de" }]));
     ok(di.status === 200 && di.headers["content-language"] === "de" && di.body.includes('<html lang="de">') && di.body.includes("/blog/de/klavier-lernen-de.html") && di.body.includes('hreflang="de" href="https://www.tigaalpha.com/blog/de/"'), "de: with a row the index is rendered live, in German, and lists itself as an hreflang alternate");
-    ok(da.status === 200 && da.body.includes('<html lang="de">') && da.body.includes("Musiktheorie") && da.body.includes("Ähnliche Artikel") === false && da.body.includes('hreflang="de"') && da.body.includes('hreflang="en"') && da.body.includes("Melde dich an, um weiterzulesen") && da.body.includes("Alle Artikel"), "de: a live article page is served with the German category, the German back link, the German reading wall and the de + en alternates");
+    ok(da.status === 200 && da.body.includes('<html lang="de">') && da.body.includes("Musiktheorie") && da.body.includes("Ähnliche Artikel") === false && da.body.includes('hreflang="de"') && da.body.includes('hreflang="en"') && da.body.includes("Melde dich kostenlos an, um die restlichen") && da.body.includes("Alle Artikel"), "de: a live article page is served with the German category, the German back link, the German unlock card and the de + en alternates");
     const en = await L.serveBlog({ lang: "en" }, mk([{ ...dr, lang: "en", slug: "e1", title: "E" }]));
     ok(en.status === 200 && !en.body.includes('hreflang="de"'), "the English index lists no German alternate until German articles are announced (the pages that exist stay byte for byte as they were)");
   }
@@ -429,11 +431,11 @@ console.log("blog-paths.mjs and blog-live.mjs");
   const sm = await L.serveBlogSitemap(mk(rows), { catalog: [] }, "ja"); ok(sm.status === 200 && sm.body.includes("/blog/ja/p.html") && !sm.body.includes("/blog/ru/"), "the live sitemap function includes ja (in the ja file)");
   // hi / es / fr / ar through the function: an index, a feed and an article published after the build, each in its own language (Arabic right-to-left), and the catalog of the committed articles
   for (const l of NEWL) {
-    const r = { ...row, lang: l, slug: "live-" + l, title: TITLE[l], body: "Para one.\n\nPara two.\n" };
+    const r = { ...row, lang: l, slug: "live-" + l, title: TITLE[l], body: LONGBODY };
     const idx = await L.serveBlog({ lang: l }, mk([r])), feed = await L.serveBlog({ lang: l, rest: "feed.xml" }, mk([r])), art = await L.serveBlog({ lang: l, rest: `live-${l}.html` }, mk([r, { ...r, lang: "en", title: "EN twin" }]));
     ok(idx.status === 200 && idx.headers["content-language"] === l && idx.body.includes(`<html lang="${l}"${l === "ar" ? ' dir="rtl"' : ""}>`) && idx.body.includes(`/blog/${l}/live-${l}.html`) && idx.body.includes(TITLE[l]), l + ": with a database row the index is rendered live in " + l + (l === "ar" ? " (dir=\"rtl\")" : ""));
     ok(feed.status === 200 && feed.headers["content-type"].includes("rss") && feed.body.includes(`<language>${l}</language>`), l + ": the live feed is RSS with <language>" + l + "</language>");
-    ok(art.status === 200 && art.headers["content-language"] === l && art.body.includes(`<html lang="${l}"${l === "ar" ? ' dir="rtl"' : ""}>`) && art.body.includes(`og:locale" content="${LOC[l]}"`) && art.body.includes('hreflang="en"') && art.body.includes(`hreflang="${l}"`) && art.body.includes(`hreflang="x-default" href="${SITE}/blog/en/live-${l}.html"`) && nb(art.body).includes(nb(wall[l][0])) && (l === "ar") === art.body.includes("[dir=rtl]"), l + ": an article published after the build is served live, in " + l + ", with its English twin as an alternate and the wall in " + l);
+    ok(art.status === 200 && art.headers["content-language"] === l && art.body.includes(`<html lang="${l}"${l === "ar" ? ' dir="rtl"' : ""}>`) && art.body.includes(`og:locale" content="${LOC[l]}"`) && art.body.includes('hreflang="en"') && art.body.includes(`hreflang="${l}"`) && art.body.includes(`hreflang="x-default" href="${SITE}/blog/en/live-${l}.html"`) && nb(art.body).includes(nb(wall[l][0])) && (l === "ar") === art.body.includes("[dir=rtl]"), l + ": an article published after the build is served live, in " + l + ", with its English twin as an alternate and the unlock card in " + l);
     const cat = [{ lang: l, slug: "catalog-only", title: "Catalog " + l, excerpt: "e", category: "tips", published: true, created_at: "2026-11-13T00:00:00Z", updated_at: "2026-11-13T00:00:00Z" }];
     const down = await L.serveBlog({ lang: l }, async () => { throw new Error("offline"); }, { catalog: cat }), red = await L.serveBlog({ lang: l, rest: "catalog-only" }, mk([]), { catalog: cat });
     ok(down.status === 200 && down.body.includes("Catalog " + l) && red.status === 301 && red.headers.location === `${SITE}/blog/${l}/catalog-only.html`, l + ": with the database down the catalog still fills the index, and the address without .html goes to the file");
@@ -520,8 +522,8 @@ console.log("SQL");
   ok(/create or replace function public\.blog_hit/.test(views) && /create or replace function public\.blog_view_counts/.test(views) && /create or replace function public\.blog_stats/.test(views) && /blog_purge/.test(views), "...and is otherwise intact (four functions)");
 }
 
-// ───────── the pages in a real browser: the wall copy and the counter, per language ─────────
-console.log("the wall and the reader counter in Chromium");
+// ───────── the pages in a real browser: the unlock card and the counter, per language ─────────
+console.log("the unlock card and the reader counter in Chromium");
 const server = http.createServer((q, s) => { let f = path.join(tmp, "serve", decodeURIComponent(q.url.split("?")[0])); if (fs.existsSync(f) && fs.statSync(f).isDirectory()) f = path.join(f, "index.html"); if (!fs.existsSync(f)) { s.writeHead(404); return s.end("nf"); } s.writeHead(200, { "content-type": f.endsWith(".html") ? "text/html; charset=utf-8" : "text/plain" }); s.end(fs.readFileSync(f)); });
 await new Promise(r => server.listen(0, "127.0.0.1", r)); const ORIGIN = "http://127.0.0.1:" + server.address().port;
 gen({ BLOG_FIXTURE: path.join(tmp, "posts.json"), BLOG_OUT: path.join(tmp, "serve", "blog"), BLOG_SRC: S, SITE_URL: ORIGIN });
@@ -534,12 +536,12 @@ async function open(lang, { ms = 1200, w = 1000, h = 720, url = null, views = 12
   await ctx.route("**/rest/v1/rpc/**", async (route) => { const req = route.request(); if (req.method() === "OPTIONS") return route.fulfill({ status: 204, headers: CORS }); const name = req.url().split("/rpc/")[1]; let body = {}; try { body = JSON.parse(req.postData() || "{}"); } catch (e) {} calls.push({ name, ...body }); route.fulfill({ status: 200, headers: CORS, contentType: "application/json", body: JSON.stringify(name === "blog_view_counts" ? [{ slug: "piano-posture", views }, { slug: "second-article", views: 7 }] : views) }); });
   await ctx.addInitScript(() => { try { localStorage.setItem("tg_test_hook", "1"); } catch (e) {} });
   const page = await ctx.newPage(); page.on("pageerror", e => errs.push(e.message));
-  await page.goto(url || `${ORIGIN}/blog/${lang}/piano-posture.html?gate_ms=${ms}`);
+  await page.goto(url || `${ORIGIN}/blog/${lang}/piano-posture.html?read_ms=${ms}`);
   return { ctx, page, calls };
 }
-const vis = (page) => page.evaluate(() => { const e = document.getElementById("tg-gate"); return !!e && !e.hidden && getComputedStyle(e).display !== "none"; });
+const vis = (page) => page.evaluate(() => { const e = document.getElementById("tg-unlock"), l = document.getElementById("tg-locked"); return !!e && getComputedStyle(e).display !== "none" && e.getBoundingClientRect().height > 0 && !!l && getComputedStyle(l).display === "none"; });   // the guest's state: the card shows, the locked part is hidden
 const waitFor = (page, fn, ms = 6000) => page.waitForFunction(fn, null, { timeout: ms }).catch(() => {});
-const badgeShown = () => { const e = document.querySelector(".tg-views"); return !!e && !e.hidden; }, gateShown = () => { const e = document.getElementById("tg-gate"); return !!e && !e.hidden; };
+const badgeShown = () => { const e = document.querySelector(".tg-views"); return !!e && !e.hidden; }, cardShown = () => { const e = document.getElementById("tg-unlock"), l = document.getElementById("tg-locked"); return !!e && getComputedStyle(e).display !== "none" && !!l && getComputedStyle(l).display === "none"; };
 for (const lang of STAT) {
   const { ctx, page, calls } = await open(lang, { ms: 2000 });
   await waitFor(page, badgeShown, 5000);
@@ -548,22 +550,17 @@ for (const lang of STAT) {
   ok(b && !b.hidden && b.inMeta && b.text.replace(/[\s\u00a0\u202f]+/g, " ").includes(want), lang + ": the reader count shows beside the date as '" + want + "' (" + (b && b.text.trim()) + ")");
   const v = calls.find(c => c.name === "blog_hit" && c.p_kind === "view");
   ok(v && v.p_lang === lang && v.p_slug === "piano-posture", lang + ": one view is sent with p_lang = " + lang);
-  ok(!(await vis(page)), lang + ": the wall is not shown before the reading time");
-  await waitFor(page, gateShown, 8000);
-  ok(await vis(page), lang + ": the wall opens after the reading time");
-  const txt = await page.evaluate(() => document.getElementById("tg-gate").innerText);
-  ok(wall[lang].every(x => nb(txt).includes(nb(x))), lang + ": the card text is in " + lang + " (" + wall[lang][0] + ")");
-  const r = await page.evaluate(() => { const c = document.querySelector(".tg-g-card").getBoundingClientRect(); return { cx: c.left + c.width / 2, cy: c.top + c.height / 2, w: innerWidth, h: innerHeight }; });
-  ok(Math.abs(r.cx - r.w / 2) < 3 && Math.abs(r.cy - r.h / 2) < 40, lang + ": the card is in the middle of the screen");
-  // direction: only Arabic is right-to-left; the wall stays centred either way, and in Arabic the Google mark sits on the right of its label (the start of the line)
-  const dr = await page.evaluate(() => { const g = document.querySelector("[data-gate=google]"), s = g.querySelector("svg").getBoundingClientRect(), tn = [...g.childNodes].find(n => n.nodeType === 3), rg = document.createRange(); rg.selectNodeContents(tn); const t = rg.getBoundingClientRect(); const de = document.documentElement; return { dir: getComputedStyle(de).direction, attr: de.getAttribute("dir"), iconRightOfText: s.left > t.left, align: getComputedStyle(document.querySelector(".tg-g-card")).textAlign, sx: de.scrollWidth > innerWidth }; });
+  ok(await vis(page), lang + ": a guest sees the unlock card and the locked part is hidden");
+  const txt = await page.evaluate(() => document.getElementById("tg-unlock").innerText);
+  ok(wall[lang].every(x => nb(txt).includes(nb(x))) && trialWords[lang].every(w => nb(txt).includes(nb(w))), lang + ": the card text is in " + lang + ", with the free and no-credit-card lines (" + wall[lang][0] + ")");
+  // direction: only Arabic is right-to-left; the card stays centred either way, and in Arabic the Google mark sits on the right of its label (the start of the line)
+  const dr = await page.evaluate(() => { const g = document.querySelector("[data-gate=google]"), s = g.querySelector("svg").getBoundingClientRect(), tn = [...g.childNodes].find(n => n.nodeType === 3), rg = document.createRange(); rg.selectNodeContents(tn); const t = rg.getBoundingClientRect(); const de = document.documentElement; return { dir: getComputedStyle(de).direction, attr: de.getAttribute("dir"), iconRightOfText: s.left > t.left, align: getComputedStyle(document.getElementById("tg-unlock")).textAlign, sx: de.scrollWidth > innerWidth }; });
   ok(dr.dir === (lang === "ar" ? "rtl" : "ltr") && dr.attr === (lang === "ar" ? "rtl" : null) && dr.iconRightOfText === (lang === "ar") && dr.align === "center" && !dr.sx, lang + ": computed direction " + dr.dir + (lang === "ar" ? " (dir=\"rtl\", the Google mark on the right of its label)" : ", the mark on the left") + ", text centred, no sideways scroll");
-  await page.keyboard.press("Escape"); ok(await vis(page), lang + ": Escape does not close it");
-  ok((await page.$$eval("#tg-gate button", b => b.length)) === 0, lang + ": no button in it, only the three links");
-  const hrefs = await page.$$eval("#tg-gate a[data-gate]", as => as.map(a => a.getAttribute("href")));
+  ok((await page.$$eval("#tg-unlock button", b => b.length)) === 0, lang + ": no button in it, only the three links");
+  const hrefs = await page.$$eval("#tg-unlock a[data-gate]", as => as.map(a => a.getAttribute("href")));
   ok(hrefs.length === 3 && hrefs.every(h => h.startsWith(ORIGIN + "/?") && h.includes("lg=" + lang)), lang + ": three links into the app with lg=" + lang);
   await page.route("**/*", route => { const u = route.request().url(); if (route.request().isNavigationRequest() && !u.includes("/blog/")) return route.fulfill({ status: 200, contentType: "text/html", body: "<title>app</title>" }); route.fallback(); });
-  await page.click("[data-gate=signup]"); await page.waitForTimeout(400);
+  await page.click("#tg-unlock [data-gate=signup]"); await page.waitForTimeout(400);
   const gl = await page.evaluate(() => { try { return JSON.parse(localStorage.getItem("tg_guest_profile") || "{}").lang; } catch (e) { return null; } });
   ok(gl === lang, lang + ": the app is told to open in " + lang + " (guest profile lang = " + gl + ")");
   ok(calls.some(c => c.p_kind === "click"), lang + ": a tap on a log-in button is recorded");
@@ -601,21 +598,13 @@ for (const lang of STAT) {
   }
 }
 {
-  // a phone: the new fonts and long Russian / Korean / French copy still fit
-  for (const lang of ["ru", "ko", "ja", ...NEWL]) {
-    const { ctx, page } = await open(lang, { ms: 600, w: 360, h: 640 }); await waitFor(page, gateShown, 8000);
-    const m = await page.evaluate(() => { const c = document.querySelector(".tg-g-card").getBoundingClientRect(); const bs = [...document.querySelectorAll("#tg-gate a.tg-g-btn")].map(b => b.getBoundingClientRect().height); return { l: c.left, r: c.right, t: c.top, b: c.bottom, w: innerWidth, h: innerHeight, bs, sx: document.documentElement.scrollWidth > innerWidth }; });
-    ok(await vis(page) && m.l >= 0 && m.r <= m.w && m.t >= 0 && m.b <= m.h && m.bs.every(x => x >= 44) && !m.sx, lang + ": the card fits a 360x640 phone, buttons >= 44 px, no sideways scroll");
-    if (process.env.SHOT) await page.screenshot({ path: `${process.env.SHOT}-${lang}-phone.png` });
-    await ctx.close();
-  }
-  // the smallest phone (320 x 568): the new languages' wall needs no scrolling of its own, and no button label is cut off or wider than its button
-  for (const lang of NEWL) {
-    const { ctx, page } = await open(lang, { ms: 600, w: 320, h: 568 }); await waitFor(page, gateShown, 8000);
-    const m = await page.evaluate(() => { const card = document.querySelector(".tg-g-card"), c = card.getBoundingClientRect(), links = [...document.querySelectorAll("#tg-gate a.tg-g-btn, #tg-gate a.tg-g-login")]; return { l: c.left, r: c.right, t: c.top, b: c.bottom, w: innerWidth, h: innerHeight, hs: links.map(b => Math.round(b.getBoundingClientRect().height)), cut: links.filter(b => b.scrollWidth > b.clientWidth + 1).length, inner: card.scrollHeight - card.clientHeight, sx: document.documentElement.scrollWidth > innerWidth }; });
-    ok(await vis(page) && m.l >= 0 && m.r <= m.w && m.t >= 0 && m.b <= m.h && !m.sx && m.cut === 0 && m.inner <= 1, lang + ": the card fits a 320x568 phone with no scrolling of its own and no cut-off label (card " + Math.round(m.b - m.t) + " px high, buttons " + m.hs.join("/") + " px)");
-    ok(m.hs.slice(0, 2).every(x => x >= 44), lang + ": the Google and sign-up buttons are at least 44 px tall at 320 px");
-    if (process.env.SHOT) await page.screenshot({ path: `${process.env.SHOT}-${lang}-320.png` });
+  // a phone: the long Russian / Korean / French copy still fits (the card is inline now: it has to fit the WIDTH, no label may be cut off, the buttons stay tall enough to tap)
+  for (const [w, h] of [[360, 640], [320, 568]]) for (const lang of (w === 360 ? ["ru", "ko", "ja", ...NEWL] : NEWL)) {
+    const { ctx, page } = await open(lang, { ms: 600, w, h }); await waitFor(page, cardShown, 5000);
+    const m = await page.evaluate(() => { const card = document.getElementById("tg-unlock"), c = card.getBoundingClientRect(), links = [...card.querySelectorAll("a.tg-u-btn, a.tg-u-login")]; return { l: c.left, r: c.right, w: innerWidth, hs: links.map(b => Math.round(b.getBoundingClientRect().height)), cut: [...card.querySelectorAll("a, li, p")].filter(b => b.scrollWidth > b.clientWidth + 1).length, sx: document.documentElement.scrollWidth > innerWidth }; });
+    ok(await vis(page) && m.l >= 0 && m.r <= m.w && !m.sx && m.cut === 0, lang + ": the card fits a " + w + " px phone with no sideways scroll and no cut-off label");
+    ok(m.hs.slice(0, 2).every(x => x >= 44), lang + ": the Google and sign-up buttons are at least 44 px tall at " + w + " px (" + m.hs.join("/") + ")");
+    if (process.env.SHOT) { await page.evaluate(() => document.getElementById("tg-unlock").scrollIntoView({ block: "center" })); await page.waitForTimeout(150); await page.screenshot({ path: `${process.env.SHOT}-${lang}-${w}.png` }); }
     await ctx.close();
   }
 }

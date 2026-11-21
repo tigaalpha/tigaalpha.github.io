@@ -1,5 +1,6 @@
 import { rankTopics } from "./learn-plan";
 import { tempoFactorOf } from "./plan-store";
+import { takeBlogReturn } from "./blog-return";
 import { useState, useRef, useEffect, useMemo, memo, useCallback, useContext, Fragment, lazy, Suspense } from "react";
 import { bioAvailable, bioEnrolled, bioEnroll, bioVerify } from "./biometric-lock";
 import { Capacitor } from "@capacitor/core";
@@ -11034,6 +11035,13 @@ export default function App() {
     // door — same synthetic profile object PianoApp already knows how to read.
     else { stopCloudSync(); setProfile(loadGuestProfile()); setProfileReady(true); }
   }, [session, loadProfile]);
+  /* A reader who logged in from the unlock card of a blog article (scripts/blog-gate.mjs saved tg_blog_return when they tapped it) is taken back to that article once the account and the profile are
+     loaded: the whole text is theirs now (owner 2026-11-21). Only a blog article path of this site, within an hour of the tap, once (blog-return.ts). */
+  useEffect(() => {
+    if (!session || !profileReady) return;
+    let to: string | null = null; try { to = takeBlogReturn(window.localStorage, Date.now()); } catch (e) {}
+    if (to) { try { window.location.replace(to); } catch (e) {} }
+  }, [session, profileReady]);
 
   // banned/plan/admin_tier are otherwise only re-checked once per session (on the
   // initial loadProfile above) — a tab left open through a ban stays fully usable

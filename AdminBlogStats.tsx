@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { sb } from "./supabase-client";
 
 import { pickT, ALL_LANGS, LANG_META } from "./lang-extra";
-/* Blog readers for the admin analytics (owner 2026-11-07): views, people who stayed 3 seconds (30 until 2026-11-12, 15 until 2026-11-13, 5 until 2026-11-16: the numbers before those dates count a longer stay, so compare across the changes with care), log-in pop-ups shown and tapped, per article and per day.
+/* Blog readers for the admin analytics (owner 2026-11-07): views, people who stayed 3 seconds (30 until 2026-11-12, 15 until 2026-11-13, 5 until 2026-11-16: the numbers before those dates count a longer stay, so compare across the changes with care), the log-in card seen (the reader got to the 30% cut of an article; until 2026-11-21 it was the pop-up wall) and tapped, per article and per day.
    Data: public.blog_stats() from supabase-blog-views-migration.sql (top admin only). Until that migration is applied the card says so instead of showing zeros. Shown on the
    Analytics page (it follows that page's range) and at the top of the Blog admin (its own range). A "view" is one device per article per day, a "reader" one that stayed 3 s.
    Rows carry the article's language (th en zh ja ko ru hi es fr ar de); only articles that have a published row in public.blog_posts are counted, so an article of ja ko ru hi es fr ar that still ships only as a committed file (blog-src/) has no numbers until its migration seeds the row. */
@@ -63,8 +63,8 @@ export function BlogStatsCard({ lang, range = "30", own = false }: { lang: strin
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
           {tile(T("ยอดวิว", "Views", "浏览"), nf(t.views), T("เครื่องละครั้งต่อบทความต่อวัน", "one per device per article per day", "每设备每篇每天一次"))}
           {tile(T("อ่านนาน 3 วินาที", "Read 3 s", "阅读满3秒"), nf(t.readers), pct(t.readers, t.views) + " " + T("ของยอดวิว", "of views", "占浏览"))}
-          {tile(T("ป๊อปอัปเด้ง", "Pop-up shown", "弹窗显示"), nf(t.gates))}
-          {tile(T("กดสมัคร/ล็อกอิน", "Tapped sign-up / log-in", "点击注册/登录"), nf(t.clicks), pct(t.clicks, t.gates) + " " + T("ของที่เด้ง", "of shown", "占显示"))}
+          {tile(T("เห็นการ์ดล็อกอิน", "Log-in card seen", "看到登录卡片"), nf(t.gates), T("อ่านถึงจุดตัด 30%", "reached the 30% cut", "读到30%处"))}
+          {tile(T("กดสมัคร/ล็อกอิน", "Tapped sign-up / log-in", "点击注册/登录"), nf(t.clicks), pct(t.clicks, t.gates) + " " + T("ของที่เห็นการ์ด", "of those who saw it", "占看到卡片者"))}
           {tile(T("จำนวนเครื่อง", "Devices", "设备数"), nf(t.devices))}
         </div>
         {bars.length > 1 && (
