@@ -591,12 +591,14 @@ export function AdminAnonVisitors({ lang }) {
             </div>
           )}
 
-          {/* How long they lasted, split at the sign-up gate. This is the number
-              that says whether the gate is reachable at all — a gate nobody
-              plays long enough to see cannot convert anyone. The boundaries
-              come from gate_ms, which the server echoed back from the value
-              this app is actually using, so the bars can never be graded
-              against a threshold the app has moved on from. */}
+          {/* How long they lasted, split at GUEST_TRIAL_MS. Until 2026-11-21 that
+              was the moment the full-screen sign-up wall came up; the wall is
+              gone (the invitation is now count-based, after the third free
+              activity) so the figure is only a dwell threshold — "stayed at
+              least this long". The boundaries come from gate_ms, which the
+              server echoed back from the value this app is actually using, so
+              the bars can never be graded against a threshold the app has
+              moved on from. */}
           {/* ── The wait nobody could see ──
               Every other number on this page starts counting the moment the app
               mounts. This one counts from the tap, so it covers the part that
@@ -700,18 +702,19 @@ export function AdminAnonVisitors({ lang }) {
                 <div className="admmg-h">🚪 {T("ได้เห็นหน้าชวนสมัครจริงกี่คน", "Who was actually shown the sign-up screen", "实际看到注册页的人数")}</div>
                 <div style={{ display: "flex", gap: 18, flexWrap: "wrap", margin: "2px 0 10px" }}>
                   <div><b style={{ fontSize: 19, color: shown ? "#d97757" : "#c2410c" }}>{shown}</b> <span className="admstu-row-sub">{T("เห็นแล้ว", "shown", "已显示")}</span></div>
-                  <div><b style={{ fontSize: 19 }}>{moved}</b> <span className="admstu-row-sub">{T("เปลี่ยนหน้า (เด้งได้)", "changed page (gate can fire)", "换过页面")}</span></div>
-                  <div><b style={{ fontSize: 19, color: stuck > moved ? "#c2410c" : "inherit" }}>{stuck}</b> <span className="admstu-row-sub">{T("ไม่เคยเปลี่ยนหน้า (เด้งไม่ได้)", "never changed page (gate cannot fire)", "从未换页")}</span></div>
+                  <div><b style={{ fontSize: 19 }}>{moved}</b> <span className="admstu-row-sub">{T("เปลี่ยนหน้า", "changed page", "换过页面")}</span></div>
+                  <div><b style={{ fontSize: 19 }}>{stuck}</b> <span className="admstu-row-sub">{T("ไม่เคยเปลี่ยนหน้า", "never changed page", "从未换页")}</span></div>
                 </div>
                 <div className="admstu-row-sub">
-                  {/* This used to read "the gate is only raised on a page change",
-                      which was true until 13 Sep and is not any more — it now
-                      fires off the guest clock itself. A caption that describes
-                      last week's behaviour is the same kind of wrong number this
-                      panel exists to stop printing. */}
-                  {T(`จาก ${guests} คนที่ยังไม่ล็อกอิน — หน้าสมัครเด้งเมื่ออยู่ครบ 10 วินาที`,
-                     `of ${guests} signed-out visitors — the gate is raised once they have stayed 10 seconds`,
-                     `共 ${guests} 位未登录访客 — 停留满 10 秒后弹出注册页`)}
+                  {/* This caption has been wrong twice already (page change, then the
+                      10-second clock). Since 2026-11-21 the gate is COUNT-based: a
+                      guest has 3 free activity starts and the invitation to log in
+                      comes with the 4th (or with a feature that needs an account).
+                      The time-based wall is gone, so the "shown" figure is not
+                      comparable across that date and the caption says so. */}
+                  {T(`จาก ${guests} คนที่ยังไม่ล็อกอิน — ตั้งแต่ 21 พ.ย. 2026 ป๊อปอัพชวนล็อกอินขึ้นเมื่อเริ่มใช้ฟีเจอร์ครั้งที่ 4 (ฟรี 3 ครั้งแรก) ก่อนหน้านั้นเป็นหน้าเต็มหลังอยู่ครบ 10 วินาที ตัวเลข "เห็นแล้ว" สองช่วงนี้เทียบกันตรง ๆ ไม่ได้`,
+                     `of ${guests} signed-out visitors — since 21 Nov 2026 the invitation to log in appears when they start a 4th activity (the first 3 are free); before that it was a full-screen wall after 10 seconds, so "shown" is not comparable across that date`,
+                     `共 ${guests} 位未登录访客 — 自 2026-11-21 起，访客开始第 4 次学习活动时弹出登录邀请（前 3 次免费）；此前为停留满 10 秒后的全屏注册页，两段时间的“已显示”数字不可直接比较`)}
                 </div>
                 {shown === 0 && (
                   <div className="admstu-row-sub" style={{ marginTop: 6, color: "#c2410c" }}>
@@ -955,7 +958,7 @@ function ActivityBody({ lang, onOpenAnon }) {
           </div>
           <div className="anonhero-r">
             <div className="anonhero-s"><b>{fmtMin(anon.median_ms)}</b> {T("นาที — ค่ากลาง (ครึ่งหนึ่งเล่นน้อยกว่านี้)", "min median", "分 中位数")}</div>
-            <div className="anonhero-s"><b>{anon.reached ?? 0}</b> {T(`คนเล่นถึง ${fmtSecs(Number(anon.gate_ms) || GUEST_TRIAL_MS)} (เห็นหน้าชวนสมัคร)`, `reached the ${fmtSecs(Number(anon.gate_ms) || GUEST_TRIAL_MS)} gate`, `达到 ${fmtSecs(Number(anon.gate_ms) || GUEST_TRIAL_MS)}`)}</div>
+            <div className="anonhero-s"><b>{anon.reached ?? 0}</b> {T(`คนอยู่ถึง ${fmtSecs(Number(anon.gate_ms) || GUEST_TRIAL_MS)}`, `stayed ${fmtSecs(Number(anon.gate_ms) || GUEST_TRIAL_MS)} or more`, `停留达到 ${fmtSecs(Number(anon.gate_ms) || GUEST_TRIAL_MS)}`)}</div>
             <div className="anonhero-s"><b>{anon.new_signups ?? 0}</b> {T("สมัครใหม่", "new sign-ups", "新注册")}</div>
             {anonWv >= 20 && <div className="anonhero-w">⚠️ {anonWv}% {T("มาจากเบราว์เซอร์ในแอป", "in-app browser", "应用内浏览器")}</div>}
           </div>

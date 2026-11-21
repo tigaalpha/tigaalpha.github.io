@@ -14,7 +14,7 @@
      - Arabic: <html dir="rtl">, a piano key row (.kr) is direction:ltr (isolated) inside it, and the numbers print Western digits 0-9 on a device whose own locale is ar-SA
        (a plain toLocaleString() prints Arabic-Indic digits there unless the app's digit rule is on); Hindi on a hi-IN device never prints Devanagari digits;
      - the pricing card quotes baht (th), yuan (zh) and US dollars (en and all seven extra languages: ja ko ru used to show baht);
-     - the members-only login card (raised through the test door tg_test_forcelogin) speaks the chosen language, flows rtl for Arabic and does not scroll sideways;
+     - the standard login card (LoginWall: raised through ?wall=signup | login or the test door tg_test_forcelogin) speaks the chosen language, flows rtl for Arabic and does not scroll sideways;
      - no page error and no React / undefined console error after switching, after visiting the tabs and after a reload; the page does not scroll sideways;
      - a reload keeps the language and puts the catalog in before the first paint; Thai, English and Chinese download no catalog and stay ltr.
    NOT proven here: how any of it looks or sounds on a real phone, a real screen reader or a real network (every Supabase / Google call is refused: a guest session needs none); fonts
@@ -54,6 +54,8 @@ const VW = 320, VH = 568;
 
 async function fresh(locale = "en-US") {
   const ctx = await browser.newContext({ viewport: { width: VW, height: VH }, locale });
+  // a guest has no "Upgrade Premium" pill and no plan item in the drawer (they speak of a plan the visitor does not have); this script runs as a guest and reads the prices on the pricing card, so it opens that entry (the test door tg_test_pricing, App.tsx)
+  await ctx.addInitScript(() => { try { localStorage.setItem("tg_test_pricing", "1"); } catch (e) {} });
   const page = await ctx.newPage();
   const errors = [], chunks = [];
   page.on("pageerror", e => errors.push(String(e && e.stack || e).slice(0, 300)));
@@ -86,7 +88,7 @@ const priceOf = async page => {
   await page.locator(".sethdr .cbtn").first().click().catch(() => {}); await page.waitForTimeout(250);   // close the card again: the next steps use the page behind it
   return prices;
 };
-// the members-only login card ("wall", app-shell.tsx LoginWall) is raised on the owner's own domain; anywhere else the documented test door tg_test_forcelogin shows the same card to a guest
+// the standard login card ("wall", app-shell.tsx LoginWall): since 2026-11-21 it is raised only for ?wall=signup | login (the blog's buttons) and by the documented test door tg_test_forcelogin, which this script uses
 const wallOf = async page => {
   await page.evaluate(() => { try { localStorage.setItem("tg_test_forcelogin", "1"); } catch (e) {} });
   await page.reload({ waitUntil: "domcontentloaded" });

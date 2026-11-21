@@ -93,7 +93,7 @@ function bumpPostureStreak() {
   return { count: s.count, tier, tierUp: !!tier && (!prevTier || tier.need > prevTier.need), bumped: true };
 }
 
-export function useCameraCoach({ lang, premium, setPricingOpen, onReward }) {
+export function useCameraCoach({ lang, premium, setPricingOpen, onReward, guestStart = null, requireLogin = null }) {
   const lc = L[lang];
 
   const [camOpen, setCamOpen] = useState(false);
@@ -121,7 +121,7 @@ export function useCameraCoach({ lang, premium, setPricingOpen, onReward }) {
   const camLastTRef = useRef(0); // last gameStep timestamp (rAF clock) — FIX: was referenced in openCamera()/the game loop but never declared, so every openCamera() call threw ReferenceError and the overlay could never open from the Studio card
 
   // ════ HAND-POSTURE COACH (camera) ════
-  function openCamera() { handRoundFramesRef.current = { good: 0, total: 0 }; camSignalWindowRef.current = []; const g = freshGameState(lang); camGameRef.current = g; setCamGame(g); setCamPraise(""); camGameKeyRef.current = ""; camLastTRef.current = 0; setCamOpen(true); setCamRecap(null); }
+  function openCamera() { if (guestStart && !guestStart("camera")) return; handRoundFramesRef.current = { good: 0, total: 0 }; camSignalWindowRef.current = []; const g = freshGameState(lang); camGameRef.current = g; setCamGame(g); setCamPraise(""); camGameKeyRef.current = ""; camLastTRef.current = 0; setCamOpen(true); setCamRecap(null); }
   function exitCamera() {
     // FIX (owner report: "กดปิดแล้วไม่ย้อนกลับ"): when a qualifying session
     // shows the recap and returns, every further tap on any close button
@@ -171,6 +171,7 @@ export function useCameraCoach({ lang, premium, setPricingOpen, onReward }) {
   // snapshot the camera and ask the AI teacher to critique hand posture/technique
   async function analyzeHands() {
     if (!premium) { setPricingOpen(true); return; }
+    if (requireLogin && requireLogin("ai")) return;   // the posture critique is a live-AI call: a guest gets the invitation, not the generic error line
     const v = camVideoRef.current;
     if (!v || !v.videoWidth || (camCoach && camCoach.loading)) return;
     // Phase 4 bridge: the measured hand-posture window also flows into the

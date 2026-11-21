@@ -102,7 +102,7 @@ FOLLOW["tg_plan_in_" + TODAY] = ["warmup"];
   const NEVER = ["tg_coins", "tg_gems", "tg_exp", "tg_streak", "tg_plan", "tg_premium", "tg_game_power", "tg_gp_seen", "tg_modelCores", "tg_notif_reward_done",
     "tg_pvp_rank", "tg_pvp_season", "tg_pvp_ghost", "tg_pvp_rival", "tg_pvp_daily", "tg_pvp_stage", "tg_guest_profile", "tg_guest_ms", "tg_anon_id",
     "tg_user_signed_out", "tg_auth_bk", "tg_adv_gfx", "tg_adv_music", "tg_gfx_tier", "tg_3d_tier", "tg_pvp_gfx", "tg_pa_gfx", "tg_ah_snd", "tg_mode", "tg_ux2",
-    "tg_test_hook", "tg_test_forcelogin", "tg_adv_unlockall", "tg_ah_unlockall", "tg_gp_free", "tg_adv_nocine", "tg_adv_nogate", "tg_msd", "tg_fullscore", "tg_col3d",
+    "tg_test_hook", "tg_test_forcelogin", "tg_guest_unlimited", "tg_test_pricing", "tg_guest_uses", "tg_adv_unlockall", "tg_ah_unlockall", "tg_gp_free", "tg_adv_nocine", "tg_adv_nogate", "tg_msd", "tg_fullscore", "tg_col3d",
     "tg_pa_cal_mic", "tg_pa_cal_midi", "tg_piano_tune_v1", "tg_ai_cache_v1", "tg_attr", "tg_src", "tg_ga", "tg_dev", "tg_bio_cred_3", "tg_stitched_u1",
     "tg_permprimed", "tg_push_primed", "tg_install_banner_seen", "tg_apk_banner_seen", "tg_freeze_month", "tg_adv_raid", "tg_adv_recent", "tg_adv_sector",
     "tg_chat_idx", "tg_chat_t_abc", "tg_chat_history", "tg_learning_queue", "tg_learning_session", "tiga_leads", "tiga_lab_x", "tiga_referral", "tg_admin_pay_seen",
@@ -621,6 +621,113 @@ function scalOf(v) { return v && typeof v === "object" && "__s" in v ? v.__s : v
   await A.sync(); await B.sync(); await A.sync();
   const r = A.json("tg_practice_log")._recent;
   ok("practice log: same-day _recent takes max per field", r.length === 1 && r[0].n === 5 && r[0].ok === 10, r);
+}
+
+/* ───────── 13. an explicit Sign out (the guest-first entry shows the Pathway to whoever comes next, no log-in wall hides what the account left) ───────── */
+{
+  const { server, devs: [A] } = await rig();
+  await signIn(A, "user-one-uid");
+  A.set("tg_path_done", ["u1-stage"]); A.set("tg_chat_idx", ["private chat"]); A.set("tg_favs", ["synced-fav"]); await A.sync();
+  server.down = true;
+  A.set("tg_best_offsong", "777");   // a change that never reached the cloud
+  A.signOut(); A.mod.wipeAfterSignOut();
+  const mine = ["tg_path_done", "tg_chat_idx", "tg_favs", "tg_best_offsong", "tg_sync_owner"];
+  ok("sign out: nothing of the account is left on the device for the next person", mine.every((k) => A.get(k) === null), Object.keys(A.snapshot()));
+  ok("sign out: the unflushed change is kept in the stash (outside every readable key)", Object.keys(A.snapshot()).some((k) => k.startsWith("tg_sync_stash_user-one")), Object.keys(A.snapshot()));
+  server.down = false;
+  A.set("tg_favs", ["guest-after-signout"]);   // the guest that follows may earn things of their own
+  await signIn(A, "user-one-uid");
+  ok("sign out, the same account again: the cloud rows come back", eq(A.json("tg_path_done"), ["u1-stage"]), A.snapshot());
+  ok("sign out, the same account again: so does the change that never reached the cloud", A.get("tg_best_offsong") === "777" && server.cloud("user-one-uid", "tg_pk_best") && server.cloud("user-one-uid", "tg_pk_best").offsong === 777, A.snapshot());
+  A.signOut(); A.mod.wipeAfterSignOut();
+  await signIn(A, "user-two-uid");
+  ok("sign out, then ANOTHER account: it sees nothing of the first", A.get("tg_path_done") === null && A.get("tg_chat_idx") === null && A.get("tg_best_offsong") === null, A.snapshot());
+  // a sign out when the sync never started on this page (a reload, then straight to Sign out) still wipes and still keeps the account's changes
+  const { devs: [B] } = await rig();
+  B.set("tg_sync_owner", "user-three-uid"); B.set("tg_path_done", ["from-before-reload"]);
+  B.mod.wipeAfterSignOut();
+  ok("sign out after a reload: the account's keys are wiped too", B.get("tg_path_done") === null && B.get("tg_sync_owner") === null, B.snapshot());
+  ok("sign out after a reload: and kept for its next sign-in", Object.keys(B.snapshot()).some((k) => k.startsWith("tg_sync_stash_user-thr")), Object.keys(B.snapshot()));
+}
+
+{
+  // 13b. chat threads are not synced keys (their own table, pushed 2.5 s after the last message): a Sign out keeps them whole in a stash of their own and puts them back at THAT account's next sign-in
+  const { server, devs: [A] } = await rig();
+  await signIn(A, "user-one-uid");
+  A.set("tg_chat_idx", [{ id: "t1", title: "private chat" }]); A.set("tg_chat_t_t1", { id: "t1", msgs: [{ r: "u", t: "unsent question" }] }); A.set("tg_chat_history", ["q1"]); A.set("tg_chat_active", "t1");
+  A.signOut(); A.mod.wipeAfterSignOut();
+  const chatKeys = ["tg_chat_idx", "tg_chat_t_t1", "tg_chat_history", "tg_chat_active"];
+  ok("chat sign out: no chat key is readable any more", chatKeys.every((k) => A.get(k) === null), Object.keys(A.snapshot()));
+  ok("chat sign out: the threads are kept whole in the account's own stash", Object.keys(A.snapshot()).filter((k) => k.startsWith("tg_sync_stash_chat_")).length === 1, Object.keys(A.snapshot()));
+  ok("chat sign out: the chat stash is never sent to the cloud", ![...server.sentKeys()].some((k) => k.startsWith("tg_sync_") || k.startsWith("tg_chat_")), [...server.sentKeys()]);
+  await signIn(A, "user-two-uid");
+  ok("chat, ANOTHER account: sees none of the first account's threads", chatKeys.every((k) => A.get(k) === null), Object.keys(A.snapshot()));
+  A.signOut(); A.mod.wipeAfterSignOut();
+  await signIn(A, "user-one-uid");
+  ok("chat, the same account again: the index, the unsent thread and the history come back", eq(A.json("tg_chat_idx"), [{ id: "t1", title: "private chat" }]) && eq(A.json("tg_chat_t_t1"), { id: "t1", msgs: [{ r: "u", t: "unsent question" }] }) && eq(A.json("tg_chat_history"), ["q1"]), A.snapshot());
+  ok("chat, the same account again: the stash is used up (restored once, then gone)", !Object.keys(A.snapshot()).some((k) => k.startsWith("tg_sync_stash_chat_")), Object.keys(A.snapshot()));
+  ok("chat, the view state (tg_chat_active) is not kept: it is only a view", A.get("tg_chat_active") === null);
+  // the guest that follows may chat locally (the local answers are free): the two thread lists are joined by id (the newer entry of one id wins), and a thread BODY the device holds is never overwritten
+  A.signOut(); A.mod.wipeAfterSignOut();
+  A.set("tg_chat_idx", [{ id: "own", title: "made after the sign-out", updated: 50 }, { id: "t1", title: "newer copy made by the guest", updated: 9e12 }]); A.set("tg_chat_t_own", { id: "own", msgs: [{ r: "u", t: "guest question" }] });
+  await signIn(A, "user-one-uid");
+  const idx = A.json("tg_chat_idx") || [];
+  ok("chat: the guest's own thread and the account's stashed one are both in the list (joined by id)", idx.some((m) => m.id === "own") && idx.some((m) => m.id === "t1") && idx.length === 2, idx);
+  ok("chat: for one id the NEWER entry wins (the guest's copy here)", (idx.find((m) => m.id === "t1") || {}).title === "newer copy made by the guest", idx);
+  ok("chat: the guest's thread body is kept and the account's missing body comes back", eq(A.json("tg_chat_t_own"), { id: "own", msgs: [{ r: "u", t: "guest question" }] }) && eq(A.json("tg_chat_t_t1"), { id: "t1", msgs: [{ r: "u", t: "unsent question" }] }), A.snapshot());
+  // a stash older than 30 days is dropped at the next sign-in; a stash that would be huge is not kept at all
+  const { devs: [O] } = await rig();
+  await signIn(O, "user-old-uid"); O.set("tg_chat_idx", [{ id: "x" }]); O.signOut(); O.mod.wipeAfterSignOut();
+  const sk = Object.keys(O.snapshot()).find((k) => k.startsWith("tg_sync_stash_chat_")), st = JSON.parse(O.get(sk)); st.at -= 31 * 864e5; O.set(sk, st);
+  await signIn(O, "user-new-uid");
+  ok("chat: a stash older than 30 days is dropped", !Object.keys(O.snapshot()).some((k) => k.startsWith("tg_sync_stash_chat_")), Object.keys(O.snapshot()));
+  const { devs: [Hg] } = await rig();
+  await signIn(Hg, "user-big-uid"); Hg.set("tg_chat_t_big", "x".repeat(950000)); Hg.signOut(); Hg.mod.wipeAfterSignOut();
+  ok("chat: a stash over 900 KB is not written (the wipe still happens)", Hg.get("tg_chat_t_big") === null && !Object.keys(Hg.snapshot()).some((k) => k.startsWith("tg_sync_stash_chat_")), Object.keys(Hg.snapshot()));
+}
+{
+  // 13c. a change that never reached the cloud meets the guest's own change to the same key: a join strategy keeps BOTH
+  const { server, devs: [A] } = await rig();
+  await signIn(A, "user-one-uid");
+  A.set("tg_path_done", ["a"]); await A.sync();
+  server.down = true;
+  A.set("tg_path_done", ["a", "S-offline"]);
+  A.signOut(); A.mod.wipeAfterSignOut();
+  A.set("tg_path_done", ["guest-stage"]);   // the guest that follows ticks a stage of their own
+  server.down = false;
+  await signIn(A, "user-one-uid");
+  const done = A.json("tg_path_done") || [];
+  ok("stash meets the guest's own change: the offline stage and the guest's stage both survive", done.includes("a") && done.includes("S-offline") && done.includes("guest-stage"), done);
+  ok("stash meets the guest's own change: and both reach the cloud", ["a", "S-offline", "guest-stage"].every((x) => (server.cloud("user-one-uid", "tg_path_done") || []).includes(x)), server.cloud("user-one-uid", "tg_path_done"));
+  // a last-writer-wins key the device already holds is NOT overwritten by the stash (the normal pull decides it)
+  const { server: s2, devs: [B] } = await rig();
+  await signIn(B, "user-two-uid"); B.set("tg_skin", "neon"); await B.sync();
+  s2.down = true; B.set("tg_skin", "wood"); B.signOut(); B.mod.wipeAfterSignOut();
+  B.set("tg_skin", "guest-skin"); s2.down = false;
+  await signIn(B, "user-two-uid");
+  ok("stash, a plain last-writer key: the value the device holds is not replaced by the stash", B.get("tg_skin") !== null, B.get("tg_skin"));
+}
+{
+  // 13d. two tabs of one browser: the second tab learns of the sign-out late; its own stop must not erase the first tab's stash, and a tab whose account no longer owns the browser pushes nothing
+  const { server, devs: [A] } = await rig();
+  await signIn(A, "user-one-uid");
+  A.set("tg_path_done", ["x1"]); await A.sync();
+  const T2 = await makeDevice("T2", server, CLOCK, A.ls);
+  await signIn(T2, "user-one-uid");
+  server.down = true;
+  A.set("tg_path_done", ["x1", "offline"]); await T2.tick();   // both tabs see the change; the push fails (offline) and stays dirty in T2
+  A.signOut(); A.mod.wipeAfterSignOut();   // tab 1 signs out: stash written, the shared store wiped
+  T2.signOut();   // tab 2 learns of it a moment later
+  server.down = false;
+  await signIn(A, "user-one-uid");
+  ok("two tabs: the second tab's stop did not erase the first tab's stash (the offline stage comes back)", (A.json("tg_path_done") || []).includes("offline"), A.json("tg_path_done"));
+  const { server: s3, devs: [P] } = await rig();
+  await signIn(P, "user-one-uid");
+  const P2 = await makeDevice("P2", s3, CLOCK, P.ls);
+  await signIn(P2, "user-one-uid");
+  P.signOut(); P.mod.wipeAfterSignOut(); await signIn(P, "user-two-uid"); P.set("tg_favs", ["two-private"]);
+  await P2.tick();
+  ok("two tabs: a tab of account one never pushes what account two wrote into the shared browser", !s3.sentKeys((x) => x.device === "P2").has("tg_favs") && !(s3.cloud("user-one-uid", "tg_favs") || []).includes("two-private"), [...s3.sentKeys((x) => x.device === "P2")]);
 }
 
 console.log(`\n${passes} passed, ${fails} failed`);

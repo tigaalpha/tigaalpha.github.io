@@ -67,9 +67,9 @@ export function makeServer(clock, limits = {}) {
   return s;
 }
 
-export async function makeDevice(name, server, clock) {
+export async function makeDevice(name, server, clock, sharedStorage = null) {   // sharedStorage: a second TAB of the same browser (its own page and module, the same localStorage)
   const code = await moduleCode();
-  const ls = makeStorage();
+  const ls = sharedStorage || makeStorage();
   const events = [];
   const listeners = {};
   const win = {

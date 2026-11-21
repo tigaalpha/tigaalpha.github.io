@@ -77,6 +77,7 @@ async function session({ w = 412, h = 915, kind = false, intro = true, exp = 500
     localStorage.setItem("tg_lang", lang); localStorage.setItem("tg_orient_hint_seen", "1"); localStorage.setItem("tg_3d_tier", "0");
     localStorage.setItem("tg_edu_seen", '{"firstCoins":1,"chest":1,"pet":1,"shop":1,"rich":1,"shopIntro":1}');
     localStorage.setItem("tg_pa_testhook", "1");
+    localStorage.setItem("tg_guest_unlimited", "1");   // the guest's 3 free starts are pinned by smoke-guest-trial; these bots start dozens of songs as a guest
     if (intro && !localStorage.getItem("tg_pa_intro")) localStorage.setItem("tg_pa_intro", "1");
     if (!localStorage.getItem("tg_pa_kind")) localStorage.setItem("tg_pa_kind", kind ? "1" : "0");
     if (!localStorage.getItem("tg_pa_metro")) localStorage.setItem("tg_pa_metro", "0");

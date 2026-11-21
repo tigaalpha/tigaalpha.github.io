@@ -16,6 +16,7 @@
     "songs:originals": "node songs-src/tools/gen_originals.mjs --count=100000 && node scripts/verify-originals.mjs songs-src/originals && node scripts/build-originals.mjs",
     "songs:jazz": "node songs-src/tools/gen_originals_jazz.mjs --count=500 && node scripts/verify-originals.mjs songs-src/originals && node scripts/build-originals.mjs",
     "verify:cloudsync": "node scripts/smoke-cloud-sync-registry.mjs && node scripts/smoke-cloud-sync-all.mjs",
+    "verify:guest": "node scripts/smoke-guest-trial.mjs && node scripts/smoke-signout-wipe.mjs",
     "verify:promo": "node scripts/verify-promo-max.mjs && node scripts/verify-conversion.mjs",
     "verify:landing": "node scripts/smoke-landing-three-langs.mjs",
     "verify:blogdata": "node scripts/build-blog-static-data.mjs --check",

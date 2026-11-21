@@ -84,7 +84,7 @@ const SIGHT_SPRINT_SECS = 60;
 const SIGHT_PHRASE_LEN = 3;
 const SIGHT_NOTE_TIMEOUT_MS = 8000;
 
-export function useSightReading({ SIGHT_ROUND, lang, earnCoins, gainExp, bumpWeekly }) {
+export function useSightReading({ SIGHT_ROUND, lang, earnCoins, gainExp, bumpWeekly, guestStart = null }) {
   const [sightOpen, setSightOpen] = useState(false);
   const [sightTarget, setSightTarget] = useState(null);
   const [sightClef, setSightClef] = useState("treble");      // treble | bass | both — which clef(s) to drill
@@ -183,6 +183,7 @@ export function useSightReading({ SIGHT_ROUND, lang, earnCoins, gainExp, bumpWee
     }, 1000);
   }
   async function openSight(mode = "round") {
+    if (guestStart && !guestStart("sight")) return;   // a guest's free preview: one round (or sprint) is one use
     sightModeRef.current = mode;
     setSightMode(mode);
     sightScoreRef.current = 0; sightMissRef.current = 0; sightIdxRef.current = 0;

@@ -283,6 +283,8 @@ export function addGuestMs(deltaMs) {
   try { localStorage.setItem(GUEST_MS_KEY, String(next)); } catch (e) {}
   return next;
 }
+/* The free preview of a guest is a number of USES, not a clock (owner 2026-11-21): the counter lives in guest-uses.ts (no imports, so it can be tested on its own) and is re-exported here. */
+export { GUEST_FREE_USES, GUEST_USES_KEY, GUEST_TEST_DOOR, getGuestUses, guestUsesLeft, addGuestUse, markGuestRefusal, guestRefusalCount } from "./guest-uses";
 export function guestHasProgress(p) {
   return !!p && (p.exp > 0 || p.coins > 0 || p.lessons_done > 0 || p.streak > 0);
 }

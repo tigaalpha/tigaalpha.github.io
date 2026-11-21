@@ -32,7 +32,7 @@ export function PricingOverlay({ plan: rawPlan, profile, billCycle, setBillCycle
           <div className="setcard pricing" onClick={e => e.stopPropagation()}>
             <div className="sethdr"><span>✦ {lc.prTitle}</span><button className="cbtn" onClick={() => setPricingOpen(false)}>{lc.close}</button></div>
             <div className="setbody">
-              {isTrialPlan(plan) && trialDaysLeft(profile) > 0 && (
+              {isTrialPlan(plan) && !(profile && profile.id === "guest") && trialDaysLeft(profile) > 0 && (   /* not for a guest (profile.id "guest"): a guest is a trial only on paper, the real 7 days start at sign-up */
                 <div style={{ background: "rgba(217,119,87,.12)", border: "1.5px solid #d97757", borderRadius: 10, padding: "10px 14px", marginBottom: 14, fontSize: 13, color: "var(--text)", fontWeight: 600 }}>
                   {lc.trialBanner} · {trialDaysLeft(profile)} {lc.trialDaysLeft}
                 </div>

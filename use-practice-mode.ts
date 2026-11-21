@@ -88,7 +88,7 @@ function writePracticeBest(key, rec) { try { const m = readPracticeBests(); m[ke
 // phrases but well below "walked away from the piano".
 const PAUSE_GAP_MS = 4000;
 
-export function usePracticeMode({ hand, chordStyle, setChordStyle, lastSeq, clearSeq, earnCoins, gainExp, grantPracticeGem, isGuest, lang, bumpWeekly }) {
+export function usePracticeMode({ hand, chordStyle, setChordStyle, lastSeq, clearSeq, earnCoins, gainExp, grantPracticeGem, isGuest, lang, bumpWeekly, guestStart = null }) {
   // ── practice mode (listen to the learner play) ──
   const [practiceOpen, setPracticeOpen] = useState(false);
   const [practiceTarget, setPracticeTarget] = useState([]); // note names to play, in order
@@ -488,6 +488,9 @@ export function usePracticeMode({ hand, chordStyle, setChordStyle, lastSeq, clea
     const style0 = (chordStyleOverride === "block" || chordStyleOverride === "broken") ? chordStyleOverride : chordStyle;
     const seq = lastSeq.current;
     if (!seq || !seq.notes || !seq.notes.length) return;
+    // a guest's free preview (App.tsx guestStart): a drill is one use unless it is the lesson's own drill (the lesson paid for it). A spot drill is no exception: the exemption that used to sit here keyed on
+    // lastSeq.isSpot, a flag that is never cleared, so it would have let the chat page's Practice button repeat the spot drill for free for ever.
+    if (guestStart && !guestStart("practice")) return;
     clearSeq(); // actually silence any still-ringing demo chord before the mic starts listening (clearSeq now really stops the audio, not just the UI state)
     practicePaidRef.current = false;   // a fresh run is unpaid
     // finger numbers for the currently selected hand (falls back to the played fingers)

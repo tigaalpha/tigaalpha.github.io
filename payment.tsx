@@ -230,6 +230,9 @@ export function isTrialPlan(p) { const v = p || getPlan(); return v === "trial" 
 // the live, authoritative plan for a profile row (admins = full; paid only while not expired)
 export function effectivePlan(p) {
   if (!p) return "free";
+  /* A visitor without an account (the local guest profile, id "guest") is always inside the preview: the free preview is a number of uses (guest-uses.ts), not a clock, and its created_at is frozen at the
+     first save, so a visitor who comes back after the 7-day trial length would otherwise meet locks and the plan chooser instead of the preview / the invitation. */
+  if (p.id === "guest") return promoTrialPlan(p);
   /* Admins were maxfamily, which no longer exists as a tier — they are simply
      Premium now, and every paid feature is in Premium, so this is not a
      downgrade of anything they could reach before. */

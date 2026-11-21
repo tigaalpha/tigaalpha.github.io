@@ -141,12 +141,12 @@ import {
   GUEST_TRIAL_MS, GUEST_TICK_MS, PRACTICE_LOG_KEY, dayDate, dayKey, ymd,
   pushSupported, subscribePush, unsubscribePush, logUsage,
   readActLog, logActivity, recordNoteMisses, readPracticeLog, readNoteMisses, readRecentNoteMisses, readKidPref, writeKidPref, readDetailPref, writeDetailPref, kidModeOn, setKidNow, kidPromptBlock,
-  loadGuestProfile, saveGuestProfile, clearGuestProfile, getGuestMs, addGuestMs,
+  loadGuestProfile, saveGuestProfile, clearGuestProfile, getGuestMs, addGuestMs, guestUsesLeft, addGuestUse, markGuestRefusal, guestRefusalCount,
   guestHasProgress, mergeGuestProgressIntoProfile, consumeSkipOnboard,
   readLandingOrigin, clearLandingOrigin, anonId,
 } from "./shared-infra";
-import { startCloudSync, stopCloudSync, cloudSyncReady, onCloudPulled } from "./cloud-sync";
-import { Splash, BannedScreen, GuestGateScreen, ProfileForm, LangPickerScreen, CountUp, LoginModal, SafeZone, inAppBrowser } from "./app-shell";
+import { startCloudSync, stopCloudSync, wipeAfterSignOut, cloudSyncReady, onCloudPulled } from "./cloud-sync";
+import { Splash, BannedScreen, GuestGateScreen, TrialInviteModal, ProfileForm, LangPickerScreen, CountUp, LoginModal, SafeZone, inAppBrowser } from "./app-shell";
 import { PricingOverlay } from "./PricingOverlay";
 import { PracticeOverlay } from "./PracticeOverlay";
 import { SongPlayOverlay } from "./SongPlayOverlay";
@@ -477,10 +477,13 @@ function questToday(p) {
 // after a manual upload. Keep in sync with package.json on every release.
 const APP_VER = "13.7.1118";
 
-/* the members-only domain: every sign-in gate there is the one standard login card ("wall"), whatever raised it (guest clock, AI feature, account feature) */
-const MAIN_DOMAIN = (() => { try { const h = location.hostname.toLowerCase(); return h === "tigaalpha.com" || h.endsWith(".tigaalpha.com"); } catch (e) { return false; } })();
+/* (2026-11-21: the members-only wall of the owner's domain is gone; every sign-in gate is now the TrialInviteModal of app-shell.tsx, raised by guestStart() / requireLogin(), and the standard card only for ?wall=signup | login) */
+/* test door: tg_test_pricing = "1" shows a guest the Pathway's "Upgrade Premium" pill and the drawer's plan item (a guest has neither: they speak of a plan the visitor does not have). Only the entry
+   is opened, the pricing card itself is the real one: scripts/smoke-lang-jakoru.mjs runs as a guest and reads the prices on that card in every language. */
+const pricingDoor = (): boolean => { try { return localStorage.getItem("tg_test_pricing") === "1"; } catch (e) { return false; } };
 const AUTO_ONBOARDED = new Set<string>();   // accounts already auto-onboarded in this page load (see App())
 async function signInWith(provider) {
+  try { sessionStorage.setItem("tiga_page", "pathway"); } catch (e) {}   // after a log-in the learner lands on the Learning Pathway, not on the lesson / song page the guest was on (a refused start leaves nothing to resume)
   try {
     if (isNative) { await nativeSignInWith(sb, provider); return; } // opens the OS browser; session completes via the appUrlOpen listener
     await sb.auth.signInWithOAuth({
@@ -1233,7 +1236,8 @@ function buildTodaySteps(T, lang, exp, homework, h) {
     // Owner rule (2026-10-18): going into a plan item is enough for today, right or wrong; the feature still shows its own result and pays as before.
     const key = "tg_plan_in_" + dayKey(), entered = (() => { try { return JSON.parse(localStorage.getItem(key) || "[]"); } catch (e) { return []; } })();
     const go = st.go;
-    return { ...st, isDone: st.isDone || entered.includes(st.id), go: go ? () => { try { const a = JSON.parse(localStorage.getItem(key) || "[]"); if (!a.includes(st.id)) { a.push(st.id); localStorage.setItem(key, JSON.stringify(a)); } } catch (e) {} go(); } : go };
+    // A start that a guest's free preview TURNS AWAY (the invitation is raised instead) is not "going in": the item is marked only when the refusal count did not move (guest-uses.ts), so a visitor whose preview is used up cannot finish the plan - and take its bonus - without starting anything.
+    return { ...st, isDone: st.isDone || entered.includes(st.id), go: go ? () => { const refused0 = guestRefusalCount(); try { go(); } finally { if (guestRefusalCount() === refused0) { try { const a = JSON.parse(localStorage.getItem(key) || "[]"); if (!a.includes(st.id)) { a.push(st.id); localStorage.setItem(key, JSON.stringify(a)); } } catch (e) {} } } } : go };
   });
 }
 
@@ -1516,7 +1520,7 @@ function ladderTimeFor(streak) { return Math.max(LADDER_TIME_MIN, LADDER_TIME_ST
 function ladderBestScore() { try { return +(localStorage.getItem("tg_eargym_ladder") || 0); } catch (e) { return 0; } }
 // Returns true only on a genuine improvement (a real new record), not a tie.
 function markLadderBest(streak) { try { if (streak > ladderBestScore()) { localStorage.setItem("tg_eargym_ladder", String(streak)); return true; } return false; } catch (e) { return false; } }
-const EarGymPage = memo(function EarGymPage({ lang, onReward, onBack, initialTab }) {
+const EarGymPage = memo(function EarGymPage({ lang, onReward, onBack, initialTab, onStart = null }) {
   const T = by({
     th: { title: "ยิมหู", sub: "ฝึกหูวันละนิด — ไม่ต้องมีเปียโนตรงหน้าก็ซ้อมได้", int: "ขั้นคู่", chord: "คอร์ด", echo: "เล่นตามทำนอง", melody: "จำทำนอง", cadenceTab: "คอร์ดนำ", q: "ข้อ", listenAgain: "🔊 ฟังอีกครั้ง", start: "เริ่มรอบใหม่ ▶", pickInt: "เสียงที่ได้ยินคือขั้นคู่อะไร?", pickChord: "คอร์ดที่ได้ยินคือชนิดไหน?", pickEcho: "แตะโน้ตตามลำดับที่ได้ยิน", pickMelody: "เพลงนี้ชื่ออะไร?", clear: "ล้าง", right: "ถูกต้อง! 🎉", wrong: "เฉลย: ", score: "คะแนน", best: "สถิติดีสุด", done: "จบรอบ!", again: "เล่นอีกรอบ ▶",
         refSong: "คล้ายเพลง", earLevel: "เลเวลหู", tapMode: "⌨️ แตะเลือก", pianoMode: "🎹 เล่นเปียโนจริง", listening: "🎤 กำลังฟัง... เล่นโน้ตนี้บนเปียโนได้เลย", listenReady: "🎹 พร้อมแล้ว — เล่นโน้ตที่เห็นบนเปียโน/MIDI ของคุณ", listenErr: "เข้าไมค์ไม่ได้ — ลองแตะเลือกแทน",
@@ -1711,6 +1715,7 @@ const EarGymPage = memo(function EarGymPage({ lang, onReward, onBack, initialTab
   useEffect(() => () => clearInterval(ladderTimerRef.current), []); // stop the ladder's countdown if the learner navigates away mid-climb
 
   function startRound() {
+    if (onStart && !onStart()) return;   // a guest's free preview: one round is one use
     playUi("click");
     const myRound = ++roundRef.current;
     setScore(0); setIdx(0); setResult(null); setPhase("play");
@@ -1793,6 +1798,7 @@ const EarGymPage = memo(function EarGymPage({ lang, onReward, onBack, initialTab
     setTimeout(() => { if (ladderOnRef.current) playCur(q); }, 350);
   }
   function startLadder() {
+    if (onStart && !onStart()) return;   // one ladder climb is one use
     playUi("click");
     ladderLivesRef.current = LADDER_LIVES_START; setLadderLives(LADDER_LIVES_START);
     ladderStreakRef.current = 0; setLadderStreak(0);
@@ -2034,7 +2040,7 @@ function markReadBestTime(levelN, secs) {
     return false;
   } catch (e) { return false; }
 }
-const ReadingPage = memo(function ReadingPage({ lang, onReward, onBack, onPlaySong }) {
+const ReadingPage = memo(function ReadingPage({ lang, onReward, onBack, onPlaySong, onStart = null }) {
   const T = by({
     th: { title: "คอร์สอ่านโน้ต", sub: "อ่านโน้ตจริงเป็นขั้นบันได — กุญแจซอล → เส้นน้อย → กุญแจฟา → ชาร์ป → อ่านเป็นวลี → เส้นน้อยกุญแจฟา", lvl: "ด่าน", locked: "ผ่านด่านก่อนหน้าให้ได้ ⭐⭐ ก่อน", q: "ข้อ", what: "โน้ตตัวนี้คือ?", seqWhat: "แตะชื่อโน้ตตามลำดับบนบรรทัด", right: "ถูกต้อง! 🎉", wrong: "เฉลย: ", done: "จบด่าน!", again: "เล่นอีกครั้ง ▶", play: "เริ่ม ▶", back: "← เลือกด่าน", score: "คะแนน",
         tapMode: "⌨️ แตะเลือก", pianoMode: "🎹 เล่นเปียโนจริง", listening: "🎤 กำลังฟัง... เล่นโน้ตนี้บนเปียโนได้เลย", listenReady: "🎹 พร้อมแล้ว — เล่นโน้ตที่เห็นบนเปียโน/MIDI ของคุณ", listenErr: "เข้าไมค์ไม่ได้ — ลองแตะเลือกแทน",
@@ -2115,6 +2121,7 @@ const ReadingPage = memo(function ReadingPage({ lang, onReward, onBack, onPlaySo
   }
   function nextQ(L) { setCur(genQ(L)); setFb(null); setTaps([]); micTapsRef.current = []; setMicHeard(null); }
   function startLevel(L) {
+    if (onStart && !onStart()) return;   // a guest's free preview: one level attempt is one use
     playUi("click");
     runRef.current++;
     setLvl(L); setIdx(0); setScore(0); setResult(null);
@@ -7994,7 +8001,7 @@ const ProfilePage = memo(function ProfilePage({ lang, session, profile, onSignOu
           {onOpenHelp && <button className="songbtn ghost" style={{ width: "100%" }} onClick={onOpenHelp}>❓ {lc.helpTitle}</button>}
         </div>
       )}
-      {onSignOut && <button className="profsignout" onClick={onSignOut}>⏻ {lc.profSignOut}</button>}
+      {onSignOut && session && <button className="profsignout" onClick={onSignOut}>⏻ {lc.profSignOut}</button>}
     </div>
   );
 });
@@ -10948,8 +10955,16 @@ export default function App() {
       // they earned as a guest into the now-real row. Self-limiting: once
       // merged, clearGuestProfile() empties tg_guest_profile, so this is a
       // no-op on every subsequent loadProfile() call (focus re-checks, etc.)
+      const guestLang = (() => { try { return loadGuestProfile().lang; } catch (e) { return null; } })();   // read BEFORE the merge: it clears the guest profile
       if (data && guestHasProgress(loadGuestProfile())) {
         finalData = await mergeGuestProgressIntoProfile(uid, data);
+      }
+      /* The language a visitor chose as a guest (the header flag, or the blog / landing page they came from) goes with them into the new account: a fresh row has lang = null and the app would
+         flip to Thai the moment they log in. Only an account that has no language yet takes it (an existing member's own choice is never overwritten). */
+      const freshAccount = (() => { try { return !finalData || !finalData.onboarded || (!!finalData.created_at && Date.now() - Date.parse(finalData.created_at) < 10 * 60e3); } catch (e) { return false; } })();   // an account that has not finished its sign-up yet, or was made minutes ago: an old account whose lang is null runs in Thai by default and must not be switched for good by whatever a guest had picked on this browser
+      if (finalData && finalData.lang == null && guestLang && ALL_LANGS.includes(guestLang) && freshAccount) {
+        sb.from("profiles").update({ lang: guestLang, updated_at: new Date().toISOString() }).eq("id", uid).then(() => {}, () => {});
+        finalData = { ...finalData, lang: guestLang };
       }
       /* ── Landing-origin capture (owner request 2026-09-21) ──
          The marketing landing stamps WHICH language page the visitor signed
@@ -11063,7 +11078,13 @@ export default function App() {
     stopCloudSync(); // flush pending cloud-sync writes first, then stop watching
     try { localStorage.setItem("tg_user_signed_out", "1"); localStorage.removeItem("tg_auth_bk"); } catch (e) {}   // an explicit Sign out: the stay-signed-in restore must not undo it
     try { await sb.auth.signOut(); } catch (e) {}
+    const keepLang = profile && profile.lang;   // the language the member was using: the guest that follows keeps it (a fresh guest profile would open in Thai)
     setSession(null); setProfile(null);
+    /* What the account left in this browser must not stay readable for the next person: the Pathway is shown to a guest now, no log-in wall hides it any more. The unflushed changes are stashed first
+       (cloud-sync.ts, same as a switch of account), done in the same tick as the state change so the guest tree that mounts next reads a clean store. */
+    try { wipeAfterSignOut(); } catch (e) {}
+    try { setPlanLS("free"); } catch (e) {}   // the plan mirror (tg_plan / tg_premium) is the member's: the guest that follows must not start on it (the server sets it again at the next log-in)
+    try { if (keepLang && ALL_LANGS.includes(keepLang)) saveGuestProfile({ ...loadGuestProfile(), lang: keepLang }); } catch (e) {}
     // The admin unlock and the current page are tab-session state — a sign-out
     // must end both, or the next person on this tab would land straight in the
     // console the previous session had unlocked.
@@ -11107,6 +11128,9 @@ export default function App() {
 function PianoApp({ session, profile, setProfile, onSignOut }) {
   const cssReady = useInjectCSS();
   const isGuest = !session; // no Supabase session at all — synthetic local profile, see loadGuestProfile()
+  /* the free preview of a guest (guestStart below): the drill that follows a counted lesson is part of that use, and one tap that reaches the guard twice counts once */
+  const practiceCreditRef = useRef(false);
+  const lastGuestStartRef = useRef({ kind: "", t: 0 });
   try { window.__tigaProfile = profile || null; } catch (e) {}   // plan v3 2.1: the W adapter reads the age band from here (single writer, always current)
 
   // plan v3 1.5: tigamodel (~1.18 MB) + teach-cards load LAZY — kick both as
@@ -11255,10 +11279,12 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   useEffect(() => { if (PLAY_BUILD && (pricingOpen || checkout || schoolCheckout)) { setPricingOpen(false); setCheckout(null); setSchoolCheckout(null); } }, [pricingOpen, checkout, schoolCheckout]);
   const [convPopup, setConvPopup] = useState(null);
   useEffect(() => {
-    const next = PLAY_BUILD ? null : (convPopupFor(profile, plan) || convWinBack(profile, plan));
+    /* never for a guest (owner 2026-11-21): a guest is only a "trial" on paper (the local profile is born today), has no account to keep and cannot use the live AI the welcome popup
+       promises ("unlimited AI teacher"); the Pathway must be the first and only thing on the screen. The invitation to log in (TrialInviteModal) says the real offer at the right moment. */
+    const next = (PLAY_BUILD || isGuest) ? null : (convPopupFor(profile, plan) || convWinBack(profile, plan));
     setConvPopup(next);
     if (next) logConvEvent(next.id, "shown");           // v3 funnel instrumentation
-  }, [profile, plan]);
+  }, [profile, plan, isGuest]);
   function dismissConvPopup() {
     if (convPopup) { markConvSeen(convPopup.id); logConvEvent(convPopup.id, "dismissed"); }
     setConvPopup(null);
@@ -11276,17 +11302,18 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
      string compare would have started letting admins see a purchase popup. */
   const [activatePopup, setActivatePopup] = useState(false);
   useEffect(() => {
+    if (isGuest) return;   // a guest has no plan to activate: right after a Sign out the member's plan mirror can still be on this browser for a moment, and "your teacher is ready" would be untrue
     if (isTrialPlan(plan) || canonicalPlan(plan) === "free") return;
     if (profile && profile.is_admin) return;
     if (firstPaidActivation(plan)) { setActivatePopup(true); logConvEvent("activation", "shown"); }
-  }, [plan]);
+  }, [plan, isGuest]);
   /* v3 win-moment proof popup (owner plan §3): fires after a practice session
      when the teaching loop closed with a real improvement (≥ +5%). Gated by
      the 1-sell-per-day governor inside proofPopupEligible. Trial only — same
      effectivePlan rule as the skeleton funnel. */
   const [proofPopup, setProofPopup] = useState(null);
   useEffect(() => {
-    if (!isTrialPlan(plan)) return;                       // trial only (either tier)
+    if (!isTrialPlan(plan) || isGuest) return;            // trial only (either tier), and never for a guest (see the funnel above)
     const onProofCheck = () => {
       if (convPopup) return;                            // skeleton popup wins
       const next = proofPopupEligible(profile, plan);
@@ -11295,7 +11322,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     window.addEventListener("tiga:practice-done", onProofCheck);
     return () => window.removeEventListener("tiga:practice-done", onProofCheck);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [profile, plan, convPopup]);
+  }, [profile, plan, convPopup, isGuest]);
   /* Game-feature education (owner-approved 2026-09-19): one tip at a time,
      priority-guarded — a conversion popup or broadcast always wins, and the
      tip waits for the next quiet render. Fired from the same trigger points
@@ -11320,7 +11347,9 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     eduEvalRef.current = () => {
       const b = eduBlockersRef.current;
       if (convPopup || b.broadcast || b.autoTeachTip || b.eduTip) return;   // priority guard
+      if (isGuest && !((profile && profile.coins) > 0)) return;   // a guest's first screen is the Pathway alone (owner 2026-11-21): "Your first coins!" waits until the guest has really earned coins (the guest profile's own balance: the tg_coins mirror of a member who just signed out is not one)
       const next = eduTipFor({ coins, chestAvail, firstCoinsSeen: firstCoinsSeenRef.current, shopOpenNow: false });
+      if (next && isGuest && next.id !== "firstCoins") return;   // a guest who comes back with coins from an earlier visit must not meet the chest / pet / shop tips over the Pathway on arrival: those wait for an account
       if (next) { setEduTip(next); markEduSeen(next.id); }
     };
   });
@@ -11441,7 +11470,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     return () => navigator.serviceWorker.removeEventListener("message", onNav);
   }, []);
   // C1: Friend Challenge — parse ?challenge=songId:score:name from URL
-  const { gameStore, pvpOnline, openPvpOnline, closePvpOnline, hostPvpOnline, joinPvpOnline, acceptPvpOnline, startPvpTogether, rematchPvpOnline, codeInput, setCodeInput, songOpen, setSongOpen, songMeta, setSongMeta, songPhase, setSongPhase, songTempo, setSongTempo, songResult, setSongResult, songAnalysis, setSongAnalysis, songAnalysisBusy, setSongAnalysisBusy, requestSongAnalysis, stylePickOpen, setStylePickOpen, styleLoading, setStyleLoading, challengeData, setChallengeData, backingOn, setBackingOn, backingTimerRef, detectOpen, setDetectOpen, detectNotes, setDetectNotes, detectMatch, setDetectMatch, detectListening, setDetectListening, detectStopRef, battleData, setBattleData, battlePickOpen, setBattlePickOpen, songBest, setSongBest, songAutoLoop, setSongAutoLoop, songAutoLoopRef, songCanvasRef, songDataRef, songInputRef, songTigaTip, songRafRef, songHudTimerRef, songPreviewRef, chooseSong, previewSong, startSongPlay, startSetlist, exitSong, styleTransform, playAlongHand, changePlayAlongHand, pauseSong, resumeSong, restartSong, playAgain, playNext, nextSongFor, songKind, setSongKind, songAccomp, setSongAccomp, songView, setSongView, songBand, setSongBand, songFx, setSongFx, songPractice, songGfx, setSongGfx, songIntro, startIntro, skipIntro, drillPlan, drillActive, drillCleared, startDrill, endDrill, bossOn, bossMax, kShelfOpen, setKShelfOpen, kShelf, openKnowledgeShelf } = usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, bumpWeekly, setMysteryChest, setLuckyToast, luckyToastTimer, premium, onUpsell: () => setPricingOpen(true), profile, level: levelInfo((profile && profile.exp) || 0).level, plan });
+  const { gameStore, pvpOnline, openPvpOnline, closePvpOnline, hostPvpOnline, joinPvpOnline, acceptPvpOnline, startPvpTogether, rematchPvpOnline, codeInput, setCodeInput, songOpen, setSongOpen, songMeta, setSongMeta, songPhase, setSongPhase, songTempo, setSongTempo, songResult, setSongResult, songAnalysis, setSongAnalysis, songAnalysisBusy, setSongAnalysisBusy, requestSongAnalysis, stylePickOpen, setStylePickOpen, styleLoading, setStyleLoading, challengeData, setChallengeData, backingOn, setBackingOn, backingTimerRef, detectOpen, setDetectOpen, detectNotes, setDetectNotes, detectMatch, setDetectMatch, detectListening, setDetectListening, detectStopRef, battleData, setBattleData, battlePickOpen, setBattlePickOpen, songBest, setSongBest, songAutoLoop, setSongAutoLoop, songAutoLoopRef, songCanvasRef, songDataRef, songInputRef, songTigaTip, songRafRef, songHudTimerRef, songPreviewRef, chooseSong, previewSong, startSongPlay, startSetlist, exitSong, styleTransform, playAlongHand, changePlayAlongHand, pauseSong, resumeSong, restartSong, playAgain, playNext, nextSongFor, songKind, setSongKind, songAccomp, setSongAccomp, songView, setSongView, songBand, setSongBand, songFx, setSongFx, songPractice, songGfx, setSongGfx, songIntro, startIntro, skipIntro, drillPlan, drillActive, drillCleared, startDrill, endDrill, bossOn, bossMax, kShelfOpen, setKShelfOpen, kShelf, openKnowledgeShelf } = usePlayAlong({ lang, isGuest, requireLogin, guestStart, earnCoins, gainExp, bumpWeekly, setMysteryChest, setLuckyToast, luckyToastTimer, premium, onUpsell: () => setPricingOpen(true), profile, level: levelInfo((profile && profile.exp) || 0).level, plan });
 
   // ── Auto Teaching (Max-only real-time coaching popup, fires on a timer app-wide) ──
   const [autoTeachDefaultMin, setAutoTeachDefaultMin] = useState(null); // admin platform default, from app_settings
@@ -11652,8 +11681,8 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   const [earGymInitialTab, setEarGymInitialTab] = useState("int"); // which Ear Gym tab to land on — set before navigating there for skill remediation
 
   const [setAdvancedOpen, setSetAdvancedOpen] = useState(false); // progressive disclosure for Metronome BPM/tap-tempo
-  const { sightOpen, setSightOpen, sightTarget, setSightTarget, sightClef, setSightClef, sightNoteClef, setSightNoteClef, sightIdx, setSightIdx, sightScore, setSightScore, sightFeedback, setSightFeedback, sightHint, setSightHint, sightTip, sightDone, setSightDone, sightSrc, setSightSrc, sightStreak, sightPhrasePos, sightPhraseLen, sightMode, sightSprintLeft, sightSprintSecs, sightBelts, sightBestStreakMap, sightBestSprintMap, sightTotalRead, sightTargetRef, sightClefRef, sightNoteClefRef, sightActiveRef, sightHandlerRef, sightScoreRef, sightMissRef, sightIdxRef, sightFbTimer, newSightNote, pickSightClef, pickSightMode, openSight, sightInput, finishSight, exitSight } = useSightReading({ SIGHT_ROUND, lang, earnCoins, gainExp, bumpWeekly });
-  const { camOpen, setCamOpen, camStatus, setCamStatus, camMsg, setCamMsg, camCoach, setCamCoach, camTry, setCamTry, camRecap, camSpeaking, camStreakInfo, camVideoRef, camCanvasRef, camStreamRef, camRafRef, camRunRef, camMsgRef, handRoundFramesRef, openCamera, exitCamera, closeCameraAfterRecap, analyzeHands, retryCamera, camGame, camPraise, camMission } = useCameraCoach({ lang, premium, setPricingOpen, onReward: (xp, c) => { if (xp) gainExp(xp, { quest: true }); if (c) earnCoins(c); bumpWeekly("games", 1); } });
+  const { sightOpen, setSightOpen, sightTarget, setSightTarget, sightClef, setSightClef, sightNoteClef, setSightNoteClef, sightIdx, setSightIdx, sightScore, setSightScore, sightFeedback, setSightFeedback, sightHint, setSightHint, sightTip, sightDone, setSightDone, sightSrc, setSightSrc, sightStreak, sightPhrasePos, sightPhraseLen, sightMode, sightSprintLeft, sightSprintSecs, sightBelts, sightBestStreakMap, sightBestSprintMap, sightTotalRead, sightTargetRef, sightClefRef, sightNoteClefRef, sightActiveRef, sightHandlerRef, sightScoreRef, sightMissRef, sightIdxRef, sightFbTimer, newSightNote, pickSightClef, pickSightMode, openSight, sightInput, finishSight, exitSight } = useSightReading({ SIGHT_ROUND, lang, earnCoins, gainExp, bumpWeekly, guestStart });
+  const { camOpen, setCamOpen, camStatus, setCamStatus, camMsg, setCamMsg, camCoach, setCamCoach, camTry, setCamTry, camRecap, camSpeaking, camStreakInfo, camVideoRef, camCanvasRef, camStreamRef, camRafRef, camRunRef, camMsgRef, handRoundFramesRef, openCamera, exitCamera, closeCameraAfterRecap, analyzeHands, retryCamera, camGame, camPraise, camMission } = useCameraCoach({ lang, premium, setPricingOpen, guestStart, requireLogin, onReward: (xp, c) => { if (xp) gainExp(xp, { quest: true }); if (c) earnCoins(c); bumpWeekly("games", 1); } });
 
 
   // ── routing + secret admin unlock ──
@@ -11771,8 +11800,8 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     }
   }
 
-  // null | "time" | "ai" — which GuestGateScreen (if any) currently covers the
-  // screen. Two distinct producers, one shared consumer (see render below).
+  // null | "wall" | "trial" | "ai" | "account" — which sign-in card (if any) currently covers the screen: "wall" is the standard card (only for ?wall= and the test door),
+  // every other reason is the TrialInviteModal (guestStart raises "trial", requireLogin raises "ai" / "account"). See the render below.
   const [guestGateReason, setGuestGateReason] = useState(null);
   const gateLoggedRef = useRef(false);   // one "gate" event per visit, not per render
   const gatePendingRef = useRef(false);  // clock ran out; raise as soon as it is polite to
@@ -11781,7 +11810,33 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   // continuing — call at the top of anything that needs a real account, and
   // bail out if it returns true. reason picks GuestGateScreen's copy:
   // "ai" for AI-backed features, "account" for everything else account-bound.
-  function requireLogin(reason = "account") { if (isGuest) { raiseGate(reason); return true; } return false; }
+  function requireLogin(reason = "account") { if (isGuest) { markGuestRefusal(); raiseGate(reason); return true; } return false; }
+  /* ── A guest's free preview (owner 2026-11-21) ──
+     "Everyone who opens the app lands on the Learning Pathway without logging in and can use every feature 3 times; then a pop-up invites them to log in, free for 7 days, no credit card."
+     guestStart(kind) is called where a learning / play activity STARTS (a lesson, a chapter, a drill, a song, a sight-reading round, the camera coach, an ear round, a reading level); it returns
+     true when the activity may open and false when the free preview is used up (the invitation is raised, reason "trial"). A member always gets true. Browsing (menus, lists, pages) is never
+     counted. What cannot work without an account (the live AI teacher, a lesson that has no built-in text) is not a use: requireLogin("ai") raises the invitation at once.
+     Rules: the lesson and the drill that follows it are ONE use (a counted lesson pays for one drill: practiceCreditRef); the same kind within 0.9 s is the same tap; a replay of a chosen song
+     (retry, restart, loop, a Family Battle's second player) and a play-again / restart of the drill on screen are free (they are not starts: startSongPlay counts once per chosen song, restartPractice
+     does not call this); a Drill Deck replay is a new drill. The full-screen games (Adventure, Alien Hunt, PvP, Robot Adventure) are not counted: Game Power already limits them. The number lives in
+     guest-uses.ts (GUEST_FREE_USES), the count in this browser (tg_guest_uses); tg_guest_unlimited is the test door for scripts that are not about the preview. */
+  function guestStart(kind = "activity") {
+    if (!isGuest) return true;
+    const now = Date.now(), last = lastGuestStartRef.current;
+    if (last.kind === kind && now - last.t < 900) return true;
+    lastGuestStartRef.current = { kind, t: now };
+    if (kind === "practice" && practiceCreditRef.current) { practiceCreditRef.current = false; return true; }
+    if (guestUsesLeft() <= 0) { lastGuestStartRef.current = { kind: "", t: 0 }; markGuestRefusal(); raiseGate("trial"); return false; }
+    addGuestUse();
+    practiceCreditRef.current = kind === "lesson";   // only a lesson has a drill of its own; a chapter (reading) pays for nothing after it
+    return true;
+  }
+  /* the same question without spending a use: for a start that calls a counted start a moment later (reviewStage / startBossChallenge play a demo first, then startPractice) */
+  function guestCanStart() {
+    if (!isGuest) return true;
+    if (practiceCreditRef.current || guestUsesLeft() > 0) return true;
+    markGuestRefusal(); raiseGate("trial"); return false;
+  }
   /* Raise the sign-up gate AND write down that it happened.
      Nothing recorded this before, so the visitor panel's "อยู่ต่อหลังเห็นหน้า
      ชวนสมัคร" bar was an inference from dwell time, not a measurement — and
@@ -11797,13 +11852,18 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     if (!gateLoggedRef.current) { gateLoggedRef.current = true; logUsage("gate", reason || "account"); }
     setGuestGateReason(prev => prev || reason);
   }
-  /* On the owner's own domain everyone arrives from the landing page, so the app itself is members-only: a signed-out visitor sees the
-     login screen (Google first) at once and cannot dismiss it. Other hosts (github.io, previews, localhost) keep the guest trial. */
+  /* The full-screen log-in wall that covered the app on the owner's domain is GONE (owner 2026-11-21: "everyone who comes in sees the Learning Pathway first, without logging in, and can use it"):
+     a visitor lands on the Pathway as a guest and guestStart() asks for the log-in after the free preview. The standard card comes up on arrival only for a visitor who asked for it - the blog's
+     "Sign up free" / "Log in" buttons arrive with ?wall=signup | ?wall=login - and the test door tg_test_forcelogin; "Not now" on the card lets them in as a guest. */
   useEffect(() => {
-    if (!isGuest) { setGuestGateReason(null); return; }   // a login in this same page (e-mail / password) must drop the wall at once
-    let host = ""; try { host = location.hostname.toLowerCase(); } catch (e) {}
-    const onDomain = host === "tigaalpha.com" || host.endsWith(".tigaalpha.com"); let forced = false; try { forced = localStorage.getItem("tg_test_forcelogin") === "1"; } catch (e) {}
-    if (onDomain || forced) raiseGate("wall");
+    if (!isGuest) {   // a login in this same page (e-mail / password) must drop the card at once, and the ?wall= it came with (a later Sign out in this page load must not bring the full-screen card back)
+      setGuestGateReason(null);
+      try { const u = new URL(window.location.href); if (u.searchParams.has("wall")) { u.searchParams.delete("wall"); window.history.replaceState(null, "", u.pathname + u.search + u.hash); } } catch (e) {}
+      return;
+    }
+    let asked = false; try { const w = new URLSearchParams(window.location.search).get("wall"); asked = w === "signup" || w === "login"; } catch (e) {}
+    let forced = false; try { forced = localStorage.getItem("tg_test_forcelogin") === "1"; } catch (e) {}
+    if (asked || forced) raiseGate("wall");
   }, [isGuest]);
   /* A reader of a blog article who tapped "Continue with Google" in that page's pop-up (scripts/build-blog-pages.mjs) arrives with ?go=google: start the Google sign-in at once
      instead of making them find the same button on the login card. Once per arrival (the parameter is removed); a webview that Google refuses (Facebook, LINE...) keeps the
@@ -11813,10 +11873,10 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     let go = ""; try { go = new URLSearchParams(window.location.search).get("go") || ""; } catch (e) {}
     if (go !== "google") return;
     try { const u = new URL(window.location.href); u.searchParams.delete("go"); window.history.replaceState(null, "", u.pathname + u.search + u.hash); } catch (e) {}
-    if (inAppBrowser()) return;
+    if (inAppBrowser()) { raiseGate("wall"); return; }   // Google refuses a Facebook / LINE webview: the standard card says so and offers the e-mail form (it used to be the wall)
     saveGuestProfile(profile); signInWith("google");
   }, [isGuest]);
-  /* The 10-second guest trial is gone (owner 2026-10-31): new people arrive through the landing page and sign in; the login card is for returning members. */
+  /* The 10-second guest trial is gone (owner 2026-10-31) and so is the members-only wall (owner 2026-11-21): a visitor lands on the Pathway as a guest, guestStart() above counts the free preview. */
   // Only actually raise the gate on a fresh top-level navigation, never mid-exercise
   // (exercises/overlays are their own state, layered on top of `page` — `page`
   // itself only changes once the guest has returned to a list/menu).
@@ -11935,6 +11995,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     } catch (e) { return { ok: false, why: "error" }; }
   }
   async function fetchAutoTeachTip() {
+    if (isGuest) return;   // a live-AI call: a guest has no account for it (it failed silently and only cost requests)
     // App-wide now (was Pathway-only) — admin/school are role dashboards, not learner
     // practice contexts, so a beginner-coaching card there would be talking about a
     // profile that isn't the person looking at the screen.
@@ -12206,7 +12267,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   }, [uid]);
 
 
-  const { practiceOpen, setPracticeOpen, practiceTarget, setPracticeTarget, practiceFingers, setPracticeFingers, practiceLabel, setPracticeLabel, practiceIdx, setPracticeIdx, practiceHitIdxs, setPracticeHitIdxs, practiceMiss, setPracticeMiss, practiceHeard, setPracticeHeard, practiceHelp, practiceSrc, setPracticeSrc, practiceTune, setPracticeTune, practiceStreak, setPracticeStreak, practiceResult, setPracticeResult, practiceActiveRef, practiceTargetRef, practiceKeyRef, practiceModeRef, practiceAscRef, practiceIdxRef, practiceHitSetRef, practiceHitsRef, practiceMissRef, practiceVelsRef, practiceTimesRef, practiceStreakRef, practiceBestStreakRef, practiceLabelRef, practiceWrongByIdxRef, practiceHandlerRef, practiceHeardTimer, tuneOffsetRef, notePitchMatches, handlePlayedNote, startPractice, restartPractice, switchPracticeChordStyle, exitPractice, finishPractice, replayDrill, startSpotPractice } = usePracticeMode({ hand, chordStyle, setChordStyle, lastSeq, clearSeq, earnCoins, gainExp, grantPracticeGem, isGuest, lang, bumpWeekly });
+  const { practiceOpen, setPracticeOpen, practiceTarget, setPracticeTarget, practiceFingers, setPracticeFingers, practiceLabel, setPracticeLabel, practiceIdx, setPracticeIdx, practiceHitIdxs, setPracticeHitIdxs, practiceMiss, setPracticeMiss, practiceHeard, setPracticeHeard, practiceHelp, practiceSrc, setPracticeSrc, practiceTune, setPracticeTune, practiceStreak, setPracticeStreak, practiceResult, setPracticeResult, practiceActiveRef, practiceTargetRef, practiceKeyRef, practiceModeRef, practiceAscRef, practiceIdxRef, practiceHitSetRef, practiceHitsRef, practiceMissRef, practiceVelsRef, practiceTimesRef, practiceStreakRef, practiceBestStreakRef, practiceLabelRef, practiceWrongByIdxRef, practiceHandlerRef, practiceHeardTimer, tuneOffsetRef, notePitchMatches, handlePlayedNote, startPractice, restartPractice, switchPracticeChordStyle, exitPractice, finishPractice, replayDrill, startSpotPractice } = usePracticeMode({ hand, chordStyle, setChordStyle, lastSeq, clearSeq, earnCoins, gainExp, grantPracticeGem, isGuest, lang, bumpWeekly, guestStart });
   const startOctavePractice = (seq: any) => { lastSeq.current = seq; startPractice(); };   // Practice Mode for 2-4 octaves: the same judging as a one-octave drill, fed the long sequence
   // One overlay queue (plan 28 · A2): the challenge nudge waits while a practice is open and
   // then shows for ~4 s, so it never sits on top of a primary button during an activity.
@@ -12682,7 +12743,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     } else if (r.reason === "already_claimed") markNotifDone();
   }
   useEffect(() => {
-    if (notifDone || !pushSupported()) return;
+    if (notifDone || !pushSupported() || isGuest) return;   // never for a guest (owner 2026-11-21: the Pathway first, no pop-up on arrival; the event reward needs an account)
     let visits = 1;
     try {
       visits = Number(localStorage.getItem("tg_visits") || 0);
@@ -12696,7 +12757,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
       logUsage("event", "notif-invite");
     }, wait);
     return () => clearTimeout(t);
-  }, [notifDone, session]);
+  }, [notifDone, session, isGuest]);
   async function joinNotifEvent() {
     setNotifInvite(false);
     if (requireLogin()) return;
@@ -12723,7 +12784,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     sb.from("profiles").update({ auto_teach_interval_min: min }).eq("id", session.user.id).then(() => {}, () => {});
   }
   const [pushBannerSeen, setPushBannerSeen] = useState(() => { try { return localStorage.getItem("tg_push_banner_seen") === "1"; } catch (e) { return false; } });
-  const showPushBanner = pushSupported() && !pushOn && !pushBannerSeen && streakAtRisk() && (profile && profile.streak > 0);
+  const showPushBanner = !isGuest && pushSupported() && !pushOn && !pushBannerSeen && streakAtRisk() && (profile && profile.streak > 0);
   function dismissPushBanner() {
     setPushBannerSeen(true);
     try { localStorage.setItem("tg_push_banner_seen", "1"); } catch (e) {}
@@ -12787,14 +12848,23 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     return { icon: "🎮", label: lc.recWarm, fn: () => { playUi("click"); setPage("studio"); setStudioView("songs"); } };
   }
   function toggleExamTask(gid, i) {
-    setExamProgress(prev => {
-      const cur = prev[gid] || [];
-      const next = cur.includes(i) ? cur.filter(x => x !== i) : [...cur, i];
-      const all = { ...prev, [gid]: next };
-      try { localStorage.setItem("tg_exam", JSON.stringify(all)); } catch (e) {}
-      if (!cur.includes(i)) { playUi("reward"); earnCoins(5); }
-      return all;
-    });
+    /* A task pays its 5 coins ONCE, ever (it used to pay on every tick: untick + tick was a coin tap, and a guest's coins are merged into the account at the first log-in). The paid list rides inside
+       tg_exam under "_paid" (an array: the objunion merge of cloud-sync unions it, so it syncs without a new key); nothing else reads tg_exam by key except examProgress[group id]. The coins are paid
+       outside any state updater (an updater runs twice under StrictMode). */
+    const prev: any = examProgress || {};
+    const cur = prev[gid] || [];
+    const adding = !cur.includes(i);
+    const next = adding ? [...cur, i] : cur.filter(x => x !== i);
+    /* Ticks made before this rule existed were paid under the old one: with no paid list yet, every task that is ticked right now counts as paid (or an old tick could be unticked and ticked once more
+       for another 5 coins), and the list is written on this very first toggle, in either direction, so the seed is not recomputed from a smaller set later. */
+    const mark = gid + ":" + i;
+    const paid: string[] = Array.isArray(prev._paid) ? prev._paid : Object.keys(prev).filter(g => g !== "_paid" && Array.isArray(prev[g])).flatMap(g => prev[g].map(x => g + ":" + x));
+    const pay = adding && !paid.includes(mark);
+    const all = { ...prev, [gid]: next, _paid: pay ? [...paid, mark] : paid };
+    setExamProgress(all);
+    try { localStorage.setItem("tg_exam", JSON.stringify(all)); } catch (e) {}
+    if (adding) playUi("reward");
+    if (pay) earnCoins(5);
   }
   useEffect(() => {
     document.body.dataset.skin = skin; document.body.dataset.theme = theme; document.body.dataset.frame = frame;
@@ -13143,7 +13213,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   // "I taught/opened this" signals: this path never teaches, and the only
   // signal that should fire is finishPractice()'s own (accuracy-gated) one.
   function reviewStage(stage, key = null) {
-    if (!stage) return;
+    if (!stage || !guestCanStart()) return;   // a guest's free preview: the drill below counts the use; this only refuses before a demo starts playing
     // No specific key requested (the due-review list only tracks per-STAGE
     // scheduling, not per-key) — same "a studied key if there is one, else a
     // deterministic pick" policy TodayPage's own recommender already uses.
@@ -13169,7 +13239,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   // types. Always in C: the boss tests combined breadth, not one specific key.
   function startBossChallenge(group) {
     const bossStages = (STAGES_BY_GROUP[group.id] || []).filter(s => !s.content);
-    if (!bossStages.length) return;
+    if (!bossStages.length || !guestCanStart()) return;   // the drill below counts the use (see guestStart)
     let notes = [];
     for (const st of bossStages) {
       const chordType = st.types ? st.types[0] : null;
@@ -13201,6 +13271,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     zh: { pickLen: "选择和弦进行", chords: "和弦", play: "听一遍", practice: "练习", broken: "Broken（分解）", block: "Block（齐奏）" },
   };
   function learnProgression(pc, len, keyName = null) {
+    if (!guestStart("lesson")) return;   // a guest's free preview: one lesson is one use
     const L = by(PROG_LABELS, lang) || PROG_LABELS.en;
     const quality = pc.cat === "chords-minor" ? "minor" : "major";
     const homePC = pc.cat === "chords-minor" ? "A" : "C"; // each door's home key
@@ -13255,6 +13326,13 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
 
 
   function learnTopic(stage, key, chordType = null) {
+    /* A guest's free preview: a lesson with no built-in text can only be answered by the live AI, which needs an account - the invitation shows at once and no use is spent; any other lesson is one
+       use. Decided before anything opens, so a refused guest never sees a half-opened lesson. */
+    if (isGuest) {
+      const gp = buildStageDemoSeq(stage, key, chordType);
+      if (!localPathwayLesson(stage, gp.keyId, gp.keyLabel, chordType, gp.spelled || gp.notes, gp.fullTitle, lang, gp.scaleType)) { requireLogin("ai"); return; }
+      if (!guestStart("lesson")) return;
+    }
     // NOTE: does NOT markPathDone here — opening/hearing the lesson isn't
     // demonstrated skill. The stage is marked done (and given a bronze/
     // silver/gold tier) from inside finishPractice() once the learner
@@ -13334,6 +13412,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
       sendText(caseObj.ask, { fromChip: true });   // asks the tutor — it used to only drop the line into the thread, unanswered
       return;
     }
+    if (!guestStart("chapter")) return;   // a guest's free preview: one chapter (or case study) read is one use
     if (!caseObj && stage && stage.id) logUsage("pathway", stage.id); // top-level card tap only, not a case-study drill-down
     /* Coins for reading a chapter, but only the FIRST time it is read —
        re-reading is free and always will be, and paying for it again would
@@ -13420,8 +13499,11 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     <div className={"tg" + (uxOn ? " ux2" : "") + (kidOn ? " kid" : "") + (detailOn ? " detail" : "")} style={{ opacity: cssReady ? 1 : 0, transition: "opacity .15s" }}>
       <div className="scan" />
 
-      {guestGateReason && (
-        <GuestGateScreen reason={MAIN_DOMAIN ? "wall" : guestGateReason} profile={profile} onLogin={() => { saveGuestProfile(profile); signInWith("google"); }} />
+      {guestGateReason === "wall" && (
+        <GuestGateScreen reason="wall" profile={profile} onClose={() => { setGuestGateReason(null); try { const u = new URL(window.location.href); if (u.searchParams.has("wall")) { u.searchParams.delete("wall"); window.history.replaceState(null, "", u.pathname + u.search + u.hash); } } catch (e) {} try { takeBlogReturn(window.localStorage, Date.now()); } catch (e) {} /* "Not now" also declines the way back to the article: a log-in made later must land on the Pathway */ }} onLogin={() => { saveGuestProfile(profile); signInWith("google"); }} />
+      )}
+      {guestGateReason && guestGateReason !== "wall" && (
+        <TrialInviteModal reason={guestGateReason} profile={profile} onClose={() => setGuestGateReason(null)} onLogin={() => { saveGuestProfile(profile); signInWith("google"); }} />
       )}
 
       {permPrimerOpen && (() => {
@@ -13494,7 +13576,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
         <div className="hdr-r">
           {isGuest && (
             <button className="guestloginpill" onClick={() => setLoginModalOpen(true)} title={pickT(lang, "เข้าสู่ระบบหรือสมัครสมาชิก", "Login or sign up", "登录或注册")}>
-              <span className="oauthico">G</span> {T("ล็อกอิน", "Login", "登录")}
+              <span className="oauthico">G</span> <span className="guestloginpill-tx">{by({ th: "ล็อกอิน", en: "Login", zh: "登录", es: "Entrar", ar: "دخول" }, lang)}</span>{/* es and ar have a shorter word for it ("Iniciar sesión" / "تسجيل الدخول" were cut by the flag on a 360-412 px phone); every other language keeps the catalog's translation of "Login" */}
             </button>
           )}
           {/* The plan badge used to sit here. It told the learner something they
@@ -13537,7 +13619,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
       </div>}
 
       {/* ─── TRIAL BANNER — shown on all pages while trial is active ─── */}
-      {isTrialPlan(plan) && (() => {
+      {!isGuest && isTrialPlan(plan) && (() => {   // not for a guest: "Free trial, N days left" would claim a trial that only starts at sign-up (owner 2026-11-21: the invitation says it at the right moment)
         const dLeft = trialDaysLeft(profile);
         if (dLeft <= 0) return null;
         /* Last 2 days switch to loss aversion (strategy phase 4): the banner
@@ -13570,7 +13652,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
         <PathwayPage lang={lang} onLearn={learnTopic} onRead={readChapter} onBoss={startBossChallenge}
           onPlayAlong={(cat, id) => { playUi("click"); logUsage("nav", "pathway-" + id); setSongsCat(cat); setStudioView("songs"); setPage("studio"); }}
           onProgression={(pc, len, keyId) => { playUi("click"); logUsage("nav", "pathway-" + pc.id + "-" + len + (keyId ? "-" + keyId : "")); learnProgression(pc, len, keyId); }}
-          initialOpenStageId={activeStageId} initialSelectedType={activeStageType} userName={(profile && profile.full_name) || ""} onMentor={() => { playUi("click"); logUsage("nav", "pathway-mentor"); stopPracticeListeners(); setPage("coach"); }} onUpgrade={(PLAY_BUILD || (premium && !isTrialPlan(plan))) ? null : () => { playUi("click"); logUsage("nav", "pathway-upgrade"); setPricingOpen(true); }} />
+          initialOpenStageId={activeStageId} initialSelectedType={activeStageType} userName={(profile && profile.full_name) || ""} onMentor={() => { playUi("click"); logUsage("nav", "pathway-mentor"); stopPracticeListeners(); setPage("coach"); }} onUpgrade={(PLAY_BUILD || (isGuest && !pricingDoor()) || (premium && !isTrialPlan(plan))) ? null : () => { playUi("click"); logUsage("nav", "pathway-upgrade"); setPricingOpen(true); }} />
       )}
 
       {/* ─── PAGE: CHALLENGING (certificates + Group Boss Challenges) ─── */}
@@ -13593,10 +13675,10 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
           onBack={() => { setPage("studio"); setStudioView("menu"); }} />
       )}
       {page === "eargym" && (
-        <EarGymPage lang={lang} initialTab={earGymInitialTab} onReward={(xp, c, perfect) => rewardStudio(xp, c, { games: 1, perfect })} onBack={() => { setPage("studio"); setStudioView("menu"); }} />
+        <EarGymPage lang={lang} initialTab={earGymInitialTab} onStart={() => guestStart("ear")} onReward={(xp, c, perfect) => rewardStudio(xp, c, { games: 1, perfect })} onBack={() => { setPage("studio"); setStudioView("menu"); }} />
       )}
       {page === "reading" && (
-        <ReadingPage lang={lang} onReward={(xp, c, perfect) => rewardStudio(xp, c, { games: 1, perfect })} onBack={() => { setPage("studio"); setStudioView("menu"); }}
+        <ReadingPage lang={lang} onStart={() => guestStart("reading")} onReward={(xp, c, perfect) => rewardStudio(xp, c, { games: 1, perfect })} onBack={() => { setPage("studio"); setStudioView("menu"); }}
           onPlaySong={(song) => { chooseSong(song); setPage("studio"); setStudioView("songs"); }} />
       )}
       {page === "insights" && (
@@ -13636,7 +13718,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
           ? <OriginalContentPage lang={lang} level={levelInfo((profile && profile.exp) || 0).level} exp={(profile && profile.exp) || 0} premium={premium} plan={plan} onPlay={chooseSong} onBack={() => setStudioView("songs")} />
           : <StudioPage lang={lang} plan={plan} premium={premium} freezeCount={readStreak().freezes || 0} onRequireLogin={() => requireLogin("ai")} songAnalysis={songAnalysis} onAskStruggle={askAboutStruggle}
               voiceLocked={!isMaxPlan(plan) && !(profile && profile.is_admin)}
-              onVoice={() => { if (!isMaxPlan(plan) && !(profile && profile.is_admin)) { playUi("click"); setPricingOpen(true); } else openVoice(); }}
+              onVoice={() => { if (!isMaxPlan(plan) && !(profile && profile.is_admin)) { playUi("click"); setPricingOpen(true); } else if (!requireLogin("ai")) openVoice(); }}
               onSongs={() => setStudioView("songs")}
               onSight={openSight} onCamera={openCamera}
               onExam={() => { playUi("click"); premium ? setExamOpen(true) : setPricingOpen(true); }}
@@ -13817,10 +13899,11 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
           );
         })}
         <div className="drawer-foot">
-          {!PLAY_BUILD && <button className="draweritem sub" onClick={() => { playUi("click"); setNavOpen(false); setPricingOpen(true); }}><span className="drawericon"><Ico e="✦" size={20} /></span><span className="drawerlabel">{premium ? lc.prManage : lc.upgrade}</span></button>}
+          {!PLAY_BUILD && (!isGuest || pricingDoor()) && <button className="draweritem sub" onClick={() => { playUi("click"); setNavOpen(false); setPricingOpen(true); }}><span className="drawericon"><Ico e="✦" size={20} /></span><span className="drawerlabel">{premium ? lc.prManage : lc.upgrade}</span></button>}
           <button className="draweritem sub" onClick={() => { playUi("click"); setNavOpen(false); setSettingsOpen(true); }}><span className="drawericon"><Ico e="⚙️" size={20} /></span><span className="drawerlabel">{lc.setTitle}</span></button>
-          {onSignOut && <button className="draweritem sub" onClick={() => { playUi("click"); onSignOut(); }}><span className="drawericon"><Ico e="⏻" size={20} /></span><span className="drawerlabel">{lc.signOut}</span></button>}
-          {onSignOut && !(profile && profile.is_admin) && <button className="draweritem sub" onClick={async () => {
+          {isGuest && <button className="draweritem sub" data-drawer-login onClick={() => { playUi("click"); setNavOpen(false); setLoginModalOpen(true); }}><span className="drawericon"><Ico e="🔐" size={20} /></span><span className="drawerlabel">{pickT(lang, "เข้าสู่ระบบหรือสมัครสมาชิก", "Login or sign up", "登录或注册")}</span></button>}
+          {onSignOut && !isGuest && <button className="draweritem sub" onClick={() => { playUi("click"); onSignOut(); }}><span className="drawericon"><Ico e="⏻" size={20} /></span><span className="drawerlabel">{lc.signOut}</span></button>}
+          {onSignOut && !isGuest && !(profile && profile.is_admin) && <button className="draweritem sub" onClick={async () => {
             playUi("click");
             /* account deletion inside the app (Google Play policy): asks twice, then removes the account and its data on the server (RPC self_delete_account) and signs out */
             const word = lang === "th" ? "ลบบัญชี" : lang === "zh" ? "删除" : xl(lang, "DELETE");

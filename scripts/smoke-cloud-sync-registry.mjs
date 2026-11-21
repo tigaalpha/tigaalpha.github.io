@@ -49,7 +49,7 @@ ok("every tg_ / tiga_ literal in the app is classified (" + lits.size + " found)
 
 // the money / authority list can never be synced
 const MONEY = ["tg_coins", "tg_gems", "tg_exp", "tg_streak", "tg_plan", "tg_premium", "tg_game_power", "tg_modelCores", "tg_pvp_rank", "tg_pvp_season", "tg_auth_bk", "tg_anon_id",
-  "tg_user_signed_out", "tg_gp_free", "tg_adv_unlockall", "tg_ah_unlockall", "tg_test_hook", "tg_test_forcelogin", "tg_test_myclass_done", "tg_notif_reward_done", "tg_guest_profile", "tg_guest_ms", "tg_attr", "tg_ga",
+  "tg_user_signed_out", "tg_gp_free", "tg_adv_unlockall", "tg_ah_unlockall", "tg_test_hook", "tg_test_forcelogin", "tg_guest_unlimited", "tg_test_pricing", "tg_guest_uses", "tg_test_myclass_done", "tg_notif_reward_done", "tg_guest_profile", "tg_guest_ms", "tg_attr", "tg_ga",
   "tg_ai_cache_v1", "tg_adv_gfx", "tg_gfx_tier", "tg_msd", "tg_fullscore", "tg_pa_cal_mic", "tg_piano_tune_v1", "tg_chat_idx", "tg_chat_t_x", "tiga_leads", "tg_bio_cred_3", "tg_stitched_u"];
 for (const k of MONEY) ok("never synced: " + k, classify(k) !== "synced", classify(k));
 for (const k of Object.keys(SYNC_REGISTRY.STRATEGY)) {

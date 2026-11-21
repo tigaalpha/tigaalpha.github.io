@@ -125,7 +125,7 @@ const EXCLUDE_WHY: Record<string, string> = {
   tg_notif_reward_done: "cache of a server flag", tg_game_power: "pacing resource: a client value must not refill every device",
   tg_gp_seen: "Game Power UI state", tg_pvp_rank: "competitive standing", tg_pvp_season: "competitive standing",
   tg_pvp_ghost: "local opponent", tg_pvp_rival: "local opponent", tg_pvp_daily: "PvP daily reward state", tg_pvp_stage: "PvP stage state",
-  tg_pvp_stage_force: "test door", tg_guest_profile: "guest state stays on the device", tg_guest_ms: "guest state",
+  tg_pvp_stage_force: "test door", tg_guest_profile: "guest state stays on the device", tg_guest_ms: "guest state", tg_guest_uses: "guest state: the free-preview count of this browser, a guest has no account to sync to",
   tg_sync_meta: "sync bookkeeping", tg_sync_base: "sync bookkeeping", tg_sync_pn: "sync bookkeeping", tg_sync_owner: "sync bookkeeping",
   tg_sync_dev: "sync bookkeeping", tg_anon_id: "anonymous identity of this browser", tg_user_signed_out: "auth state of this browser",
   tg_auth_bk: "a copy of a credential",
@@ -140,7 +140,7 @@ const LOCAL_WHY: Record<string, string> = {
   tg_admin_pay_seen: "the admin device in hand must still see a payment", tg_adv_raid: "display copy of a server counter",
   tg_adv_recent: "other people's names", tg_blog_vid: "random id of this browser for the blog reader count, never an account", tg_blog_return: "the blog article a reader tapped log-in from; the app takes it once after the log-in and goes back there (blog-return.ts), never account state", tg_lang_hint: "which language catalog to fetch before the first paint on this device (the language itself follows the account in profiles.lang)", tg_pvp_gfx: "device gfx", tg_pvp_gfx_auto: "device gfx", tg_tts_denied: "per-device cost guard for the read-aloud head start", tg_adv_crash: "test door", tg_adv_nocine: "test door", tg_adv_nogate: "test door",
   tg_adv_unlockall: "test door", tg_ah_unlockall: "test door", tg_gp_free: "test door", tg_msd: "test door", tg_fullscore: "test door",
-  tg_pa_testhook: "test door", tg_pa_stage_force: "test door", tg_test_forcelogin: "test door", tg_test_hook: "test door",
+  tg_pa_testhook: "test door", tg_pa_stage_force: "test door", tg_test_forcelogin: "test door", tg_guest_unlimited: "test door", tg_test_pricing: "test door", tg_test_hook: "test door",
   tg_test_myclass_done: "test door", tg_tts_free: "test door", tg_tts_round: "this device's paid read-aloud rounds (a per-device cost limit, not a player state)", tg_tts_pf: "test door",
   tg_ai_cache_v1: "cache", tg_apk_banner_seen: "per-device banner", tg_apk_update_dismissed: "per-device banner", tg_install_banner_seen: "per-device banner",
   tg_push_banner_seen: "per-device banner", tg_push_primed: "per-device permission", tg_permprimed: "per-device permission",
@@ -714,6 +714,9 @@ function noteClaimed(prevRaw: string) {
 }
 function poll() {
   if (!uid) return;
+  /* the browser belongs to this account only while the owner marker says so: another tab that signed out (the wipe removes the marker) or signed in as someone else has taken the store, and what is
+     there now is not this account's to push (a wiped key would otherwise read as the member deleting it, and a tombstone could be sent for it) */
+  if (safeGet(OWNER_KEY) !== uid) return;
   const now = Date.now();
   let changed = false, meta: Record<string, any> | null = null;
   for (const k of allSyncedKeys()) {
@@ -1077,7 +1080,11 @@ function stashDirty(u: string, entries: Array<[string, number]>) {
     if (k.startsWith("@pack:")) {
       const p = k.slice(6), m = packMap(p);
       for (const id of Object.keys(m)) st.keys[p + id] = { raw: String(m[id]), ts };
-    } else if (isSyncedKey(k, true) || packOf(k)) st.keys[k] = { raw: safeGet(k), ts };
+    } else if (isSyncedKey(k, true) || packOf(k)) {
+      const cur = safeGet(k);
+      if (cur === null && st.keys[k] && st.keys[k].raw !== null) continue;   // a key that is gone because ANOTHER tab signed out and wiped the store is not the member deleting it: the stash of that sign-out keeps its value
+      st.keys[k] = { raw: cur, ts };
+    }
   }
   for (const v of Object.values(st.keys)) bytes += (v.raw || "").length;
   if (bytes > 900000) return;   // too big to keep safely: the cloud push (flush) stays the only path
@@ -1094,14 +1101,83 @@ function replayStash(u: string): Array<[string, number]> {
   if (!st) return out;
   const meta = readMeta();
   for (const [k, e] of Object.entries(st.keys)) {
-    if (e.raw === null || safeGet(k) !== null) continue;
+    if (e.raw === null) continue;
     if (!(isSyncedKey(k, true) || packOf(k))) continue;
+    const here = safeGet(k);
+    if (here !== null) {
+      /* the device already holds the key (the guest that followed wrote it since the sign-out): a strategy that is a true join keeps BOTH sides, so a change that never reached the cloud is not lost;
+         every other strategy keeps what is here (the normal pull decides it against the cloud row) */
+      const mode = strategyOf(k);
+      if (!mode || packOf(k) || mode === "set3" || !(LATTICE.has(mode) || JOIN.has(mode))) continue;
+      let merged: any;
+      try {
+        const a = enc(here), b = enc(e.raw);
+        if (!shapeOk(mode, a) || !shapeOk(mode, b)) continue;
+        merged = mergeValue(mode, k, a, b, (meta[k] && meta[k].ts) || 0, e.ts);
+      } catch (er) { continue; }
+      if (merged === undefined || merged === null) continue;
+      const mraw = dec(merged);
+      if (mraw === here) continue;
+      const now = Date.now();
+      safeSet(k, mraw); meta[k] = { ts: now, h: hashOf(mraw) };
+      out.push([k, now]);
+      continue;
+    }
     safeSet(k, e.raw);
     if (!packOf(k)) meta[k] = { ts: e.ts, h: hashOf(e.raw) };
     out.push([k, e.ts]);
   }
   writeMeta(meta); safeRemove(stashKeyOf(u));
   return out;
+}
+/* ── chat threads across a sign-out or a switch of account ──
+   The threads live in their own table (chat_threads) and are pushed 2.5 s after the last message, never through the sync above, so the stash cannot carry them. A wipe that simply deleted them would
+   destroy a conversation that had not reached the server yet (the push timer dies with the page; the table may be missing or the device offline) and, while the table is not live, every thread there is.
+   They are copied whole into their own per-account key (tg_sync_stash_chat_<hash of the uid>, never synced, dropped after 30 days or when it would be bigger than 900 KB) and put back at THAT account's next
+   sign-in only where the device holds nothing of its own (the one exception is the thread INDEX: a guest may have chatted locally in between, so the two lists are joined by id); the chat then merges them
+   with the server (newest wins) and uploads what the server lacks. */
+const CHAT_STASH = STASH_PREFIX + "chat_", CHAT_STASH_MAX_AGE = 30 * 864e5, CHAT_STASH_MAX_BYTES = 900000;
+function chatStashKey(u: string): string { return CHAT_STASH + hashOf(u); }
+function stashChat(u: string) {
+  const keys: Record<string, string> = {}; let bytes = 0;
+  try {
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (k && (k === "tg_chat_idx" || k === "tg_chat_history" || SERVER_PREFIX.some((p) => k.startsWith(p)))) { const v = safeGet(k); if (v !== null) { keys[k] = v; bytes += v.length; } }
+    }
+  } catch (e) {}
+  if (!Object.keys(keys).length || bytes > CHAT_STASH_MAX_BYTES) return;
+  writeJson(chatStashKey(u), { uid: u, at: Date.now(), keys });
+}
+function restoreChat(u: string) {
+  const k = chatStashKey(u), st: any = readJson(k);
+  if (!st || st.uid !== u || !isObj(st.keys)) return;
+  for (const [key, v] of Object.entries<any>(st.keys)) {
+    if (typeof v !== "string") continue;
+    const here = safeGet(key);
+    if (here === null) { safeSet(key, v); continue; }
+    if (key === "tg_chat_idx") {   // the guest that followed chatted locally (the local answers are free for a guest): keep BOTH lists, and for one id the newer entry (thread bodies are per id and are only ever restored where absent)
+      try {
+        const a = JSON.parse(here), b = JSON.parse(v);
+        if (Array.isArray(a) && Array.isArray(b)) {
+          const byId = new Map<string, any>();
+          for (const m of [...b, ...a]) if (m && m.id) { const o = byId.get(m.id); if (!o || (+m.updated || 0) >= (+o.updated || 0)) byId.set(m.id, m); }
+          safeSet(key, JSON.stringify([...byId.values()]));
+        }
+      } catch (e) {}
+    }
+  }
+  safeRemove(k);
+}
+function pruneChatStashes() {
+  const dead: string[] = [];
+  try {
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (k && k.startsWith(CHAT_STASH)) { const st: any = readJson(k); if (!st || !(Date.now() - (+st.at || 0) < CHAT_STASH_MAX_AGE)) dead.push(k); }
+    }
+  } catch (e) {}
+  dead.forEach(safeRemove);
 }
 // the changes of the account that is running now, kept before a switch or a sign-out resets the module
 function stashRunning() {
@@ -1123,6 +1199,7 @@ export function startCloudSync(userId: string) {
   if (owner && owner !== userId) {
     // the previous account's unflushed changes: when the page was reloaded since (nothing in memory) everything it holds is kept, a merge makes it harmless
     if (stashedUid !== owner) stashDirty(owner, allSyncedKeys().map((k) => [packOf(k) ? "@pack:" + packOf(k) : k, Date.now()] as [string, number]));
+    stashChat(owner);
     wipeSyncedLocal();
   } else if (!owner) {
     for (const k of Object.keys(STRATEGY)) if (STRATEGY[k] === "pncounter" && localBalance(k) > 0) guestAdopt.add(k);
@@ -1130,6 +1207,7 @@ export function startCloudSync(userId: string) {
   stashedUid = null;
   safeSet(OWNER_KEY, userId);
   uid = userId;
+  pruneChatStashes(); restoreChat(userId);
   pruneLocal();
   dirty.clear(); lastRaw = new Map();
   const replayed = replayStash(userId);
@@ -1142,6 +1220,21 @@ export function startCloudSync(userId: string) {
     window.addEventListener("pagehide", onPageHide); window.addEventListener("beforeunload", onPageHide);
     window.addEventListener("focus", onWake); window.addEventListener("online", onWake);
   }
+}
+/** An explicit Sign out: what the account left on this device must not stay readable for whoever uses the browser next (a guest now: until 2026-11-21 the log-in wall of the owner's domain hid it,
+ *  the guest-first entry shows the Pathway instead). Same order as the switch to another account in startCloudSync: the changes that never reached the cloud are stashed first (they come back at THIS
+ *  account's next sign-in), then everything synced is removed from this browser and the owner marker goes, so the next sign-in - or the guest's own progress - starts from a clean slate and is adopted
+ *  as for a browser that never had an account. Call it right after stopCloudSync(). The chat threads are stashed whole the same way (stashChat).
+ *  What stays on the browser ON PURPOSE (the excluded keys): the money mirrors (tg_coins, tg_gems, tg_exp, tg_streak: an offline-earned balance lives only there until the next log-in's merge), Game Power
+ *  (clearing it would turn Sign out into an energy refill) and the competitive standing; the plan mirror is reset by App.tsx's signOut(). */
+export function wipeAfterSignOut() {
+  const owner = safeGet(OWNER_KEY);
+  if (!owner) return;
+  if (stashedUid !== owner) stashDirty(owner, allSyncedKeys().map((k) => [packOf(k) ? "@pack:" + packOf(k) : k, Date.now()] as [string, number]));
+  stashChat(owner);   // the chat threads are not synced keys: they are kept whole in a stash of their own (see stashChat)
+  wipeSyncedLocal();
+  safeRemove(OWNER_KEY);
+  stashedUid = null;
 }
 export function stopCloudSync() {
   stashRunning();   // before anything is reset: a flush that never reaches the server must not lose the changes with the next wipe

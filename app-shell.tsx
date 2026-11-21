@@ -1,5 +1,5 @@
 import { isChunkLoadError, reloadForNewBuild } from "./chunk-reload";
-import { useState, useEffect, Component } from "react";
+import { useState, useEffect, useRef, Component } from "react";
 import { sb } from "./supabase-client";
 import { saveGuestProfile, setSkipOnboard, logUsage } from "./shared-infra";
 import { handoffUrl } from "./local-identity";
@@ -306,7 +306,7 @@ function GoogleMark() {
    only real button and hid e-mail behind a link reading "log in with existing
    account" — so someone with no Google account, or in a WebView where Google
    refuses to work at all, saw no way to create one. */
-function LoginOptions({ profile, onGoogleLogin, lg }) {   // lg: the language of the caller (LoginModal / GuestGateScreen read it once and use the catalog hook)
+function LoginOptions({ profile, onGoogleLogin, lg, noHead = false }) {   // lg: the language of the caller (LoginModal / GuestGateScreen / TrialInviteModal read it once and use the catalog hook); noHead: the caller draws its own title
   const ext = ownLang(lg);
   const [inApp] = useState(() => inAppBrowser());
   const [mode, setMode] = useState("signup"); // signup | login
@@ -318,8 +318,17 @@ function LoginOptions({ profile, onGoogleLogin, lg }) {   // lg: the language of
   const [agree, setAgree] = useState(false);      // required purpose — never pre-ticked
   const [marketing, setMarketing] = useState(false); // separate optional purpose
   const [busy, setBusy] = useState(false);
-  const [err, setErr] = useState("");
-  const [msg, setMsg] = useState("");
+  const [err, setErrState] = useState("");
+  const [msg, setMsgState] = useState("");
+  /* The card scrolls (.setcard) and these two messages are drawn below the privacy block: a message nobody can see is no answer (Enter with a half-filled form, or the "check your e-mail" note after a
+     sign-up made with Enter, looked like nothing had happened - and a second Enter sent a second sign-up). Every message raised through setErr / setMsg is scrolled into view; the counter makes the
+     same text twice in a row scroll twice (setErr("") then setErr(sameText) in one handler batches to no state change). Clearing ("") does not scroll. */
+  const noteRef = useRef<HTMLDivElement>(null);
+  const [noteTick, setNoteTick] = useState(0);
+  const setErr = (t: string) => { setErrState(t); if (t) setNoteTick(n => n + 1); };
+  const setMsg = (t: string) => { setMsgState(t); if (t) setNoteTick(n => n + 1); };
+  useEffect(() => { if ((err || msg) && noteRef.current) { try { noteRef.current.scrollIntoView({ block: "nearest" }); } catch (e) {} } }, [err, msg, noteTick]);
+  const edit = (set: (v: string) => void) => (e: any) => { set(e.target.value); if (err) setErrState(""); };   // typing again retires the message that was about the old input
 
   const signup = mode === "signup";
 
@@ -337,6 +346,7 @@ function LoginOptions({ profile, onGoogleLogin, lg }) {   // lg: the language of
     setBusy(true);
     try {
       saveGuestProfile(profile); // progress made as a guest follows them in
+      try { sessionStorage.setItem("tiga_page", "pathway"); } catch (e) {}   // and they land on the Learning Pathway after the log-in (App.tsx signInWith does the same for Google)
       const { data, error } = signup
         ? await sb.auth.signUp({
             email: email.trim(),
@@ -383,9 +393,22 @@ function LoginOptions({ profile, onGoogleLogin, lg }) {   // lg: the language of
     }
   }
 
+  /* Enter in a field works like Enter in a form (the card the members used until 2026-11-21 did; there is no <form> here): it walks to the first field that is still empty and submits only when every field
+     has something in it, so a half-filled form never answers with an error the person did not ask for. An IME that is still composing (Thai, Japanese, Chinese, Korean) uses Enter to commit the word,
+     which must not log anyone in: Safari fires compositionend BEFORE that Enter, so the event arrives with isComposing false and keyCode 229. */
+  const onEnter = (e: any) => {
+    if (e.key !== "Enter" || busy) return;
+    if ((e.nativeEvent && e.nativeEvent.isComposing) || e.keyCode === 229) return;
+    e.preventDefault();
+    const box = e.currentTarget && e.currentTarget.closest ? e.currentTarget.closest(".au-f") : null;
+    const empty = box ? (Array.from(box.querySelectorAll("input")) as HTMLInputElement[]).find(i => !i.value) : null;
+    if (empty) { try { empty.focus(); } catch (er) {} return; }
+    submit();
+  };
+
   return (
     <div className="au">
-      <div className="au-head">
+      {!noHead && (<div className="au-head">
         <div className="au-title">{signup ? solo(lg, "สมัครสมาชิกฟรี", xl(lg, "Sign up free")) : solo(lg, "ยินดีต้อนรับกลับมา", xl(lg, "Welcome back"))}</div>
         <div className="au-sub">
           {!signup
@@ -395,7 +418,7 @@ function LoginOptions({ profile, onGoogleLogin, lg }) {   // lg: the language of
             ? pair(lg, "สมัครด้วยอีเมลได้เลย ไม่ต้องมีบัญชี Google", xl(lg, "Sign up with an email — no Google account needed"), "\n")
             : pair(lg, "เลือกได้เลย — สมัครด้วยอีเมล หรือใช้บัญชี Google", xl(lg, "Sign up with an email, or use Google"), "\n")}
         </div>
-      </div>
+      </div>)}
 
       <div className="au-seg" role="tablist">
         <button className={`au-segb${signup ? " on" : ""}`} role="tab" aria-selected={signup}
@@ -437,15 +460,15 @@ function LoginOptions({ profile, onGoogleLogin, lg }) {   // lg: the language of
       <div className="au-f">
         {signup && (
           <input className="au-in" type="text" autoComplete="name" placeholder={pair(lg, "ชื่อที่อยากให้ครูเรียก", xl(lg, "Your name"))}
-            value={name} onChange={e => setName(e.target.value)} />
+            value={name} onChange={edit(setName)} onKeyDown={onEnter} />
         )}
         <input className="au-in" type="email" inputMode="email" autoComplete="email" placeholder={pair(lg, "อีเมล", xl(lg, "Email"))}
-          value={email} onChange={e => setEmail(e.target.value)} />
+          value={email} onChange={edit(setEmail)} onKeyDown={onEnter} />
         <input className="au-in" type="password" autoComplete={signup ? "new-password" : "current-password"}
-          placeholder={solo(lg, "รหัสผ่าน (อย่างน้อย 6 ตัว) · Password", xl(lg, "Password (at least 6 characters)"))} value={password} onChange={e => setPassword(e.target.value)} />
+          placeholder={solo(lg, "รหัสผ่าน (อย่างน้อย 6 ตัว) · Password", xl(lg, "Password (at least 6 characters)"))} value={password} onChange={edit(setPassword)} onKeyDown={onEnter} />
         {signup && (
           <input className="au-in" type="password" autoComplete="new-password" placeholder={pair(lg, "ยืนยันรหัสผ่าน", xl(lg, "Confirm password"))}
-            value={confirm} onChange={e => setConfirm(e.target.value)} />
+            value={confirm} onChange={edit(setConfirm)} onKeyDown={onEnter} />
         )}
       </div>
 
@@ -459,7 +482,7 @@ function LoginOptions({ profile, onGoogleLogin, lg }) {   // lg: the language of
             </>}
           </div>
           <label className="au-ck">
-            <input type="checkbox" checked={agree} onChange={e => setAgree(e.target.checked)} />
+            <input type="checkbox" checked={agree} onChange={e => { setAgree(e.target.checked); if (err) setErrState(""); }} />
             <span>
               {ext ? (
                 <>
@@ -484,8 +507,8 @@ function LoginOptions({ profile, onGoogleLogin, lg }) {   // lg: the language of
         </div>
       )}
 
-      {err && <div className="au-err">{err}</div>}
-      {msg && <div className="au-ok">{msg}</div>}
+      {err && <div className="au-err" role="alert" ref={noteRef}>{err}</div>}
+      {msg && <div className="au-ok" role="status" ref={noteRef}>{msg}</div>}
 
       <button className="au-cta" disabled={busy} onClick={submit}>
         {busy ? solo(lg, "กำลังดำเนินการ...", xl(lg, "Processing…")) : signup ? solo(lg, "สมัครสมาชิกฟรี", xl(lg, "Sign up free")) : solo(lg, "เข้าสู่ระบบ", xl(lg, "Log in"))}
@@ -528,6 +551,83 @@ export function LoginModal({ profile, onGoogleLogin, onClose }) {
         <div className="sethdr"><span>{solo(lg, "🔐 เข้าสู่ระบบ · Login", "🔐 " + xl(lg, "Login"))}</span><button className="cbtn" onClick={onClose}>{pair(lg, "ปิด", xl(lg, "Close"))}</button></div>
         <div className="setbody" style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 10, padding: "14px 6px" }}>
           <LoginOptions profile={profile} onGoogleLogin={onGoogleLogin} lg={lg} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ── The log-in invitation of a guest (owner 2026-11-21) ──
+   It replaces the full-screen wall that covered the app on the owner's domain: nobody sees it on arrival (the Pathway is open and usable). It appears only when a guest STARTS an activity
+   after the free preview is used up (reason "trial", see guestStart() in App.tsx), or taps something that cannot work without an account ("ai": the live AI teacher, "account": a feature
+   bound to an account). The headline is the owner's: log in to learn piano with TIGA ALPHA, free for 7 days (the real trial of a new account), no credit card. It can be closed ("Not now"):
+   the Pathway stays open and the next start asks again. Same sign-up / log-in panel as the corner pill (LoginOptions), so Google, e-mail and the privacy consent work exactly the same. */
+/* Keeps the words of the headline whole when the browser balances its lines: Chromium's Thai dictionary splits เปียโน (piano) as เปีย + โน and text-wrap:balance picks exactly that break; the brand
+   name is one unit in every language (a no-break space inside it, a word joiner after it so a particle that follows - Korean 로, Japanese で - stays attached). Both are invisible characters,
+   written with fromCharCode so the source stays readable. */
+const NBSP = String.fromCharCode(0xa0), WJ = String.fromCharCode(0x2060);
+export const keepWords = (s: string) => String(s).split("TIGA ALPHA").join("TIGA" + NBSP + "ALPHA" + WJ).split("เปียโน").join("เปีย" + WJ + "โน");
+/* A dialog that says aria-modal has to behave like one: the focus moves into the card (not into a field: no on-screen keyboard pops up), Tab / Shift+Tab stay inside it, Escape closes it
+   (but not while an IME is composing, and not before a half-typed e-mail has had its say: the first Escape only leaves the field; a card with no way out - onClose null - ignores Escape), and the
+   focus goes back to what had it when the card closes. Used by the invitation and by the standard log-in card. */
+function useDialogBehaviour(cardRef: { current: HTMLElement | null }, onClose: (() => void) | null) {
+  const closeRef = useRef(onClose); closeRef.current = onClose;   // PianoApp passes a new onClose every render: the effect below must not restart (it would hand the focus back and forth)
+  useEffect(() => {
+    const prev = document.activeElement as HTMLElement | null;
+    const card = cardRef.current;
+    if (card) { try { card.focus({ preventScroll: true }); } catch (e) {} }
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        if (e.isComposing || (e as any).keyCode === 229) return;
+        const a = document.activeElement as HTMLInputElement | null;
+        if (a && a.tagName === "INPUT" && a.value && card && card.contains(a)) { a.blur(); try { card.focus({ preventScroll: true }); } catch (er) {} return; }
+        if (closeRef.current) closeRef.current();
+        return;
+      }
+      if (e.key !== "Tab" || !card) return;
+      const f = Array.from(card.querySelectorAll<HTMLElement>('a[href],button:not([disabled]),input:not([disabled]),select,textarea,[tabindex]:not([tabindex="-1"])')).filter(el => el.getClientRects().length > 0);
+      if (!f.length) { e.preventDefault(); card.focus(); return; }
+      const first = f[0], last = f[f.length - 1], a = document.activeElement;
+      if (!card.contains(a)) { e.preventDefault(); first.focus(); }
+      else if (e.shiftKey && (a === first || a === card)) { e.preventDefault(); last.focus(); }
+      else if (!e.shiftKey && a === last) { e.preventDefault(); first.focus(); }
+    };
+    document.addEventListener("keydown", onKey, true);
+    return () => {
+      document.removeEventListener("keydown", onKey, true);
+      try { if (prev && prev !== document.body && document.contains(prev) && prev.focus) prev.focus({ preventScroll: true }); } catch (e) {}
+    };
+  }, []);
+}
+export function TrialInviteModal({ reason, profile, onLogin, onClose }) {
+  const lg = screenLang(profile);
+  useCatalog(lg);   // PianoApp already holds the catalog of profile.lang; this keeps the card right if it is ever mounted on its own
+  const cardRef = useRef<HTMLDivElement>(null);
+  const downOnBackdrop = useRef(false);
+  useDialogBehaviour(cardRef, onClose);
+  const title = solo(lg, "ล็อกอินเพื่อเรียนเปียโนกับ TIGA ALPHA", xl(lg, "Log in to learn piano with TIGA ALPHA"));   // the clean string: the dialog is named with it, the heading is drawn with keepWords()
+  const why = reason === "ai"
+    ? solo(lg, "ฟีเจอร์ AI ครูสอนต้องใช้บัญชีจริง ล็อกอินหรือสมัครสมาชิกฟรีได้เลย — ความคืบหน้าที่ทำไว้จะถูกเก็บไว้ให้ครบ", xl(lg, "This feature needs a real account. Log in or sign up free — everything you did stays saved."))
+    : reason === "account"
+    ? solo(lg, "ฟีเจอร์นี้ต้องมีบัญชี ล็อกอินหรือสมัครสมาชิกฟรีเพื่อใช้งานส่วนนี้ — ความคืบหน้าที่ทำไว้จะถูกเก็บไว้ให้ครบ", xl(lg, "Log in or sign up free to use this — everything you did stays saved."))
+    : solo(lg, "ล็อกอินหรือสมัครสมาชิกฟรีเพื่อเรียนต่อ — ความคืบหน้าที่ทำไว้จะถูกเก็บไว้ให้ครบ", xl(lg, "Log in or sign up free to keep playing — everything you did stays saved."));
+  const chip: React.CSSProperties = { display: "inline-block", padding: "5px 12px", borderRadius: 99, background: "rgba(217,119,87,.16)", color: "var(--clay-ink, #a8502f)", fontSize: 13, fontWeight: 700, lineHeight: 1.3 };   // theme tokens: the card is light in the cream skin and dark in the dark one
+  return (
+    <div className="setov" data-trial-invite data-reason={reason} style={{ zIndex: 100000 }}
+      onMouseDown={e => { downOnBackdrop.current = e.target === e.currentTarget; }}
+      onClick={e => { const hit = downOnBackdrop.current && e.target === e.currentTarget; downOnBackdrop.current = false; if (hit) onClose(); }}>   {/* above every pop-up and the full-screen games (they sit at 1300 ... 2450); only the log-in wall shares this level. A press that STARTS inside the card (a text selection dragged out onto the backdrop) does not close it */}
+      <div className="setcard" ref={cardRef} tabIndex={-1} style={{ maxWidth: 380, outline: "none" }} role="dialog" aria-modal="true" aria-label={title} onClick={e => e.stopPropagation()}>
+        <div className="sethdr"><span>🎹 TIGA ALPHA</span><button className="cbtn" data-invite-close onClick={onClose}>{solo(lg, "ไว้ก่อน", xl(lg, "Not now"))}</button></div>
+        <div className="setbody" style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 10, padding: "8px 6px 16px" }}>
+          <div id="tg-invite-t" style={{ textAlign: "center", fontSize: 21, fontWeight: 800, lineHeight: 1.3, color: "var(--text, inherit)", padding: "0 8px", textWrap: "balance" } as React.CSSProperties}>
+            {keepWords(title)}
+          </div>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 8, justifyContent: "center" }}>
+            <span style={chip}>✓ {solo(lg, "ฟรี 7 วัน", xl(lg, "Free for 7 days"))}</span>
+            <span style={chip}>✓ {solo(lg, "ไม่ต้องใช้บัตรเครดิต", xl(lg, "No credit card needed"))}</span>
+          </div>
+          <div style={{ textAlign: "center", fontSize: 13.5, opacity: 0.8, lineHeight: 1.5, padding: "0 8px" }}>{why}</div>
+          <LoginOptions profile={profile} onGoogleLogin={onLogin} lg={lg} noHead />
         </div>
       </div>
     </div>
@@ -614,12 +714,14 @@ const WALL_T: Record<string, Record<string, string>> = {
   en: { welcome: "Welcome to TIGA ALPHA", sub: "Learn piano with AI — log in to start", login: "Log in", signup: "Sign up", google: "Continue with Google", or: "or", name: "Name", email: "Email", pass: "Password", forgot: "Forgot password?", noacc: "No account yet?", haveacc: "Already have an account?", agree: "I accept the", policy: "Privacy Notice", free: "Free to join, start right away", inapp: "Google doesn't work inside this app's browser — open your real browser, or use email below", openb: "Open in browser", reset: "We sent a password reset link to your email", created: "Account created! Check your email to confirm, then log in", needName: "Please enter your name", needMail: "Please enter your email and password", short: "Password must be at least 6 characters", needAgree: "Please accept the Privacy Notice", needEmailReset: "Enter your email first, then tap Forgot password" },
   zh: { welcome: "欢迎来到 TIGA ALPHA", sub: "用 AI 学钢琴 — 登录后开始学习", login: "登录", signup: "注册", google: "使用 Google 继续", or: "或", name: "姓名", email: "邮箱", pass: "密码", forgot: "忘记密码？", noacc: "还没有账号？", haveacc: "已有账号？", agree: "我接受", policy: "隐私政策", free: "免费注册，立即开始", inapp: "此应用内的浏览器无法使用 Google — 请在浏览器中打开，或使用下方邮箱", openb: "在浏览器中打开", reset: "重置密码链接已发送到你的邮箱", created: "注册成功！请查收邮件确认后再登录", needName: "请输入姓名", needMail: "请输入邮箱和密码", short: "密码至少 6 位", needAgree: "请接受隐私政策", needEmailReset: "请先输入邮箱，再点忘记密码" },
 };
-function LoginWall({ profile, onGoogleLogin }) {
+function LoginWall({ profile, onGoogleLogin, onClose = null }) {
   const [inApp] = useState(() => inAppBrowser());
   /* the language the learner already chose (any of the ten; the card used to honour th / en / zh only and showed English to someone who had picked Spanish); a visitor who chose none gets the browser's, as before */
   const lg = (() => { const p = profile && profile.lang; if (ALL_LANGS.includes(p)) return p; try { const n = (navigator.language || "").toLowerCase(); return n.startsWith("th") ? "th" : n.startsWith("zh") ? "zh" : "en"; } catch (e) { return "en"; } })();
   useCatalog(lg);   // an extra language's catalog is a lazy chunk: this loads it if main.tsx did not, and the card redraws when it arrives
   const t = by(WALL_T, lg);
+  const wallCardRef = useRef<HTMLDivElement>(null);
+  useDialogBehaviour(wallCardRef, onClose);   // a card that covers the whole app is a dialog: focus stays inside it and Escape is the way out (only when it has one: the forced wall of the test door has none)
   /* ?wall=signup | ?wall=login opens the card on that tab: the blog pop-up (scripts/build-blog-pages.mjs) sends "sign up free" and "log in" here */
   const [mode, setMode] = useState(() => { try { return new URLSearchParams(window.location.search).get("wall") === "signup" ? "signup" : "login"; } catch (e) { return "login"; } });
   const [name, setName] = useState(""), [email, setEmail] = useState(""), [pass, setPass] = useState("");
@@ -634,6 +736,7 @@ function LoginWall({ profile, onGoogleLogin }) {
     setBusy(true);
     try {
       saveGuestProfile(profile);
+      try { sessionStorage.setItem("tiga_page", "pathway"); } catch (e) {}
       const { data, error } = signup
         ? await sb.auth.signUp({ email: email.trim(), password: pass, options: { data: { full_name: name.trim(), pdpa_version: PDPA_VERSION, marketing_consent: false } } })
         : await sb.auth.signInWithPassword({ email: email.trim(), password: pass });
@@ -648,10 +751,12 @@ function LoginWall({ profile, onGoogleLogin }) {
   const clay = "#d97757", inp: React.CSSProperties = { width: "100%", boxSizing: "border-box", padding: "13px 14px", borderRadius: 10, border: "1.5px solid #e2d8cf", background: "#fff", color: "#2a211b", fontSize: 16, outline: "none", fontFamily: "inherit" };
   return (
     <div data-login-wall dir={isRtl(lg) ? "rtl" : undefined} style={{ position: "fixed", inset: 0, zIndex: 100000, overflowY: "auto", background: "#faf6f1", color: "#2a211b", display: "flex", justifyContent: "center", alignItems: "flex-start", padding: "28px 16px", boxSizing: "border-box" }}>
-      <div style={{ width: "100%", maxWidth: 400, background: "#fff", borderRadius: 18, padding: "26px 22px 22px", boxShadow: "0 10px 40px rgba(120,70,40,.14)", border: "1px solid #eee3d8" }}>
+      <div ref={wallCardRef} tabIndex={-1} role="dialog" aria-modal="true" aria-label={t.welcome} style={{ position: "relative", width: "100%", maxWidth: 400, background: "#fff", borderRadius: 18, padding: "26px 22px 22px", boxShadow: "0 10px 40px rgba(120,70,40,.14)", border: "1px solid #eee3d8", outline: "none" }}>
+        {/* the way out is also at the TOP of the card: on a short phone the "Not now" link at the bottom is below the fold. The cross is drawn (a "×" glyph of the page font was ~10 px wide inside its 44 px target) */}
+        {onClose && <button type="button" data-wall-close aria-label={solo(lg, "ไว้ก่อน", xl(lg, "Not now"))} onClick={onClose} style={{ position: "absolute", top: 6, insetInlineEnd: 6, width: 44, height: 44, display: "flex", alignItems: "center", justifyContent: "center", background: "none", border: "none", color: "#7a6a5e", cursor: "pointer", fontFamily: "inherit", borderRadius: 22 }}><svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true" focusable="false" style={{ display: "block" }}><path d="M3 3 L15 15 M15 3 L3 15" stroke="currentColor" strokeWidth="2" strokeLinecap="round" fill="none" /></svg></button>}
         <div style={{ textAlign: "center", marginBottom: 18 }}>
           <div style={{ display: "inline-block", border: "2px solid " + clay, color: clay, borderRadius: 12, padding: "6px 16px", fontWeight: 800, fontSize: 22, letterSpacing: 1 }}>TIGA ALPHA</div>
-          <h1 style={{ fontSize: 22, margin: "14px 0 4px", fontWeight: 800 }}>{t.welcome}</h1>
+          <h1 id="tg-wall-t" style={{ fontSize: 22, margin: "14px 0 4px", fontWeight: 800 }}>{keepWords(t.welcome)}</h1>
           <div style={{ fontSize: 14, color: "#7a6a5e" }}>{t.sub}</div>
         </div>
         <div style={{ display: "flex", background: "#f4ece4", borderRadius: 12, padding: 4, marginBottom: 16 }}>
@@ -695,12 +800,14 @@ function LoginWall({ profile, onGoogleLogin }) {
           <button type="button" onClick={() => { setMode(signup ? "login" : "signup"); setErr(""); setOk(""); }} style={{ background: "none", border: "none", color: clay, fontWeight: 800, cursor: "pointer", fontSize: 14, fontFamily: "inherit" }}>{signup ? t.login : t.signup}</button>
         </div>
         {signup && <div style={{ textAlign: "center", marginTop: 8, fontSize: 12, color: "#a39486" }}>{t.free}</div>}
+        {/* the card comes up on arrival only for a visitor who asked for it (the blog's "Sign up free" / "Log in" buttons): "Not now" lets them in as a guest, like everyone else */}
+        {onClose && <div style={{ textAlign: "center", marginTop: 14 }}><button type="button" data-wall-skip onClick={onClose} style={{ background: "none", border: "none", color: "#7a6a5e", cursor: "pointer", fontSize: 14, fontFamily: "inherit", textDecoration: "underline" }}>{solo(lg, "ไว้ก่อน", xl(lg, "Not now"))}</button></div>}
       </div>
     </div>
   );
 }
 
-export function GuestGateScreen({ reason, profile, onLogin }) {
+export function GuestGateScreen({ reason, profile, onLogin, onClose = null }) {
   const lg = screenLang(profile), ext = ownLang(lg);
   useCatalog(lg);   // PianoApp already holds the catalog of profile.lang; this keeps the gate right if it is ever mounted on its own
   const [gateInApp] = useState(() => inAppBrowser());
@@ -807,7 +914,7 @@ export function GuestGateScreen({ reason, profile, onLogin }) {
     },
   };
   const c = copy[reason] || copy.time;
-  if (reason === "wall") return <LoginWall profile={profile} onGoogleLogin={onLogin} />;
+  if (reason === "wall") return <LoginWall profile={profile} onGoogleLogin={onLogin} onClose={onClose} />;
 
   if (showSignup) {
     const inputStyle: React.CSSProperties = {

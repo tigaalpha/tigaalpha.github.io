@@ -497,10 +497,10 @@ html, body, #root{background:var(--bg)}
 .ptrail{display:flex;flex-direction:column;align-items:center;height:16px}
 .ptrail-line{width:3px;flex:1;border-radius:2px;opacity:.55}
 .ptrail-node{width:26px;height:26px;border-radius:50%;background:var(--card2);border:2px solid var(--bd4);display:flex;align-items:center;justify-content:center;font-size:13px;margin-top:-3px;box-shadow:0 2px 8px -2px #000;flex-shrink:0}
-.pgrouphdr{display:flex;align-items:center;gap:11px;margin-bottom:8px}
+.pgrouphdr{display:flex;align-items:center;gap:11px;margin-bottom:8px;flex-wrap:wrap;row-gap:8px}   /* wraps in every language (2026-11-21): Thai and English collapsed the text to nothing at 360-430 px beside the mentor and upgrade pills, the first thing a guest sees on the Pathway */
 .pgbar{width:4px;height:34px;border-radius:3px;flex-shrink:0;box-shadow:0 0 10px currentColor}
 .pgicon{font-size:21px;line-height:1;flex-shrink:0}
-.pginfo{flex:1;min-width:0}
+.pginfo{flex:1;min-width:7.5em}
 /* Japanese, Korean and Chinese may break a line between any two characters, so without a floor the header text collapses to one character wide beside the mentor and upgrade pills (Chinese did: "从这里开始" ran down the screen one character per line, 2026-11-16) */
 :root:lang(zh) .pginfo,:root:lang(ja) .pginfo,:root:lang(ko) .pginfo,:root:lang(ru) .pginfo,:root:lang(hi) .pginfo,:root:lang(es) .pginfo,:root:lang(fr) .pginfo,:root:lang(ar) .pginfo,:root:lang(de) .pginfo{min-width:7.5em}
 /* the Russian pill labels are long too (and Spanish / French / German run 15-30 % longer than English, Hindi is wider): the header wraps instead of pushing the pills over the text */
@@ -4238,6 +4238,24 @@ html:not([data-theme="dark"]) .pvppage:not(.x3) .pvpgfxbtn{background:var(--card
    110 px tall). On phones the row now wraps, so nothing falls off and the title keeps its width. Wider screens and the landscape fight overlay (.pvppage.land, wider than 520 px) are untouched. */
 @media (max-width:520px){.pvphdr{flex-wrap:wrap;row-gap:6px}}
 
+/* The corner Login pill is the only way in that stays on a guest's first screen (the full-screen wall is gone): in the long languages (es fr de hi ar) and on narrow phones its label was cut by the flag
+   pinned to the header's end corner. The narrow-screen rule that was meant to drop the round "G" badge sat BEFORE the rule that shows it (same specificity), so it never applied. From 440 px
+   down the badge goes (the label says what it is; 412 px phones are the common case). The pill itself never shrinks (the group of pills after it is what the header clips) but it never grows past the room
+   it has either: a label that still does not fit ends in an ellipsis instead of being cut mid-letter. Measured in a second pass (2026-11-21, Chromium at 320 / 340 / 360 / 375 / 390 / 412 px, every language):
+   with the badge gone and the short Spanish and Arabic labels (App.tsx) the label is whole from 360 px up in every language; at 320 and 340 px the long ones (fr de hi ru) can still end in an ellipsis.
+   A guest's profile button after the pill (and the Game Power bar, hidden up to 430 px since before) is dropped on phones: it was half cut by the flag corner (a 23-27 px sliver of a 35 px circle) and the drawer
+   and the Pathway cards reach the same page. */
+.tg .hdr .guestloginpill{flex:none;max-width:100%;min-width:0}
+.tg .hdr .guestloginpill-tx{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+@media (max-width:440px){
+.tg .hdr .guestloginpill .oauthico{display:none}
+.tg .hdr .guestloginpill{padding-inline:10px!important}
+}
+@media (max-width:430px){.tg .hdr .guestloginpill ~ .hdrgo{display:none}}
+@media (max-width:340px){.tg .hdr .guestloginpill{padding-inline:6px!important}}
+/* Korean breaks lines at spaces, never inside a word (a two-syllable noun such as 피아노를 was split 피 | 아노를 in the invitation's headline and in the standard card's title at 320-390 px) */
+:root:lang(ko) #tg-invite-t,:root:lang(ko) [data-login-wall] h1{word-break:keep-all}
+
 /* ══════════ RIGHT-TO-LEFT: Arabic (owner 2026-11-13). ONE BLOCK: keep it at the very end of this string, after every other rule ══════════
    <html dir="rtl"> is set by main.tsx (first paint, from tg_lang_hint) and by App.tsx (on every language change), both through dirOf() in lang-extra.ts. With it, ordinary pages flow
    right to left by themselves: flex rows and grids start on the right, text-align:start|end follows the direction, chat bubbles flip sides. This block does three things:
@@ -4301,4 +4319,5 @@ html[dir="rtl"] :is(.rtlflip,.todaydone-arrow,.senseiback span:first-child){disp
 html[dir="rtl"] .studioback .uxi{transform:scaleX(-1)}
 html[dir="rtl"] .pcardarrow{display:inline-flex;align-items:center;transform:scaleX(-1)}
 html[dir="rtl"] .pcard:hover .pcardarrow{transform:scaleX(-1) translateX(4px)}
+
 `;

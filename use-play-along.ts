@@ -357,7 +357,7 @@ function crystalSprite(hue, letter, rr, spin, missed, noteScale, dpr) {
   return sp;
 }
 
-export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, bumpWeekly, setMysteryChest, setLuckyToast, luckyToastTimer, premium, onUpsell, profile = null, level = 1, plan = "" }) {
+export function usePlayAlong({ lang, isGuest, requireLogin, guestStart = null, earnCoins, gainExp, bumpWeekly, setMysteryChest, setLuckyToast, luckyToastTimer, premium, onUpsell, profile = null, level = 1, plan = "" }) {
   useEffect(() => {
     const p = new URLSearchParams(window.location.search);
     // ?pvp=CODE — an online-duel invite: prefill the room code and open the PvP panel
@@ -644,6 +644,7 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
   }
   function closePvpOnline() { clearPvpScoreTick(); leaveOnlineRoom(); pvpRacingRef.current = false; setPvpOnline(null); }
   async function hostPvpOnline() {
+    if (requireLogin && requireLogin("account")) return;   // an online duel needs an account: a guest whose free preview ran out mid-race would be left stranded on the ready screen while the opponent's clock runs
     const name = (profile && (profile.full_name || profile.email)) || "Host";
     setPvpOnline({ phase: "hosting", code: null, role: "host", guestName: null, hostName: name, songId: songMeta ? songMeta.id : null, startAt: null, opp: null, oppResult: null, myResult: null, err: null, accepted: false, peerSeen: false });
     try {
@@ -656,6 +657,7 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
     } catch (e) { setPvpOnline(p => p && { ...p, err: String(e && e.message || e) }); }
   }
   async function joinPvpOnline(code) {
+    if (requireLogin && requireLogin("account")) return;   // same rule as hosting (see hostPvpOnline)
     const name = (profile && (profile.full_name || profile.email)) || "Challenger";
     setPvpOnline({ phase: "joining", code, role: "guest", guestName: name, hostName: null, songId: null, startAt: null, opp: null, oppResult: null, myResult: null, err: null, accepted: false, peerSeen: false });
     try {
@@ -720,7 +722,11 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
     songPreviewRef.current = [];
   }
   const songIdOf = (m) => m ? (m.id || m.en || tr(m, "en") || "x") : "x";
+  /* a guest's free preview: choosing a song and pressing Start is ONE use; a replay, a restart, the practice loop, the next song of a concert and a Family Battle's second player ride on it.
+     The flag holds the id of the song that was counted, not a bare true: a song that reaches the ready screen WITHOUT chooseSong (the ?challenge= banner's Accept) is a different id and counts on its own. */
+  const songGuestCountedRef = useRef("");
   function chooseSong(meta, opts = null) {
+    songGuestCountedRef.current = "";
     clearSongPreview();
     songDataRef.current = expandSong(meta, playAlongHand);
     songMetaRef.current = meta;
@@ -910,6 +916,7 @@ export function usePlayAlong({ lang, isGuest, requireLogin, earnCoins, gainExp, 
     const data = songDataRef.current;
     if (!data) return;
     const meta = songMetaRef.current;
+    if (guestStart && !continueSetlist && !(meta && meta.intro) && songGuestCountedRef.current !== songIdOf(meta)) { if (!guestStart("song")) return; songGuestCountedRef.current = songIdOf(meta); }
     const practice = !!(opts && opts.practice) && !continueSetlist && !(meta && meta.intro);
     practiceRef.current = practice ? { waitSince: 0, hinted: false } : null;
     setSongPractice(practice);
