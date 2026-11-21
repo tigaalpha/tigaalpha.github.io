@@ -66,9 +66,9 @@ ok(/\(\d+ from blog-src\)/.test(r1.out), "the build reports how many posts came 
 
 console.log("article pages in ja / ko / ru / hi / es / fr / ar");
 // the unlock card's four lines per language (the "read the rest" title, Google button, sign-up button, log-in line); "\xa0" is the no-break space of hi / es / fr / ar (a phone never splits "TIGA AI"; es keeps "Inicia sesión" together), compared as a plain space
-const wall = { ja: ["無料ログインで、残りの", "Googleで続ける", "無料で会員登録", "ログイン"], ko: ["무료로 로그인하고 나머지", "Google로 계속하기", "무료로 가입하기", "로그인"], ru: ["Войдите бесплатно, чтобы прочитать остальные", "Продолжить через Google", "Зарегистрироваться бесплатно", "Войти"],
+const wall = { ja: ["無料ログインで、残りの", "Googleで続ける", "無料で会員登録", "ログイン"], ko: ["로그인하고 나머지", "Google로 계속하기", "무료로 가입하기", "로그인"], ru: ["Войдите бесплатно, чтобы прочитать остальные", "Продолжить через Google", "Зарегистрироваться бесплатно", "Войти"],
   hi: ["पढ़ने के लिए मुफ़्त में लॉग इन करें", "Google से जारी रखें", "मुफ़्त में साइन अप करें", "पहले से सदस्य हैं? लॉग इन करें"],
-  es: ["Inicia sesión gratis para leer el", "Continuar con Google", "Regístrate gratis", "¿Ya eres miembro? Inicia sesión"],
+  es: ["Inicia sesión gratis para leer el", "Continuar con Google", "Regístrate gratis", "¿Ya tienes cuenta? Inicia sesión"],
   fr: ["Connectez-vous gratuitement pour lire les", "Continuer avec Google", "S'inscrire gratuitement", "Déjà membre\xa0? Se connecter"],
   ar: ["سجّل الدخول مجانًا لقراءة بقية المقال", "المتابعة باستخدام Google", "إنشاء حساب مجاني", "لديك حساب بالفعل؟ تسجيل الدخول"] };
 const nb = (s) => String(s).replace(/\xa0/g, " ");
@@ -93,12 +93,12 @@ for (const lang of STAT) {
   ok(h.includes(CAT[lang]) && h.includes(BACK[lang]) && h.includes(CTA[lang]), lang + ": category, 'all articles' and call-to-action in " + lang);
   ok(h.includes(`href="${SITE}/blog/${lang}/feed.xml"`), lang + ": the feed is linked from the head");
   ok(wall[lang].slice(0, 3).every(w => nb(h).includes(nb(w))) && nb(h).includes("TIGA AI"), lang + ": the unlock card copy is in " + lang + " and names the TIGA AI app");
-  ok(h.includes("<!--tg-gate:v8-->") && h.includes("<!--/tg-gate-->") && h.includes("<!--tg-cut:v1-->") && (h.match(/id="tg-unlock"/g) || []).length === 1 && (h.match(/class="tg-locked"/g) || []).length === 1, lang + ": one unlock card and one locked part, reader block <!--tg-gate:v8-->");
+  ok(h.includes("<!--tg-gate:v9-->") && h.includes("<!--/tg-gate-->") && h.includes("<!--tg-cut:v1-->") && (h.match(/id="tg-unlock"/g) || []).length === 1 && (h.match(/class="tg-locked"/g) || []).length === 1, lang + ": one unlock card and one locked part, reader block <!--tg-gate:v9-->");
   ok(h.includes(`lg=${lang}`) && h.includes("utm_campaign=piano-posture") && h.includes("go=google") && h.includes("wall=signup") && h.includes("wall=login"), lang + ": wall links carry lg=" + lang + ", the attribution and the three entry points");
   ok(h.includes(`LANG="${lang}"`) && h.includes(`LBL="${WORDS[lang]}"`), lang + ": the reader script knows its language and the unit '" + WORDS[lang] + "'");
   ok(h.includes("MS=3000") && !/data-gate-close|tg-g-x|tg-g-later/.test(h) && !h.includes('id="tg-gate"') && !h.includes("tg-g-card"), lang + ": the read count is 3 s and no pop-up wall is left");
-  ok(trialWords[lang].every(w => nb(h).includes(w)) && h.includes("<!--tg-gate:v8-->"), lang + ": the card says it is free, that no credit card is needed and the 7-day trial, in " + lang, trialWords[lang].join(" / "));
-  ok(/<aside class="tg-unlock" id="tg-unlock" data-nosnippet/.test(h), lang + ": the unlock card is marked data-nosnippet");
+  ok(trialWords[lang].every(w => nb(h).includes(w)) && h.includes("<!--tg-gate:v9-->"), lang + ": the card says it is free, that no credit card is needed and the 7-day trial, in " + lang, trialWords[lang].join(" / "));
+  ok(/<div class="tg-unlock" id="tg-unlock" data-nosnippet/.test(h), lang + ": the unlock card is marked data-nosnippet");
   ok(h.includes("<time datetime=\"2026-11-11\">2026-11-11</time>"), lang + ": a plain date string in created_at gives a valid date");
   ok(/class="tg-views"|\.tg-views\{/.test(h), lang + ": the view counter styles are in");
 }
@@ -227,7 +227,7 @@ console.log("the six older languages are not changed by the four new ones");
     const none = path.join(tmp, "no-src6"), A = path.join(tmp, "six-old"), B = path.join(tmp, "six-new"); fs.mkdirSync(none, { recursive: true });
     const ra = gen({ __script: path.join(br, "scripts", "build-blog-pages.mjs"), BLOG_FIXTURE: path.join(tmp, "six.json"), BLOG_OUT: A, BLOG_SRC: none }), rb = gen({ BLOG_FIXTURE: path.join(tmp, "six.json"), BLOG_OUT: B, BLOG_SRC: none });
     const walk = (d, base = d, o = []) => { for (const f of fs.readdirSync(d, { withFileTypes: true })) { const p = path.join(d, f.name); if (f.isDirectory()) walk(p, base, o); else o.push(path.relative(base, p)); } return o.sort(); };
-    const noWall = (h) => h.replace(/<!--tg-gate:v\d+-->[\s\S]*?<!--\/tg-gate-->/g, "<!--WALL-->").replace(/<!--tg-cut:v\d+-->[\s\S]*?<div class="tg-locked"[^>]*>/g, "").replace(/<\/div><!--\/tg-cut-->/g, "").replace(/"isAccessibleForFree":false,"hasPart":\{[^}]*\},/g, ""), noAlt = (h) => h.replace(/<link rel="alternate" hreflang="[^"]+" href="[^"]+">/g, "");
+    const noWall = (h) => h.replace(/<!--tg-gate:v\d+-->[\s\S]*?<!--\/tg-gate-->/g, "<!--WALL-->").replace(/<!--tg-cut:v\d+-->[\s\S]*?<div class="tg-locked"[^>]*>/g, "").replace(/<\/div><!--\/tg-cut-->/g, "").replace(/"isAccessibleForFree":false,"hasPart":\{[^}]*\},/g, "").replace(/\/googlebot\|[^\/]*\/i\.test/g, "/BOTS/i.test"), noAlt = (h) => h.replace(/<link rel="alternate" hreflang="[^"]+" href="[^"]+">/g, "");
     const fa = ra.code === 0 ? walk(A) : [], fb = rb.code === 0 ? walk(B) : [], diff = [];
     for (const f of fa) { if (!fb.includes(f)) { diff.push(f + ": missing"); continue; } const x = noWall(rd(path.join(A, f))), y = noWall(rd(path.join(B, f))), same = /(^|\/)index\.html$/.test(f) ? noAlt(x) === noAlt(y) : x === y; if (!same) diff.push(f); }
     ok(ra.code === 0 && rb.code === 0 && fa.length === 25 && JSON.stringify(fa) === JSON.stringify(fb), "(both generators ran and wrote the same " + fa.length + " files: 18 article pages, the ja / ko / ru indexes and feeds, the static sitemap)");

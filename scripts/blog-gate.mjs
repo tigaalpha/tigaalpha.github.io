@@ -3,7 +3,7 @@
 
    How it works (pure functions, no DOM, no network — scripts/build-blog-pages.mjs calls them for every article page, and scripts/smoke-blog-gate.mjs tests them):
    - The article body is a list of blocks (<p>, <h2>, <h3>, <ul>, <ol>, one per line: body() in build-blog-pages.mjs). cutPoint() picks the block boundary whose share of the article text
-     (characters, so Thai / Chinese / Japanese count like the others) is closest to FREE_SHARE; the preview never ends on a heading, never is a one-liner, and an article that is too short
+     (characters, so Thai / Chinese / Japanese count like the others) is closest to FREE_SHARE; the preview never ends on a heading (or a bold-only line, a line that ends with a colon, a lone picture), never is a one-liner, and an article that is too short
      (or whose first block is most of it) is not gated at all.
    - gateTail() writes the page as: preview blocks, then a block between <!--tg-cut:v1--> and <!--/tg-cut-->: a <style>, a tiny script that adds the class tg-gated to <html> when this browser
      has NO Supabase session (sb-*-auth-token in localStorage) and is not a crawler, a fade, the unlock card (#tg-unlock), and <div class="tg-locked"> holding the other blocks, the related-articles list and the
@@ -20,16 +20,24 @@
 export const FREE_SHARE = 0.30;                 // the share of an article (by characters of text) a reader without a session can read: the one number to change
 const MIN_GATED_CHARS = 600;                    // an article shorter than this is not worth gating
 const MIN_PREVIEW_CHARS = 120;                  // a preview must hold at least this much text (one line is no preview)
+const MIN_PREVIEW_SHARE = 0.12;                 // a first usable cut far below the target (a huge block follows) would say "you have read 3%": leave the page whole instead
 const MAX_PREVIEW_SHARE = 0.6;                  // when the only possible cut shows more than this (a first block that is most of the article), the page is left whole instead of claiming "30%"
 const MIN_LOCKED_SHARE = 0.2;                   // and something worth unlocking must stay behind the cut
 export const CUT_MARK = "<!--tg-cut:v1-->", CUT_END = "<!--/tg-cut-->";
 export const CUT_CLOSE = "</div>" + CUT_END;
 // crawlers and audit tools are never gated and never counted (the same list the reader script uses)
-export const BOT_SRC = "googlebot|bingbot|baiduspider|yandex|duckduckbot|applebot|slurp|crawler|spider|lighthouse|headlesschrome|prerender|facebookexternalhit|ahrefsbot|semrushbot|gptbot|claudebot|petalbot|bytespider";
+export const BOT_SRC = "googlebot|bingbot|baiduspider|yandex|duckduckbot|applebot|slurp|crawler|spider|lighthouse|headlesschrome|prerender|facebookexternalhit|ahrefsbot|semrushbot|gptbot|claudebot|petalbot|bytespider"
+  + "|google-inspectiontool|googleother|adsbot|mediapartners-google|storebot|google-read-aloud|feedfetcher|apis-google|bingpreview|msnbot|yeti|seznambot|naverbot|twitterbot|linkedinbot|slackbot|telegrambot|discordbot|whatsapp|pinterestbot|redditbot|skypeuripreview|embedly"
+  + "|siteauditbot|ahrefs|semrush|sitebulb|deepcrawl|lumar|botify|oncrawl|gtmetrix|pingdom|archive.org_bot|heritrix|perplexitybot|oai-searchbot|chatgpt-user|claude-user|claude-searchbot|amazonbot";
 const esc = (s) => String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 
 // characters of visible text in a piece of HTML (an entity counts as one character)
 export const textLen = (html) => [...String(html).replace(/<[^>]*>/g, "").replace(/&(?:[a-z]+|#\d+|#x[0-9a-f]+);/gi, "x").replace(/\s+/g, " ").trim()].length;
+
+// A block the preview must not END on, because the reader would be left with an opening and no body: a heading, a line that is only bold (the pseudo-heading many articles use), a line that ends with a colon
+// (it introduces a list or an example), or a picture on its own. The cut moves on to the next boundary instead.
+const BOLD_ONLY = /^<p>\s*<strong>[^<]*<\/strong>\s*[:：]?\s*<\/p>$/, IMG_ONLY = /^<p>\s*(?:<img[^>]*>\s*)+<\/p>$/;
+export const isOpener = (block) => /^<h[1-6][\s>]/.test(block) || BOLD_ONLY.test(block) || IMG_ONLY.test(block) || /[:：]\s*$/.test(String(block).replace(/<[^>]*>/g, "").trim());
 
 /* The block boundary for the preview. `blocks` are the rendered body blocks. Returns { k, pct } (k blocks are shown, pct is their real share of the text, rounded) or null when the article is left whole. */
 export function cutPoint(blocks, share = FREE_SHARE) {
@@ -39,14 +47,14 @@ export function cutPoint(blocks, share = FREE_SHARE) {
   let best = null, cum = 0;
   for (let k = 1; k <= blocks.length - 1; k++) {
     cum += lens[k - 1];
-    if (/^<h[1-6][\s>]/.test(blocks[k - 1])) continue;                       // never end the preview on a heading
+    if (isOpener(blocks[k - 1])) continue;                                   // never end the preview on a heading, a bold-only line, a line ending with a colon or a lone picture
     if (cum < MIN_PREVIEW_CHARS) continue;                                   // a preview of one line is no preview
     const d = Math.abs(cum - target);
     if (!best || d < best.d) best = { k, d, cum };
     if (cum > target) break;                                                 // later cuts only get farther from the target
   }
   if (!best) return null;
-  if (best.cum > MAX_PREVIEW_SHARE * total || total - best.cum < MIN_LOCKED_SHARE * total) return null;
+  if (best.cum < MIN_PREVIEW_SHARE * total || best.cum > MAX_PREVIEW_SHARE * total || total - best.cum < MIN_LOCKED_SHARE * total) return null;
   return { k: best.k, pct: Math.min(99, Math.max(1, Math.round(100 * best.cum / total))) };
 }
 
@@ -54,14 +62,14 @@ export function cutPoint(blocks, share = FREE_SHARE) {
    ar Modern Standard with masculine imperatives); the button words are the ones the app's log-in card uses. "TIGA AI" (and a figure and its unit, in fr / de / es) carry a no-break
    space (\xa0), so a 320 px phone never splits them over two lines. "Free" and "no credit card" are the owner's words (2026-11-21); the 7-day trial line is the one of 2026-11-16. */
 export const UNLOCK_T = {
-  th: { kicker: "คุณอ่านบทความนี้ไปแล้ว {n}%", title: "ล็อกอินฟรีเพื่ออ่านต่ออีก {m}%", free: "ใช้ฟรี", nocard: "ไม่ต้องใช้บัตรเครดิต", try: "แล้วทดลองเรียนเปียโนฟรี 7 วันกับแอป TIGA AI ได้ทันที", google: "ล็อกอินด้วย Google", signup: "สมัครสมาชิกฟรี", login: "มีบัญชีอยู่แล้ว? เข้าสู่ระบบ" },
-  en: { kicker: "You've read {n}% of this article", title: "Log in free to read the other {m}%", free: "Free to use", nocard: "No credit card needed", try: "Then try piano lessons free for 7 days in the TIGA AI app.", google: "Continue with Google", signup: "Sign up free", login: "Already a member? Log in" },
-  zh: { kicker: "你已阅读本文 {n}%", title: "免费登录，阅读剩余 {m}%", free: "免费使用", nocard: "无需信用卡", try: "还可以在 TIGA AI 应用中免费试学钢琴 7 天。", google: "使用 Google 继续", signup: "免费注册", login: "已有账号？登录" },
-  ja: { kicker: "この記事を{n}%読みました", title: "無料ログインで、残りの{m}%を読む", free: "無料で使えます", nocard: "クレジットカードは不要", try: "TIGA AIアプリで、ピアノのレッスンを7日間無料で体験できます。", google: "Googleで続ける", signup: "無料で会員登録", login: "アカウントをお持ちの方はログイン" },
-  ko: { kicker: "이 글을 {n}% 읽었어요", title: "무료로 로그인하고 나머지 {m}% 읽기", free: "무료로 이용", nocard: "신용카드 필요 없음", try: "TIGA AI 앱에서 피아노 레슨을 7일 동안 무료로 체험해 보세요.", google: "Google로 계속하기", signup: "무료로 가입하기", login: "이미 회원이신가요? 로그인" },
+  th: { kicker: "คุณอ่านบทความนี้ไปแล้ว {n}%", title: "ล็อกอินฟรีเพื่ออ่านต่ออีก {m}%", free: "ใช้ฟรี", nocard: "ไม่ต้องใช้บัตรเครดิต", try: "แล้วทดลองเรียนเปียโนฟรี 7\xa0วันกับแอป TIGA\xa0AI", google: "ล็อกอินด้วย Google", signup: "สมัครสมาชิกฟรี", login: "มีบัญชีอยู่แล้ว? เข้าสู่ระบบ" },
+  en: { kicker: "You've read {n}% of this article", title: "Log in for free to read the remaining {m}%", free: "Free to use", nocard: "No credit card needed", try: "Plus, try piano lessons free for 7 days in the TIGA\xa0AI app.", google: "Continue with Google", signup: "Sign up free", login: "Already a member? Log in" },
+  zh: { kicker: "你已阅读本文 {n}%", title: "免费登录，继续阅读剩余 {m}%", free: "免费使用", nocard: "无需信用卡", try: "还可在 TIGA\xa0AI 应用中免费试学 7 天钢琴课。", google: "使用 Google 继续", signup: "免费注册", login: "已有账号？登录" },
+  ja: { kicker: "この記事の{n}%を読みました", title: "無料ログインで、残りの{m}%を読む", free: "無料で使えます", nocard: "クレジットカードは不要", try: "TIGA\xa0AIアプリで、ピアノのレッスンを7日間無料で体験できます。", google: "Googleで続ける", signup: "無料で会員登録", login: "アカウントをお持ちの方はログイン" },
+  ko: { kicker: "이 글을 {n}% 읽었어요", title: "로그인하고 나머지 {m}%를 무료로 읽어 보세요", free: "무료 이용", nocard: "신용카드 필요 없음", try: "TIGA\xa0AI 앱에서 피아노 레슨을 7일 동안 무료로 체험해 보세요.", google: "Google로 계속하기", signup: "무료로 가입하기", login: "이미 회원이신가요? 로그인" },
   ru: { kicker: "Вы прочитали {n}% статьи", title: "Войдите бесплатно, чтобы прочитать остальные {m}%", free: "Бесплатно", nocard: "Банковская карта не нужна", try: "А ещё 7 дней бесплатно пробуйте уроки фортепиано в приложении TIGA\xa0AI.", google: "Продолжить через Google", signup: "Зарегистрироваться бесплатно", login: "Уже есть аккаунт? Войти" },
-  hi: { kicker: "आप इस लेख का {n}% पढ़ चुके हैं", title: "बाकी {m}% पढ़ने के लिए मुफ़्त में लॉग इन करें", free: "मुफ़्त में इस्तेमाल करें", nocard: "क्रेडिट कार्ड की ज़रूरत नहीं", try: "फिर TIGA\xa0AI ऐप में 7 दिन तक पियानो के पाठ मुफ़्त में आज़माएँ।", google: "Google से जारी रखें", signup: "मुफ़्त में साइन अप करें", login: "पहले से सदस्य हैं? लॉग इन करें" },
-  es: { kicker: "Has leído el {n}\xa0% de este artículo", title: "Inicia sesión gratis para leer el {m}\xa0% restante", free: "Gratis", nocard: "Sin tarjeta de crédito", try: "Y prueba clases de piano gratis durante 7\xa0días en la app TIGA\xa0AI.", google: "Continuar con Google", signup: "Regístrate gratis", login: "¿Ya eres miembro? Inicia\xa0sesión" },
+  hi: { kicker: "आप इस लेख का {n}% पढ़ चुके हैं", title: "बाकी {m}% पढ़ने के लिए मुफ़्त में लॉग इन करें", free: "इस्तेमाल करना मुफ़्त", nocard: "क्रेडिट कार्ड की ज़रूरत नहीं", try: "इसके बाद TIGA\xa0AI ऐप में 7 दिन तक पियानो के पाठ मुफ़्त में आज़माएँ।", google: "Google से जारी रखें", signup: "मुफ़्त में साइन अप करें", login: "पहले से सदस्य हैं? लॉग इन करें" },
+  es: { kicker: "Has leído el {n}\xa0% de este artículo", title: "Inicia sesión gratis para leer el {m}\xa0% restante", free: "Gratis", nocard: "Sin tarjeta de crédito", try: "Después, prueba clases de piano gratis durante 7\xa0días en la app TIGA\xa0AI.", google: "Continuar con Google", signup: "Regístrate gratis", login: "¿Ya tienes cuenta? Inicia\xa0sesión" },
   fr: { kicker: "Vous avez lu {n}\xa0% de cet article", title: "Connectez-vous gratuitement pour lire les {m}\xa0% restants", free: "Gratuit", nocard: "Sans carte bancaire", try: "Puis essayez gratuitement les cours de piano pendant 7\xa0jours dans l'application TIGA\xa0AI.", google: "Continuer avec Google", signup: "S'inscrire gratuitement", login: "Déjà membre\xa0? Se connecter" },
   ar: { kicker: "لقد قرأت {n}% من هذا المقال", title: "سجّل الدخول مجانًا لقراءة بقية المقال ({m}%)", free: "مجاني", nocard: "دون بطاقة ائتمان", try: "ثم جرّب دروس البيانو مجانًا لمدة 7 أيام عبر تطبيق TIGA\xa0AI.", google: "المتابعة باستخدام Google", signup: "إنشاء حساب مجاني", login: "لديك حساب بالفعل؟ تسجيل الدخول" },
   de: { kicker: "Du hast {n}\xa0% dieses Artikels gelesen", title: "Melde dich kostenlos an, um die restlichen {m}\xa0% zu lesen", free: "Kostenlos nutzbar", nocard: "Keine Kreditkarte nötig", try: "Dann probiere die Klavierstunden 7\xa0Tage kostenlos in der App TIGA\xa0AI aus.", google: "Weiter mit Google", signup: "Kostenlos registrieren", login: "Schon Mitglied? Anmelden" },
@@ -78,13 +86,15 @@ html.tg-gated .tg-unlock{display:block;position:relative;box-sizing:border-box;m
 .tg-u-kick{margin:0 0 6px;color:#9a4424;font-size:14px;font-weight:700;line-height:1.4;text-wrap:balance}
 .tg-u-title{margin:0 0 16px;font-size:22px;line-height:1.3;font-weight:800;text-wrap:balance}
 .tg-u-perks{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin:0 0 16px;padding:0;list-style:none}.tg-u-perks li{position:relative;padding:6px 12px;padding-inline-start:30px;border-radius:99px;background:#fff3ec;color:#9a4424;font-size:14px;font-weight:700;line-height:1.3}
-.tg-u-perks li::before{content:"✓";position:absolute;inset-inline-start:11px;top:50%;transform:translateY(-50%);font-weight:800}
+.tg-u-perks li::before{content:"✓";content:"✓" / "";position:absolute;inset-inline-start:11px;top:50%;transform:translateY(-50%);font-weight:800}
 .tg-u-try{margin:0 0 18px;color:#6f5f53;font-size:15px;line-height:1.55;text-wrap:balance}
 .tg-unlock a.tg-u-btn{display:flex;align-items:center;justify-content:center;gap:10px;box-sizing:border-box;width:100%;max-width:420px;min-height:50px;margin:0 auto 10px;padding:12px 14px;border-radius:12px;font-size:16px;font-weight:700;text-decoration:none}
-.tg-unlock a.tg-u-google{background:#fff;color:#3c4043;border:1.5px solid #dadce0}.tg-unlock a.tg-u-signup{background:#d97757;color:#fff;border:1.5px solid #d97757}
-.tg-unlock a.tg-u-login{display:block;margin:2px 0 4px;padding:8px;color:#b85a3a;font-size:15px;font-weight:700;text-decoration:none}
-.tg-unlock a:focus-visible{outline:3px solid #d9775799;outline-offset:2px}
-@media (max-width:380px){html.tg-gated .tg-unlock{padding:18px 14px 10px}.tg-u-title{font-size:19px}.tg-u-perks li{font-size:13px}.tg-u-try{font-size:14px}}`;
+.tg-unlock a.tg-u-google{background:#fff;color:#3c4043;border:1.5px solid #dadce0}.tg-unlock a.tg-u-signup{background:#b4492a;color:#fff;border:1.5px solid #b4492a}
+.tg-unlock a.tg-u-login{display:flex;align-items:center;justify-content:center;box-sizing:border-box;width:fit-content;max-width:100%;min-height:44px;margin:2px auto 4px;padding:8px 14px;color:#a8472a;font-size:15px;font-weight:700;text-decoration:none}
+.tg-unlock a:focus-visible{outline:3px solid #2a211b;outline-offset:3px}
+@media (max-width:380px){html.tg-gated .tg-unlock{padding:18px 14px 10px}.tg-u-title{font-size:19px}.tg-u-perks li{font-size:13px}.tg-u-try{font-size:14px}}
+@media (forced-colors:active){.tg-u-bar{border:1px solid CanvasText}.tg-u-bar i{background:Highlight;forced-color-adjust:none}.tg-u-perks li{border:1px solid CanvasText}}
+@media print{.tg-fade,.tg-unlock{display:none!important}}`;
 // Taller lines for the scripts that need them (Devanagari marks above and below the line, Arabic stacked vowel marks)
 const UNLOCK_LANG_CSS = {
   hi: `.tg-u-title{line-height:1.5}.tg-u-kick,.tg-u-perks li{line-height:1.6}.tg-u-try{line-height:1.75}`,
@@ -97,7 +107,10 @@ const EARLY_JS = `(function(){try{var d=document,ls=null,i,k;try{ls=window.local
 export function unlockHtml(lang, base, pct) {
   const T = UNLOCK_T[lang] || UNLOCK_T.en, L = (x) => esc(`${base}&${x}`);
   const fill = (s) => esc(String(s).replace("{n}", pct).replace("{m}", 100 - pct));
-  return `<aside class="tg-unlock" id="tg-unlock" data-nosnippet role="region" aria-labelledby="tg-u-t"><div class="tg-u-bar" aria-hidden="true"><i style="width:${pct}%"></i></div><p class="tg-u-kick">${fill(T.kicker)}</p><p class="tg-u-title" id="tg-u-t">${fill(T.title)}</p><ul class="tg-u-perks"><li>${esc(T.free)}</li><li>${esc(T.nocard)}</li></ul><p class="tg-u-try">${esc(T.try)}</p><a class="tg-u-btn tg-u-google" data-gate="google" rel="nofollow" href="${L("go=google")}">${GMARK}${esc(T.google)}</a><a class="tg-u-btn tg-u-signup" data-gate="signup" rel="nofollow" href="${L("wall=signup")}">${esc(T.signup)}</a><a class="tg-u-login" data-gate="login" rel="nofollow" href="${L("wall=login")}">${esc(T.login)}</a></aside>`;
+  return `<div class="tg-unlock" id="tg-unlock" data-nosnippet hidden role="region" aria-labelledby="tg-u-t"><div class="tg-u-bar" aria-hidden="true"><i style="width:${pct}%"></i></div><p class="tg-u-kick">${fill(T.kicker)}</p><p class="tg-u-title" id="tg-u-t" role="heading" aria-level="2">${fill(T.title)}</p><ul class="tg-u-perks"><li>${esc(T.free)}</li><li>${esc(T.nocard)}</li></ul><p class="tg-u-try">${esc(T.try)}</p>
+<a class="tg-u-btn tg-u-google" data-gate="google" rel="nofollow" href="${L("go=google")}">${GMARK}${esc(T.google)}</a>
+<a class="tg-u-btn tg-u-signup" data-gate="signup" rel="nofollow" href="${L("wall=signup")}">${esc(T.signup)}</a>
+<a class="tg-u-login" data-gate="login" rel="nofollow" href="${L("wall=login")}">${esc(T.login)}</a></div>`;
 }
 export function cutOpen(lang, base, pct) {
   return `${CUT_MARK}<style>${UNLOCK_CSS}${UNLOCK_LANG_CSS[lang] || ""}</style><script>${EARLY_JS}</script><div class="tg-fade" aria-hidden="true"></div>${unlockHtml(lang, base, pct)}<div class="tg-locked" id="tg-locked">`;

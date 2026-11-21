@@ -89,7 +89,7 @@ const fx = (name, rows) => { const f = path.join(tmp, name + ".json"); fs.writeF
 function listFiles(dir) { const out = []; const walk = (d) => { for (const e of fs.readdirSync(d, { withFileTypes: true })) { const p = path.join(d, e.name); if (e.isDirectory()) walk(p); else out.push(path.relative(dir, p).split(path.sep).join("/")); } }; if (fs.existsSync(dir)) walk(dir); return out.sort(); }
 // The preview gate (owner 2026-11-21) changed the article pages on purpose: the reader block, the cut of the article and the gating markup of the JSON-LD are left out of every comparison with an older generator
 // (they have their own tests, scripts/smoke-blog-gate.mjs); everything else must still be byte for byte what the old generator wrote.
-const gateFree = (t) => String(t).replace(/<!--tg-gate:v\d+-->[\s\S]*?<!--\/tg-gate-->/g, "<!--READER-->").replace(/<!--tg-cut:v\d+-->[\s\S]*?<div class="tg-locked"[^>]*>/g, "").replace(/<\/div><!--\/tg-cut-->/g, "").replace(/"isAccessibleForFree":false,"hasPart":\{[^}]*\},/g, "");
+const gateFree = (t) => String(t).replace(/<!--tg-gate:v\d+-->[\s\S]*?<!--\/tg-gate-->/g, "<!--READER-->").replace(/<!--tg-cut:v\d+-->[\s\S]*?<div class="tg-locked"[^>]*>/g, "").replace(/<\/div><!--\/tg-cut-->/g, "").replace(/"isAccessibleForFree":false,"hasPart":\{[^}]*\},/g, "").replace(/\/googlebot\|[^\/]*\/i\.test/g, "/BOTS/i.test");   // the list pages carry the crawler list in their counter script: it grew on purpose
 function diffTrees(a, b) {
   const fa = listFiles(a), fb = listFiles(b), sa = new Set(fa), sb = new Set(fb), d = [];
   for (const f of fa) if (!sb.has(f)) d.push("only in the first: " + f);

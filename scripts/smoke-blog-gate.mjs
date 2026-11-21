@@ -76,6 +76,14 @@ console.log("the cut (pure functions)");
   ok(c && !/^h/.test(blocks([["h2", 20], ["p", 400], ["h2", 20], ["p", 400], ["p", 400], ["p", 400], ["p", 400], ["p", 400]])[c.k - 1].slice(1, 3)), "the preview never ends on a heading");
   c = G.cutPoint(blocks([["p", 500], ["h2", 20], ["p", 400], ["p", 400], ["p", 400], ["p", 400], ["p", 400]]));
   ok(c && c.k !== 2, "a cut right after a heading is skipped (k=" + (c && c.k) + ")");
+  { // blocks the preview must not end on: a bold-only line, a line that ends with a colon (also the full-width one), a picture on its own
+    const mix = (odd) => [`<p>${"x".repeat(400)}</p>`, odd, `<p>${"x".repeat(400)}</p>`, `<p>${"x".repeat(400)}</p>`, `<p>${"x".repeat(400)}</p>`, `<p>${"x".repeat(400)}</p>`, `<p>${"x".repeat(400)}</p>`];
+    for (const [what, odd] of [["a bold-only line", "<p><strong>A pseudo heading</strong></p>"], ["a bold-only line with a colon", "<p><strong>Steps:</strong></p>"], ["a line that ends with a colon", "<p>Here is what to do:</p>"], ["a line that ends with a full-width colon", "<p>手順は次のとおりです：</p>"], ["a picture on its own", '<p><img src="https://x.test/a.png" alt="a" loading="lazy"></p>']]) {
+      const b = mix(odd), c2 = G.cutPoint(b); ok(c2 && b[c2.k - 1] !== odd && G.isOpener(odd), "the preview does not end on " + what + " (k=" + (c2 && c2.k) + ")");
+    }
+    ok(!G.isOpener("<p>A complete sentence.</p>") && !G.isOpener("<ul><li>a</li></ul>") && !G.isOpener("<p>Mixed <strong>bold</strong> and text.</p>") && !G.isOpener("<p>E E F G | G F E D</p>"), "ordinary paragraphs and lists are not openers");
+  }
+  ok(G.cutPoint(blocks([["p", 50], ["p", 50], ["p", 50], ["p", 5000]])) === null && G.cutPoint(blocks([["p", 200], ["p", 5000], ["p", 100]])) === null, "a first usable cut far below the target (a huge block follows) leaves the page whole: never \"you have read 3%\"");
   ok(G.cutPoint(blocks([["p", 100], ["p", 100]])) === null, "fewer than three blocks: not gated");
   ok(G.cutPoint(blocks([["p", 100], ["p", 100], ["p", 100]])) === null, "300 characters in all: too short to gate");
   ok(G.cutPoint(blocks([["p", 3000], ["p", 100], ["p", 100]])) === null, "a first block that is most of the article: left whole instead of claiming 30%");
@@ -94,8 +102,10 @@ console.log("generated pages");
 {
   const html = read("th");
   ok(html.includes("<!--tg-cut:v1-->") && html.includes("<!--/tg-cut-->") && (html.match(/id="tg-unlock"/g) || []).length === 1 && (html.match(/class="tg-locked"/g) || []).length === 1, "th: one cut, one unlock card, one locked part");
-  ok(/<aside class="tg-unlock" id="tg-unlock" data-nosnippet/.test(html), "the card is marked data-nosnippet (it never replaces the article's snippet)");
-  ok(html.includes("<!--tg-gate:v8-->") && html.includes("<!--/tg-gate-->") && !html.includes('id="tg-gate"') && !html.includes("tg-g-card") && !/MS=3000,READ=0,OPEN/.test(html), "the reader block is tg-gate:v8 and the old pop-up wall is gone");
+  ok(/<div class="tg-unlock" id="tg-unlock" data-nosnippet/.test(html), "the card is marked data-nosnippet (it never replaces the article's snippet)");
+  ok(/id="tg-unlock" data-nosnippet hidden role="region"/.test(html) && html.includes('id="tg-u-t" role="heading" aria-level="2"') && !html.includes("<aside"), "the card is hidden for a client without CSS (hidden), has a heading role for screen readers and is a div (data-nosnippet is not honoured on an aside)");
+  ok(/@media \(forced-colors:active\)/.test(html) && /@media print\{\.tg-fade,\.tg-unlock\{display:none!important\}\}/.test(html) && html.includes("#b4492a") && !html.includes("a.tg-u-signup{background:#d97757"), "forced-colours and print rules exist, and the sign-up button is dark enough for white text (contrast 5.3:1)");
+  ok(html.includes("<!--tg-gate:v9-->") && html.includes("<!--/tg-gate-->") && !html.includes('id="tg-gate"') && !html.includes("tg-g-card") && !/MS=3000,READ=0,OPEN/.test(html), "the reader block is tg-gate:v9 and the old pop-up wall is gone");
   ok(html.includes("utm_source=blog") && html.includes("utm_campaign=piano-posture") && html.includes("go=google") && html.includes("wall=signup") && html.includes("wall=login"), "links carry the blog attribution, go=google, wall=signup, wall=login");
   ok(!fs.readFileSync(path.join(tmp, "blog", "th", "index.html"), "utf8").includes("tg-cut") && !fs.readFileSync(path.join(tmp, "blog", "th", "index.html"), "utf8").includes("tg-unlock"), "the article index has no gate");
   ok(html.includes('"isAccessibleForFree":false') && html.includes('"cssSelector":".tg-locked"') && !html.includes('"cssSelector":"article"'), "the article's JSON-LD names the gated part (isAccessibleForFree false, cssSelector .tg-locked)");
@@ -104,7 +114,7 @@ console.log("generated pages");
 }
 for (const l of LANGS) {
   const h = read(l), T = G.UNLOCK_T[l];
-  ok(h.includes("<!--tg-cut:v1-->") && (h.match(/id="tg-unlock"/g) || []).length === 1 && h.includes("<!--tg-gate:v8-->") && !h.includes('id="tg-gate"'), l + ": one cut and one card, reader block v8, no old wall");
+  ok(h.includes("<!--tg-cut:v1-->") && (h.match(/id="tg-unlock"/g) || []).length === 1 && h.includes("<!--tg-gate:v9-->") && !h.includes('id="tg-gate"'), l + ": one cut and one card, reader block v8, no old wall");
   const HL = l === "zh" ? "zh-Hans" : l;   // the page language tag of Chinese is zh-Hans
   ok(h.includes('"isAccessibleForFree":false') && h.includes('"cssSelector":".tg-locked"') && h.includes(`"inLanguage":"${HL}"`), l + ": the JSON-LD names the gated part and its language is " + HL);
   ok(h.includes("utm_source=blog") && h.includes("utm_campaign=piano-posture") && h.includes("lg=" + l) && h.includes("go=google") && h.includes("wall=signup") && h.includes("wall=login"), l + ": links carry the blog attribution and lg=" + l);
@@ -123,7 +133,7 @@ for (const l of LANGS) {
   ok(ix.includes('<html lang="ar" dir="rtl">') && !ix.includes("tg-cut") && ix.includes("blog_view_counts") && ix.includes('toLocaleString("ar-u-nu-latn")'), "ar: the index is right-to-left, has no gate, and its card counter formats with Western digits (ar-u-nu-latn)");
   ok(NEWL.every(l => fs.existsSync(path.join(tmp, "blog", l, "feed.xml")) && fs.readFileSync(path.join(tmp, "blog", l, "feed.xml"), "utf8").includes(`<language>${l}</language>`)), "hi / es / fr / ar: each has a feed with its own <language> tag");
   const sh = read("en", "short-note"), bf = read("en", "big-first");
-  ok(!sh.includes("tg-cut") && !sh.includes("tg-locked") && !sh.includes("isAccessibleForFree") && sh.includes("<!--tg-gate:v8-->"), "a short article is left whole: no cut, no gating markup (it still counts its readers)");
+  ok(!sh.includes("tg-cut") && !sh.includes("tg-locked") && !sh.includes("isAccessibleForFree") && sh.includes("<!--tg-gate:v9-->"), "a short article is left whole: no cut, no gating markup (it still counts its readers)");
   ok(!bf.includes("tg-cut") && !bf.includes("isAccessibleForFree"), "an article whose first block is most of it is left whole as well");
 }
 
@@ -131,12 +141,12 @@ console.log("what each kind of reader sees (every language)");
 // the words of the card, per language: the claim that it is free, the claim that no credit card is needed, the 7-day trial, the three buttons
 const WORDS = {
   th: ["คุณอ่านบทความนี้ไปแล้ว", "ล็อกอินฟรีเพื่ออ่านต่ออีก", "ใช้ฟรี", "ไม่ต้องใช้บัตรเครดิต", "ฟรี 7 วัน", "ล็อกอินด้วย Google", "สมัครสมาชิกฟรี", "เข้าสู่ระบบ"],
-  en: ["You've read", "Log in free to read the other", "Free to use", "No credit card needed", "free for 7 days", "Continue with Google", "Sign up free", "Log in"],
-  zh: ["你已阅读本文", "免费登录，阅读剩余", "免费使用", "无需信用卡", "免费试学钢琴 7 天", "使用 Google 继续", "免费注册", "登录"],
-  ja: ["この記事を", "無料ログインで、残りの", "無料で使えます", "クレジットカードは不要", "7日間無料", "Googleで続ける", "無料で会員登録", "ログイン"],
-  ko: ["이 글을", "무료로 로그인하고 나머지", "무료로 이용", "신용카드 필요 없음", "7일 동안 무료", "Google로 계속하기", "무료로 가입하기", "로그인"],
+  en: ["You've read", "Log in for free to read the remaining", "Free to use", "No credit card needed", "free for 7 days", "Continue with Google", "Sign up free", "Log in"],
+  zh: ["你已阅读本文", "免费登录，继续阅读剩余", "免费使用", "无需信用卡", "免费试学 7 天钢琴课", "使用 Google 继续", "免费注册", "登录"],
+  ja: ["この記事の", "無料ログインで、残りの", "無料で使えます", "クレジットカードは不要", "7日間無料", "Googleで続ける", "無料で会員登録", "ログイン"],
+  ko: ["이 글을", "로그인하고 나머지", "무료 이용", "신용카드 필요 없음", "7일 동안 무료", "Google로 계속하기", "무료로 가입하기", "로그인"],
   ru: ["Вы прочитали", "Войдите бесплатно, чтобы прочитать остальные", "Бесплатно", "Банковская карта не нужна", "7 дней бесплатно", "Продолжить через Google", "Зарегистрироваться бесплатно", "Войти"],
-  hi: ["आप इस लेख का", "पढ़ने के लिए मुफ़्त में लॉग इन करें", "मुफ़्त में इस्तेमाल करें", "क्रेडिट कार्ड की ज़रूरत नहीं", "7 दिन तक पियानो के पाठ मुफ़्त", "Google से जारी रखें", "मुफ़्त में साइन अप करें", "लॉग इन करें"],
+  hi: ["आप इस लेख का", "पढ़ने के लिए मुफ़्त में लॉग इन करें", "इस्तेमाल करना मुफ़्त", "क्रेडिट कार्ड की ज़रूरत नहीं", "7 दिन तक पियानो के पाठ मुफ़्त", "Google से जारी रखें", "मुफ़्त में साइन अप करें", "लॉग इन करें"],
   es: ["Has leído el", "Inicia sesión gratis para leer el", "Gratis", "Sin tarjeta de crédito", "gratis durante 7 días", "Continuar con Google", "Regístrate gratis", "Inicia sesión"],
   fr: ["Vous avez lu", "Connectez-vous gratuitement pour lire les", "Gratuit", "Sans carte bancaire", "gratuitement les cours de piano pendant 7 jours", "Continuer avec Google", "S'inscrire gratuitement", "Se connecter"],
   ar: ["لقد قرأت", "سجّل الدخول مجانًا لقراءة بقية المقال", "مجاني", "دون بطاقة ائتمان", "مجانًا لمدة 7 أيام", "المتابعة باستخدام Google", "إنشاء حساب مجاني", "تسجيل الدخول"],
@@ -356,6 +366,10 @@ console.log("what is and is not counted");
 for (const [name, ua, counted] of [
   ["Googlebot", GOOGLEBOT, false],
   ["HeadlessChrome (audits, prerender)", "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/126.0.0.0 Safari/537.36", false],
+  ["Google-InspectionTool (Search Console live test)", "Mozilla/5.0 (Linux; Android 6.0.1; Nexus 5X Build/MMB29P) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Mobile Safari/537.36 (compatible; Google-InspectionTool/1.0)", false],
+  ["AdsBot-Google-Mobile", "Mozilla/5.0 (Linux; Android 6.0.1; Nexus 5X Build/MMB29P) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Mobile Safari/537.36 (compatible; AdsBot-Google-Mobile; +http://www.google.com/mobile/adsbot.html)", false],
+  ["Twitterbot / LinkedInBot link preview", "Twitterbot/1.0", false],
+  ["a reader inside the Facebook app browser (not a crawler)", "Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 [FBAN/FBIOS;FBAV/450.0.0.0.0;FBLC/th_TH]", true],
   ["a phone called Cubot (not a crawler)", "Mozilla/5.0 (Linux; Android 12; CUBOT KINGKONG) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Mobile Safari/537.36", true],
 ]) {
   const { ctx, page, calls } = await open("en", { ms: 600, ua });
@@ -403,7 +417,7 @@ console.log("pages kept from an earlier build are brought up to date");
   const offline = () => execFileSync("node", [path.join(ROOT, "scripts/build-blog-pages.mjs")], { env: { ...process.env, BLOG_OFFLINE: "1", BLOG_OUT: keep, SITE_URL: ORIGIN, BLOG_SRC: path.join(tmp, "no-static-sources") }, stdio: "pipe" }).toString();
   const log = offline();
   const k = fs.readFileSync(path.join(keep, "th", "piano-posture.html"), "utf8");
-  ok(!k.includes("OLD_THREE_SECONDS") && k.includes("<!--tg-gate:v8-->") && k.includes("blog_hit") && (k.match(/id="tg-unlock"/g) || []).length === 1 && !k.includes('id="tg-gate"'), "the old wall is replaced by the current reader block, and the article is cut once");
+  ok(!k.includes("OLD_THREE_SECONDS") && k.includes("<!--tg-gate:v9-->") && k.includes("blog_hit") && (k.match(/id="tg-unlock"/g) || []).length === 1 && !k.includes('id="tg-gate"'), "the old wall is replaced by the current reader block, and the article is cut once");
   ok(k === cur, "...byte for byte the page the generator writes");
   ok(k.includes('"cssSelector":".tg-locked"') && (k.match(/"isAccessibleForFree"/g) || []).length === 2, "the JSON-LD names the gated part (once, not twice)");
   ok(/kept pages \{"gated":1\}/.test(log), "the build says how many kept pages it cut (" + (log.match(/kept pages \{[^}]*\}/) || [""])[0] + ")");
@@ -420,7 +434,7 @@ console.log("pages kept from an earlier build are brought up to date");
   fs.writeFileSync(path.join(keep, "ar", "piano-posture.html"), withCover.replace(/<!--tg-gate:v\d+-->[\s\S]*<!--\/tg-gate-->/, "<!--tg-gate:v6--><script>var OLD=1</script><!--/tg-gate-->"));
   execFileSync("node", [path.join(ROOT, "scripts/build-blog-pages.mjs")], { env: { ...process.env, BLOG_OFFLINE: "1", BLOG_OUT: keep, SITE_URL: ORIGIN, BLOG_SRC: path.join(tmp, "no-static-sources") }, stdio: "pipe" });
   const k = fs.readFileSync(path.join(keep, "ar", "piano-posture.html"), "utf8");
-  ok(!k.includes("var OLD=1") && k.includes("<!--tg-gate:v8-->") && (k.match(/id="tg-unlock"/g) || []).length === 1 && k.includes('<html lang="ar" dir="rtl">') && k.includes("سجّل الدخول مجانًا"), "ar: the old gate is replaced by the current Arabic one, once, and the page stays right-to-left");
+  ok(!k.includes("var OLD=1") && k.includes("<!--tg-gate:v9-->") && (k.match(/id="tg-unlock"/g) || []).length === 1 && k.includes('<html lang="ar" dir="rtl">') && k.includes("سجّل الدخول مجانًا"), "ar: the old gate is replaced by the current Arabic one, once, and the page stays right-to-left");
   ok(k.indexOf('<img src="https://x.test/c.png" alt="c">') < k.indexOf("<!--tg-cut:v1-->") && k.indexOf('<img src="https://x.test/c.png" alt="c">') > k.indexOf("</time></p>"), "a cover image stays above the cut (it is not counted as text)");
 }
 {

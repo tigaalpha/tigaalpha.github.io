@@ -8,7 +8,7 @@
 // Run by `npm run build` after build-song-pages.mjs (it appends to that script's sitemap.xml). SITE_URL overrides the domain.
 import fs from "node:fs"; import path from "node:path"; import { fileURLToPath } from "node:url";
 import { BLOG_LANGS, STATIC_BLOG_LANGS as STATIC_LANGS, totalFromContentRange } from "./blog-paths.mjs";
-import { gateTail, patchArticle } from "./blog-gate.mjs";
+import { gateTail, patchArticle, BOT_SRC } from "./blog-gate.mjs";
 export { STATIC_LANGS };
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const SITE = (process.env.SITE_URL || "https://www.tigaalpha.com").replace(/\/+$/, "");
@@ -168,11 +168,11 @@ const LOC_JS = (lang) => ["th", "en", "zh"].includes(lang) ? `LANG==="th"?"th-TH
    links is tapped, and remembers the article (tg_blog_return) so the app can bring the reader back after the log-in. Until 2026-11-21 it opened the 3-second pop-up wall instead.
    Every call fails soft: before the migration is applied the page shows no number and nothing else changes. Crawlers are not counted. A page kept from an earlier build is re-patched
    between the two markers, so the committed pages follow the generator. The test door: with localStorage.tg_test_hook = "1" the page reads ?read_ms=<ms> instead of 3000. */
-const GATE_MARK = "<!--tg-gate:v8-->", GATE_END = "<!--/tg-gate-->";
+const GATE_MARK = "<!--tg-gate:v9-->", GATE_END = "<!--/tg-gate-->";
 function gateHtml(lang, slug) {
   const js = `(function(){var D=document,W=window,LS=null,SS=null,H=D.documentElement,MS=3000,READ=0,SENT=0,SEEN=0,API=${J(URL_)},KEY=${J(KEY)},LANG=${J(lang)},SLUG=${J(slug)},VID="",BOT=false,OFF=false,LBL=${J(VIEWS_LBL[lang] || VIEWS_LBL.en)},badge=null;
 try{LS=W.localStorage}catch(e){}try{SS=W.sessionStorage}catch(e){}
-try{BOT=/googlebot|bingbot|baiduspider|yandex|duckduckbot|applebot|slurp|crawler|spider|lighthouse|headlesschrome|prerender|facebookexternalhit|ahrefsbot|semrushbot|gptbot|claudebot|petalbot|bytespider/i.test(navigator.userAgent||"")}catch(e){}
+try{BOT=/${BOT_SRC}/i.test(navigator.userAgent||"")}catch(e){}
 function isAuth(){try{if(LS)for(var i=0;i<LS.length;i++){var k=LS.key(i);if(k&&/^sb-.*-auth-token$/.test(k)&&LS.getItem(k))return true}}catch(e){}return false}
 try{if(LS&&LS.getItem("tg_test_hook")==="1"){var q=/[?&]read_ms=(\\d+)/.exec(location.search);if(q){MS=+q[1]}}}catch(e){}
 try{OFF=!!(SS&&SS.getItem("tg_blog_rpc_off"))}catch(e){}
@@ -193,7 +193,7 @@ function gated(){return /(^|\\s)tg-gated(\\s|$)/.test(H.className)}
 /* the reader has a session now (logged in, even in another tab): the rest of the article is theirs */
 function lift(){try{H.className=H.className.replace(/(^|\\s)tg-gated(?=\\s|$)/g,"")}catch(e){}}
 /* the reading clock: a gap of more than 1.5 s between two 250 ms ticks means the page was frozen or throttled (another app, a locked phone), and that time is not reading */
-var last=Date.now();setInterval(function(){var n=Date.now(),d=n-last;last=n;if(D.hidden||d>1500||d<0)return;READ+=d;if(!SENT&&READ>=MS){SENT=1;hit("read");ev("blog_read",{slug:SLUG,seconds:Math.round(READ/1000)})}if(gated()&&isAuth())lift()},250);
+var last=Date.now();setInterval(function(){var n=Date.now(),d=n-last;last=n;if(gated()&&isAuth())lift();if(D.hidden||d>1500||d<0)return;READ+=d;if(!SENT&&READ>=MS){SENT=1;hit("read");ev("blog_read",{slug:SLUG,seconds:Math.round(READ/1000)})}},250);
 W.addEventListener("storage",function(){if(gated()&&isAuth())lift()});
 W.addEventListener("pageshow",function(e){last=Date.now();if(gated()&&isAuth())lift()});
 var card=D.getElementById("tg-unlock");
@@ -201,7 +201,10 @@ var card=D.getElementById("tg-unlock");
 function seen(){if(SEEN||!gated())return;SEEN=1;ev("blog_gate_shown",{slug:SLUG});hit("gate")}
 if(card&&!BOT){
 if(W.IntersectionObserver){try{var io=new IntersectionObserver(function(es){for(var i=0;i<es.length;i++)if(es[i].isIntersecting){seen();io.disconnect();break}},{threshold:.5});io.observe(card)}catch(e){}}
-card.addEventListener("click",function(e){var t=e.target;while(t&&t!==card){if(t.getAttribute&&t.getAttribute("data-gate")){ev("blog_gate_click",{method:t.getAttribute("data-gate"),slug:SLUG});hit("click",null,true);try{if(LS){var p=JSON.parse(LS.getItem("tg_guest_profile")||"{}")||{};p.lang=LANG;LS.setItem("tg_guest_profile",JSON.stringify(p));LS.setItem("tg_blog_return",JSON.stringify({p:location.pathname,t:Date.now()}))}}catch(e){}return}t=t.parentNode}});
+function gk(e){var t=e.target;while(t&&t!==card){if(t.getAttribute&&t.getAttribute("data-gate"))return t;t=t.parentNode}return null}
+function keep(){try{if(LS){var p=JSON.parse(LS.getItem("tg_guest_profile")||"{}")||{};p.lang=LANG;LS.setItem("tg_guest_profile",JSON.stringify(p));LS.setItem("tg_blog_return",JSON.stringify({p:location.pathname,t:Date.now()}))}}catch(e){}}
+function tap(e){var t=gk(e);if(!t)return;ev("blog_gate_click",{method:t.getAttribute("data-gate"),slug:SLUG});hit("click",null,true);keep()}
+card.addEventListener("click",tap);card.addEventListener("auxclick",tap);card.addEventListener("contextmenu",function(e){if(gk(e))keep()});
 }
 if(W.__tgGate===undefined)W.__tgGate={state:function(){return{gated:gated(),read:READ,auth:isAuth(),seen:!!SEEN}}};})();`;
   return `${GATE_MARK}<style>${viewsCss(lang)}</style><script>${js}</script>${GATE_END}`;
@@ -216,7 +219,7 @@ function setLdGate(html, gated) {
 /* The article lists show the same number on every card (one call per list). Patched into kept pages like the gate. */
 const IDX_MARK = "<!--tg-idx:v1-->", IDX_END = "<!--/tg-idx-->";
 function idxHtml(lang) {
-  const js = `(function(){var W=window,D=document,API=${J(URL_)},KEY=${J(KEY)},LANG=${J(lang)},LBL=${J(VIEWS_LBL[lang] || VIEWS_LBL.en)};try{if(/googlebot|bingbot|baiduspider|yandex|duckduckbot|applebot|slurp|crawler|spider|lighthouse|headlesschrome|prerender|facebookexternalhit|ahrefsbot|semrushbot|gptbot|claudebot|petalbot|bytespider/i.test(navigator.userAgent||""))return}catch(e){}
+  const js = `(function(){var W=window,D=document,API=${J(URL_)},KEY=${J(KEY)},LANG=${J(lang)},LBL=${J(VIEWS_LBL[lang] || VIEWS_LBL.en)};try{if(/${BOT_SRC}/i.test(navigator.userAgent||""))return}catch(e){}
 var cards=D.querySelectorAll("a.card");if(!cards.length)return;
 try{W.fetch(API+"/rest/v1/rpc/blog_view_counts",{method:"POST",headers:{apikey:KEY,Authorization:"Bearer "+KEY,"Content-Type":"application/json"},body:JSON.stringify({p_lang:LANG})}).then(function(r){return r.ok?r.json():null}).then(function(rows){if(!rows||!rows.length)return;var m={},i;for(i=0;i<rows.length;i++)m[rows[i].slug]=rows[i].views;for(i=0;i<cards.length;i++){var h=cards[i].getAttribute("href")||"",s;try{s=decodeURIComponent(h.replace(/^.*\\/blog\\/[a-z]+\\//,"").replace(/\\.html$/,""))}catch(e){continue}var n=m[s];if(typeof n==="number"&&n>=1){var sp=D.createElement("span");sp.className="tg-cv";sp.setAttribute("data-nosnippet","");var t;try{t=n.toLocaleString(${LOC_JS(lang)})}catch(e){t=String(n)}sp.textContent="\\ud83d\\udc41 "+t+${J(VIEWS_SEP(lang))}+${UNIT_JS(lang)};cards[i].appendChild(sp)}}},function(){})}catch(e){}})();`;
   return `${IDX_MARK}<style>${viewsCss(lang)}</style><script>${js}</script>${IDX_END}`;

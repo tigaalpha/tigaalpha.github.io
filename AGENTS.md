@@ -353,6 +353,8 @@ it — check `git diff supabase-client.ts` is empty if a run was killed).
 41 checks, including the chunk packing and sizes, the single charge per message, the rate actually played, a chunk failing
 mid-message (the rest is handed on, nothing is read twice) and a clip whose `onended` never arrives.
 
+For the blog preview gate (readers see ~30% of an article, the rest needs a free log-in): `node scripts/smoke-blog-gate.mjs` (the cut rule on synthetic blocks, the card in every language, guest / member / crawler / no-JS in Chromium, the committed pages patched in place), `node scripts/smoke-blog-return.mjs` (the way back to the article after a log-in); the share is `FREE_SHARE` in `scripts/blog-gate.mjs`, the crawler list `BOT_SRC` there too (one source, three scripts). It is a client-side gate: the text stays in the page source, crawlers see everything, on purpose.
+
 For the growth instrumentation: `node scripts/verify-campaign-funnel.mjs` (no browser) and, after `npm run build`,
 `node scripts/verify-landing-attribution.mjs` (Chromium, every Supabase call stubbed).
 

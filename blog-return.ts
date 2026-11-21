@@ -1,11 +1,11 @@
 /* blog-return.ts — the way back to a blog article after a log-in (owner 2026-11-21: "to read the other 70% they log in or sign up").
    The unlock card of a blog article (scripts/blog-gate.mjs, written into every article page) saves tg_blog_return = {"p": "/blog/<lang>/<slug>.html", "t": <ms>} in this browser when the
    reader taps Google / sign up / log in. When that reader has a session and the profile is loaded, App.tsx takes the key ONCE and goes back to the article, where the whole text is theirs now.
-   Only a blog article of this site is ever followed (a path, no other origin, no "//", no query or hash, ".html"), and only within an hour of the tap, so an old key can never send someone
+   Only a blog article of this site is ever followed (a path, no other origin, no "//", no query or hash), and only within fifteen minutes of the tap, so an old key can never send someone
    away from the app later. The key is removed whatever it holds. It is device-local (cloud-sync.ts): it never belongs to an account. */
 export const BLOG_RETURN_KEY = "tg_blog_return";
-export const BLOG_RETURN_MAX_AGE_MS = 60 * 60 * 1000;
-const PATH = /^\/blog\/[a-z]{2}\/[A-Za-z0-9_%.~-]{1,200}\.html$/;
+export const BLOG_RETURN_MAX_AGE_MS = 15 * 60 * 1000;
+const PATH = /^\/blog\/[a-z]{2}\/[A-Za-z0-9_%.~!'()*-]{1,200}$/;   // what location.pathname gives for a slug (encodeURIComponent leaves ! ' ( ) * alone); a live article may be served with or without ".html"
 
 type Store = { getItem(k: string): string | null; removeItem(k: string): void };
 
