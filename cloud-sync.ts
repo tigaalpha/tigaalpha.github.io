@@ -935,6 +935,13 @@ function fitList(k: string, v: any): any {
   while (v.length > 20 && JSON.stringify(v).length > MAX_ROW_BYTES - 20000) v = v.slice(Math.ceil(v.length * 0.1));
   return v;
 }
+/* what the server's ANSWER proves it now holds of a push. sync_cloud_state keeps a row only for a strictly newer client_ts, so a push that lost to another device's newer edit of the same key is answered without error and
+   not taken: its stash entry must stay (it may be the only copy once the store is wiped). A key counts as acknowledged when its row in the answer equals what was sent; a soft-currency ledger row (pncounter) is a
+   per-device slot structure, not the raw balance, so its presence is the proof. Keys of a pack have no row of their own and are never dropped here. */
+function ackedBy(data: any[], sent: Array<[string, string | null]>): Array<[string, string | null]> {
+  const rows = new Map<string, any>(); for (const r of data || []) if (r && typeof r.key === "string") rows.set(r.key, r);
+  return sent.filter(([k, raw]) => { const r = rows.get(k); if (!r) return false; if (STRATEGY[k] === "pncounter") return true; return sameLoose(r.value === undefined ? null : r.value, enc(raw)); });
+}
 async function doPush(my: string, force: boolean): Promise<boolean> {
   const rows = buildRows(force);
   if (!rows.length) return true;
@@ -954,8 +961,8 @@ async function doPush(my: string, force: boolean): Promise<boolean> {
     try {
       const { data, error } = await callRpc(payload);
       if (error) throw error;
-      if (uid !== my) { stashDrop(my, batch.flatMap((r) => r.sent)); return false; }   // the account left while this ran: the server has it, so its stash entry is not needed
-      if (safeGet(OWNER_KEY) !== my) { stashDrop(my, batch.flatMap((r) => r.sent)); return false; }   // the same for a late tab: ANOTHER tab signed the account out (or signed someone else in) while this answer was on the wire, so the store is not this account's any more and what the answer carries must not be written into it (the next sign-in would adopt it)
+      if (uid !== my) { stashDrop(my, ackedBy(data, batch.flatMap((r) => r.sent))); return false; }   // the account left while this ran: what the answer proves the server holds needs no stash entry (a push the server did not take keeps its entry)
+      if (safeGet(OWNER_KEY) !== my) { stashDrop(my, ackedBy(data, batch.flatMap((r) => r.sent))); return false; }   // the same for a late tab: ANOTHER tab signed the account out (or signed someone else in) while this answer was on the wire, so the store is not this account's any more and what the answer carries must not be written into it (the next sign-in would adopt it)
       lastPullAt = Date.now();
       applyPull(data || []);
       const meta = readMeta();

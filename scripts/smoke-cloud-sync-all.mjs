@@ -833,28 +833,145 @@ function scalOf(v) { return v && typeof v === "object" && "__s" in v ? v.__s : v
   await signIn(L, U); await L.sync(); await L.sync();
   ok("a key that never reached the cloud (written offline, the page closed) is pushed at the next session's first pull", (s4.cloud(U, "tg_owned") || []).includes("skin-offline"), s4.cloud(U, "tg_owned"));
 }
+/* ───────── 13j-13o. a sync round of a LATE tab that is already ON THE WIRE when another tab signs the account out (the fourth review of the Sign out, 2026-11-22). The entry guards of that round were all passed long before the answer
+   came; the owner marker is checked again when the answer arrives. lateTab(kind) builds the situation: T2 is the tab where the member will press Sign out, T1 is a second tab of the same browser (its own page and module, the same
+   localStorage) whose pull ("pull": a full round) or push ("push": a flush with a changed stage) is held on the wire by server.hold; release() lets the server process it. */
+const LA = "user-aaaaaaaa-a", LB = "user-bbbbbbbb-b";
+async function lateTab(kind) {
+  const { server, devs: [T2] } = await rig(1);
+  await signIn(T2, LA);
+  T2.set("tg_kid", "A-child-name"); T2.set("tg_path_done", ["a1", "a2"]); await T2.sync(); await T2.sync();
+  const T1 = await makeDevice("T1", server, CLOCK, T2.ls);
+  await signIn(T1, LA);
+  let release; server.hold = new Promise((r) => { release = r; });
+  let inflight;
+  if (kind === "pull") inflight = T1.sync();
+  else { T1.set("tg_path_done", ["a1", "a2", "a3-in-flight"]); inflight = T1.mod.flushCloudSync(); }
+  await tick(10);
+  return { server, T1, T2, inflight, release: () => { server.hold = null; release(); } };
+}
+const noStash = (snap) => Object.fromEntries(Object.entries(snap).filter(([k]) => !k.startsWith("tg_sync_stash_")));
+const hasA = (v) => /A-child-name|"a[123]|a3-in-flight|\ba[123]\b/.test(JSON.stringify(v));
+const stashOf = (dev, uid) => { const k = Object.keys(dev.snapshot()).find((x) => x.startsWith("tg_sync_stash_" + uid.slice(0, 8)) && !x.startsWith("tg_sync_stash_chat_")); return k ? JSON.parse(dev.get(k)) : null; };
 {
-  // 13j. a sync round of a LATE tab that is already ON THE WIRE when another tab signs the account out: its answer must not write the account's rows back into the wiped browser (every entry guard of that round was passed long before the answer came;
-  //      the next person to sign in on this browser would ADOPT what the answer wrote and push it to their own cloud rows)
-  const A = "user-aaaaaaaa-a", B = "user-bbbbbbbb-b";
+  // 13j. the browser is ownerless after the wipe: the answer must not write A's rows back (the next person to sign in would ADOPT them and push them to their own cloud rows)
   for (const kind of ["pull", "push"]) {
-    const { server, devs: [T2] } = await rig(1);   // T2 = the tab where the member presses Sign out
-    await signIn(T2, A);
-    T2.set("tg_kid", "A-child-name"); T2.set("tg_path_done", ["a1", "a2"]); await T2.sync(); await T2.sync();
-    const T1 = await makeDevice("T1", server, CLOCK, T2.ls);   // the late tab of the same browser (its own page and module, the same localStorage)
-    await signIn(T1, A);
-    let release; server.hold = new Promise((r) => { release = r; });
-    let inflight;
-    if (kind === "pull") inflight = T1.sync();   // a full round: its pull is on the wire
-    else { T1.set("tg_path_done", ["a1", "a2", "a3-in-flight"]); inflight = T1.mod.flushCloudSync(); }   // a flush: its push is on the wire
-    await tick(10);
+    const { server, T1, T2, inflight, release } = await lateTab(kind);
     T2.signOut(); T2.mod.wipeAfterSignOut();   // tab 2: Sign out, the browser is wiped
     ok(`in-flight ${kind}: the sign-out wipe itself left nothing of A in the browser`, T2.get("tg_kid") === null && T2.get("tg_path_done") === null && T2.get("tg_sync_owner") === null, T2.snapshot());
-    server.hold = null; release(); await inflight; await tick(10);
-    ok(`in-flight ${kind}: the answer did not put A's rows back into the wiped browser`, T1.get("tg_kid") === null && T1.get("tg_path_done") === null && T1.get("tg_sync_owner") === null, { kid: T1.get("tg_kid"), pd: T1.get("tg_path_done"), owner: T1.get("tg_sync_owner") });
-    await signIn(T2, B); await T2.sync(); await T2.sync();   // whoever signs in next on this browser
-    ok(`in-flight ${kind}: B's cloud rows hold nothing of A`, server.cloud(B, "tg_kid") === undefined && !(server.cloud(B, "tg_path_done") || []).some((x) => /^a[123]/.test(x)), { kid: server.cloud(B, "tg_kid"), pd: server.cloud(B, "tg_path_done") });
-    ok(`in-flight ${kind}: A's own cloud rows are intact`, JSON.stringify(server.cloud(A, "tg_kid")).includes("A-child-name") && (server.cloud(A, "tg_path_done") || []).includes("a2"), { kid: server.cloud(A, "tg_kid"), pd: server.cloud(A, "tg_path_done") });
+    const ev0 = T1.pulledEvents();
+    release(); await inflight; await tick(10);
+    ok(`in-flight ${kind}: the answer wrote NOTHING into the wiped browser (whole store, stashes aside) and fired no pull event`, Object.keys(noStash(T1.snapshot())).length === 0 && T1.pulledEvents() === ev0, { store: noStash(T1.snapshot()), events: [ev0, T1.pulledEvents()] });
+    await signIn(T2, LB); await T2.sync(); await T2.sync();   // whoever signs in next on this browser
+    ok(`in-flight ${kind}: B's cloud rows hold nothing of A`, server.cloud(LB, "tg_kid") === undefined && !(server.cloud(LB, "tg_path_done") || []).some((x) => /^a[123]/.test(x)), { kid: server.cloud(LB, "tg_kid"), pd: server.cloud(LB, "tg_path_done") });
+    ok(`in-flight ${kind}: A's own cloud rows are intact${kind === "push" ? " (the in-flight stage reached them)" : ""}`, JSON.stringify(server.cloud(LA, "tg_kid")).includes("A-child-name") && (server.cloud(LA, "tg_path_done") || []).includes("a2") && (kind === "pull" || (server.cloud(LA, "tg_path_done") || []).includes("a3-in-flight")), { kid: server.cloud(LA, "tg_kid"), pd: server.cloud(LA, "tg_path_done") });
+  }
+}
+{
+  // 13k. the marker is a DIFFERENT account (the other half of the guard: a check for "no marker" alone would let A's answer into B's store and B's cloud rows)
+  for (const kind of ["pull", "push"]) {
+    {   // B signs in at once, B's own first pull is on the same wire, B plays; then the answers arrive
+      const { server, T1, T2, inflight, release } = await lateTab(kind);
+      T2.signOut(); T2.mod.wipeAfterSignOut();
+      T2.signIn(LB); await tick(10);
+      T2.set("tg_kid", "B-child-name"); T2.set("tg_path_done", ["b1"]);
+      release(); await inflight; await tick(20); await T2.sync(); await T2.sync();
+      ok(`B takes the browser while A's ${kind} is on the wire: the marker is B's and the store holds B's data only`, T1.get("tg_sync_owner") === LB && T1.get("tg_kid") === "B-child-name" && JSON.stringify(T1.json("tg_path_done")) === JSON.stringify(["b1"]), T1.snapshot());
+      ok(`B takes the browser while A's ${kind} is on the wire: B's cloud rows are B's and nothing of A`, JSON.stringify(server.cloud(LB, "tg_kid")).includes("B-child-name") && !hasA([...server.rows(LB).entries()]), [...server.rows(LB).entries()]);
+      ok(`B takes the browser while A's ${kind} is on the wire: A's own cloud rows are intact`, JSON.stringify(server.cloud(LA, "tg_kid")).includes("A-child-name") && (server.cloud(LA, "tg_path_done") || []).includes("a2"), { kid: server.cloud(LA, "tg_kid"), pd: server.cloud(LA, "tg_path_done") });
+    }
+    {   // B has signed in, synced and written; THEN A's answer arrives: nothing in B's browser or B's rows changes
+      const { server, T1, T2, inflight, release } = await lateTab(kind);
+      server.hold = null;   // T1's call keeps waiting on its own promise; every later call (B's) is answered at once
+      T2.signOut(); T2.mod.wipeAfterSignOut();
+      await signIn(T2, LB); T2.set("tg_kid", "B-child-name"); T2.set("tg_path_done", ["b1"]); await T2.sync(); await T2.sync();
+      const before = JSON.stringify(noStash(T2.snapshot()));
+      release(); await inflight; await tick(20);
+      ok(`B is signed in when A's ${kind} answer arrives: the answer changed nothing in B's browser (whole store, stashes aside)`, before === JSON.stringify(noStash(T2.snapshot())) && T1.get("tg_sync_owner") === LB, { before, after: noStash(T2.snapshot()) });
+      await T2.sync(); await T2.sync();
+      ok(`B is signed in when A's ${kind} answer arrives: B's cloud rows are exactly B's`, JSON.stringify(server.cloud(LB, "tg_path_done")) === JSON.stringify(["b1"]) && !hasA([...server.rows(LB).entries()]), [...server.rows(LB).entries()]);
+    }
+  }
+  {   // a browser with no marker at all that a guest plays in: the answer changes nothing, the guest later signs up and adopts only the guest's own progress
+    for (const kind of ["pull", "push"]) {
+      const { server, T1, T2, inflight, release } = await lateTab(kind);
+      T2.signOut(); T2.mod.wipeAfterSignOut();
+      T2.set("tg_kid", "guest-kid"); T2.set("tg_path_done", ["g1"]);
+      const before = JSON.stringify(noStash(T2.snapshot()));
+      release(); await inflight; await tick(20);
+      ok(`guest browser, ${kind}: the late answer changed nothing and no marker appeared`, before === JSON.stringify(noStash(T2.snapshot())) && T1.get("tg_sync_owner") === null, { before, after: noStash(T2.snapshot()) });
+      await signIn(T2, LB); await T2.sync(); await T2.sync();
+      ok(`guest browser, ${kind}: the account the guest signs up as adopts the guest's progress and nothing of A`, JSON.stringify(server.cloud(LB, "tg_kid")).includes("guest-kid") && (server.cloud(LB, "tg_path_done") || []).includes("g1") && !hasA([...server.rows(LB).entries()]), [...server.rows(LB).entries()]);
+    }
+  }
+}
+{
+  // 13l. a dropped PULL must make the round stop (return false): a round that went on to its push would read the wiped store as "the member deleted tg_kid" and a tombstone would erase A's cloud row
+  const { server, devs: [T2] } = await rig(1);
+  await signIn(T2, LA);
+  T2.set("tg_kid", "A-child-name"); T2.set("tg_path_done", ["a1", "a2"]); await T2.sync(); await T2.sync();
+  const T1 = await makeDevice("T1", server, CLOCK, T2.ls);
+  await signIn(T1, LA);
+  T1.set("tg_kid", "A-child-name-v2");   // the member renamed the child in tab 1: dirty, not pushed yet
+  let release; server.hold = new Promise((r) => { release = r; });
+  const sent0 = server.sent.length;
+  const inflight = T1.sync();   // poll marks tg_kid dirty, the pull is on the wire
+  await tick(10);
+  server.down = true;   // the sign-out tab's own flush fails, so only T1 could still push tg_kid
+  T2.signOut(); T2.mod.wipeAfterSignOut();
+  server.down = false; server.hold = null; release(); await inflight; await tick(20);
+  const pushed = server.sent.slice(sent0).filter((x) => x.device === "T1").map((x) => ({ key: x.key, value: x.value }));
+  ok("dropped pull: the wiped browser holds nothing of A", Object.keys(noStash(T1.snapshot())).length === 0, noStash(T1.snapshot()));
+  ok("dropped pull: the round stopped, tab 1 pushed no tombstone for tg_kid from the wiped store", !pushed.some((x) => x.key === "tg_kid" && x.value === null), pushed);
+  ok("dropped pull: A's cloud row tg_kid is still there", server.cloud(LA, "tg_kid") !== undefined && server.cloud(LA, "tg_kid") !== null, server.cloud(LA, "tg_kid"));
+}
+{
+  // 13m. after the dropped answer tab 1 stays inert whatever wakes it (the poll timer, a page hide, a manual round, focus, online): no call, no write
+  for (const kind of ["pull", "push"]) {
+    const { server, T1, T2, inflight, release } = await lateTab(kind);
+    T2.signOut(); T2.mod.wipeAfterSignOut();
+    release(); await inflight; await tick(20);
+    const calls0 = server.calls, snap0 = JSON.stringify(T2.snapshot());
+    for (let i = 0; i < 4; i++) await T1.tick();
+    await T1.mod.flushCloudSync(); await T1.sync();
+    T1.win.dispatchEvent({ type: "focus" }); T1.win.dispatchEvent({ type: "online" }); await tick(20);
+    ok(`after the dropped ${kind} answer tab 1 makes no call and writes nothing, whatever wakes it`, server.calls === calls0 && JSON.stringify(T2.snapshot()) === snap0, { calls: [calls0, server.calls] });
+  }
+}
+{
+  // 13n. positive control: with NO sign-out the same held answer IS applied (so 13j-13m do not pass merely because holding an answer drops it)
+  for (const kind of ["pull", "push"]) {
+    const { server, T1, inflight, release } = await lateTab(kind);
+    server.rows(LA).set("tg_goal", { value: { title: "goal set on another device", date: "2026-12-25" }, client_ts: CLOCK.now + 1000 });
+    release(); await inflight; await tick(20);
+    ok(`no sign-out: the held ${kind} answer is applied (the other device's row arrived)`, T1.get("tg_goal") !== null && /goal set on another device/.test(T1.get("tg_goal")), T1.snapshot());
+    ok(`no sign-out: ...and the tab's own state is intact`, T1.get("tg_kid") === "A-child-name" && (T1.json("tg_path_done") || []).includes("a2"), T1.snapshot());
+  }
+}
+{
+  // 13o. a stash entry is dropped only for what the answer PROVES the server holds: sync_cloud_state keeps a row only for a strictly newer client_ts, so a push that lost to another device's newer edit is answered without an error and not taken;
+  //      its stash entry may be the only copy left once the store is wiped, and the account's next sign-in must still bring it back and push it
+  for (const own of ["the sign-out tab's own flush fails", "the sign-out tab's own flush is answered"]) {
+    const { server, T1, T2, inflight, release } = await lateTab("push");
+    server.rows(LA).set("tg_path_done", { value: ["a1", "a2", "phone-stage"], client_ts: CLOCK.now + 60000 });   // a phone edited the same key later: the held push will lose
+    if (own.includes("fails")) server.down = true;
+    T2.signOut(); T2.mod.wipeAfterSignOut();
+    const stBefore = stashOf(T2, LA);
+    ok(`unacknowledged push, ${own}: A's stash holds the in-flight stage before the answer arrives (control)`, !!stBefore && !!stBefore.keys.tg_path_done && /a3-in-flight/.test(stBefore.keys.tg_path_done.raw), stBefore);
+    server.down = false; release(); await inflight; await tick(20);
+    const st = stashOf(T2, LA);
+    ok(`unacknowledged push, ${own}: the stash entry of the stage the server did not take is still there`, !!st && !!st.keys.tg_path_done && /a3-in-flight/.test(st.keys.tg_path_done.raw), st);
+    await signIn(T2, LA); await T2.sync(); await T2.sync();
+    const cp = server.cloud(LA, "tg_path_done") || [];
+    ok(`unacknowledged push, ${own}: A's next sign-in brings the stage back and the cloud holds BOTH the stage and the phone's`, cp.includes("a3-in-flight") && cp.includes("phone-stage"), cp);
+  }
+  {   // control: an ACKNOWLEDGED push (the server took it) does drop its stash entry (the entry would only be a stale copy)
+    const { server, T1, T2, inflight, release } = await lateTab("push");
+    server.down = true;
+    T2.signOut(); T2.mod.wipeAfterSignOut();
+    server.down = false; release(); await inflight; await tick(20);
+    const st = stashOf(T2, LA);
+    ok("acknowledged push: the server holds the stage and its stash entry is gone", (server.cloud(LA, "tg_path_done") || []).includes("a3-in-flight") && (!st || !st.keys.tg_path_done), { cloud: server.cloud(LA, "tg_path_done"), stash: st });
   }
 }
 
