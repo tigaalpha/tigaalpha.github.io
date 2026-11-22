@@ -955,6 +955,7 @@ async function doPush(my: string, force: boolean): Promise<boolean> {
       const { data, error } = await callRpc(payload);
       if (error) throw error;
       if (uid !== my) { stashDrop(my, batch.flatMap((r) => r.sent)); return false; }   // the account left while this ran: the server has it, so its stash entry is not needed
+      if (safeGet(OWNER_KEY) !== my) { stashDrop(my, batch.flatMap((r) => r.sent)); return false; }   // the same for a late tab: ANOTHER tab signed the account out (or signed someone else in) while this answer was on the wire, so the store is not this account's any more and what the answer carries must not be written into it (the next sign-in would adopt it)
       lastPullAt = Date.now();
       applyPull(data || []);
       const meta = readMeta();
@@ -979,6 +980,7 @@ async function doPull(my: string): Promise<boolean> {
     const { data, error } = await callRpc({});
     if (error) throw error;
     if (uid !== my) return false;
+    if (safeGet(OWNER_KEY) !== my) return false;   // a late tab: another tab signed this account out (or signed someone else in) while the answer was on the wire - the store is not this account's any more, so its rows are not written into it
     lastPullAt = Date.now();
     applyPull(data || []);
     if (!firstPullDone) {

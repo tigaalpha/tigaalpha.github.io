@@ -833,6 +833,30 @@ function scalOf(v) { return v && typeof v === "object" && "__s" in v ? v.__s : v
   await signIn(L, U); await L.sync(); await L.sync();
   ok("a key that never reached the cloud (written offline, the page closed) is pushed at the next session's first pull", (s4.cloud(U, "tg_owned") || []).includes("skin-offline"), s4.cloud(U, "tg_owned"));
 }
+{
+  // 13j. a sync round of a LATE tab that is already ON THE WIRE when another tab signs the account out: its answer must not write the account's rows back into the wiped browser (every entry guard of that round was passed long before the answer came;
+  //      the next person to sign in on this browser would ADOPT what the answer wrote and push it to their own cloud rows)
+  const A = "user-aaaaaaaa-a", B = "user-bbbbbbbb-b";
+  for (const kind of ["pull", "push"]) {
+    const { server, devs: [T2] } = await rig(1);   // T2 = the tab where the member presses Sign out
+    await signIn(T2, A);
+    T2.set("tg_kid", "A-child-name"); T2.set("tg_path_done", ["a1", "a2"]); await T2.sync(); await T2.sync();
+    const T1 = await makeDevice("T1", server, CLOCK, T2.ls);   // the late tab of the same browser (its own page and module, the same localStorage)
+    await signIn(T1, A);
+    let release; server.hold = new Promise((r) => { release = r; });
+    let inflight;
+    if (kind === "pull") inflight = T1.sync();   // a full round: its pull is on the wire
+    else { T1.set("tg_path_done", ["a1", "a2", "a3-in-flight"]); inflight = T1.mod.flushCloudSync(); }   // a flush: its push is on the wire
+    await tick(10);
+    T2.signOut(); T2.mod.wipeAfterSignOut();   // tab 2: Sign out, the browser is wiped
+    ok(`in-flight ${kind}: the sign-out wipe itself left nothing of A in the browser`, T2.get("tg_kid") === null && T2.get("tg_path_done") === null && T2.get("tg_sync_owner") === null, T2.snapshot());
+    server.hold = null; release(); await inflight; await tick(10);
+    ok(`in-flight ${kind}: the answer did not put A's rows back into the wiped browser`, T1.get("tg_kid") === null && T1.get("tg_path_done") === null && T1.get("tg_sync_owner") === null, { kid: T1.get("tg_kid"), pd: T1.get("tg_path_done"), owner: T1.get("tg_sync_owner") });
+    await signIn(T2, B); await T2.sync(); await T2.sync();   // whoever signs in next on this browser
+    ok(`in-flight ${kind}: B's cloud rows hold nothing of A`, server.cloud(B, "tg_kid") === undefined && !(server.cloud(B, "tg_path_done") || []).some((x) => /^a[123]/.test(x)), { kid: server.cloud(B, "tg_kid"), pd: server.cloud(B, "tg_path_done") });
+    ok(`in-flight ${kind}: A's own cloud rows are intact`, JSON.stringify(server.cloud(A, "tg_kid")).includes("A-child-name") && (server.cloud(A, "tg_path_done") || []).includes("a2"), { kid: server.cloud(A, "tg_kid"), pd: server.cloud(A, "tg_path_done") });
+  }
+}
 
 console.log(`\n${passes} passed, ${fails} failed`);
 process.exit(fails ? 1 : 0);
