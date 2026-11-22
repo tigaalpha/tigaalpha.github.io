@@ -434,6 +434,44 @@ for (const [w, h] of [[390, 844], [360, 640], [320, 568]]) {
   await ctx.close();
 }
 
+const stubVideos = (page) => page.route(/rest\/v1\/lesson_videos/, (r) => r.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify([{ id: "c1", title: "Test series", description: "", published: true, youtube_playlist_id: null, drive_folder_id: null, drive_file_id: null, created_at: "2026-01-01T00:00:00Z" }]) }));   // the page waits for the lesson_videos rows (the test blocks the live backend)
+// Video Lessons: the narrated clips are PAID text-to-speech requested with the project's public key (the server does not ask who is calling), so for a guest opening the clip feed is a counted use;
+// once the preview is used up no narration is requested and the invitation comes instead (found by the second honesty review: a guest used to get the feed for free, 20 paid lines in 25 seconds)
+for (const lang of ["en", "ja", "zh"]) {
+  const run = async (usesSeed) => {
+    const { ctx, page, errors } = await visitor({ lang, uses: usesSeed }); await stubVideos(page);
+    const tts = []; page.on("request", (r) => { if (/functions\/v1\/piano-tts/.test(r.url()) && r.method() === "POST") tts.push(r.url()); });
+    await page.addInitScript(() => { try { sessionStorage.setItem("tiga_page", "videos"); } catch (e) {} });
+    await page.goto(BASE, { waitUntil: "domcontentloaded" }); await page.waitForSelector(".vidwrap", { timeout: 45000 }); await page.waitForTimeout(5500);
+    const r = { reel: await has(page, ".cc-reel"), invite: await has(page, "[data-trial-invite]"), uses: await uses(page), tts: tts.length, errors: errors.length };
+    await ctx.close(); return r;
+  };
+  const fresh = await run(0);
+  ok(fresh.reel && !fresh.invite && fresh.uses === "1" && fresh.tts >= 1 && fresh.errors === 0, `${lang}: a guest with free uses left gets the clip feed, it costs ONE use and the narration is requested ${JSON.stringify(fresh)}`);
+  const spent = await run(3);
+  ok(!spent.reel && spent.invite && spent.uses === "3" && spent.tts === 0 && spent.errors === 0, `${lang}: with the preview used up the feed does not open, the invitation does, and NO narration is requested ${JSON.stringify(spent)}`);
+}
+{
+  const { ctx, page } = await visitor({ uses: 3 }); await stubVideos(page);   // Thai: the series is a YouTube frame (free): never counted, never the invitation
+  const tts = []; page.on("request", (r) => { if (/functions\/v1\/piano-tts/.test(r.url()) && r.method() === "POST") tts.push(1); });   // a POST is a paid synthesis (a warm-up OPTIONS / HEAD is not)
+  await page.addInitScript(() => { try { sessionStorage.setItem("tiga_page", "videos"); } catch (e) {} });
+  await page.goto(BASE, { waitUntil: "domcontentloaded" }); await page.waitForSelector(".vidwrap", { timeout: 45000 }); await page.waitForTimeout(3000);
+  const th = { invite: await has(page, "[data-trial-invite]"), reel: await has(page, ".cc-reel"), tts: tts.length, uses: await uses(page) };
+  ok(!th.invite && !th.reel && th.tts === 0 && th.uses === "3", "th: the Thai series is not counted, shows no invitation and requests no narration " + JSON.stringify(th));
+  await ctx.close();
+}
+{
+  // the invitation's offer ("free for 7 days, no credit card") belongs to the Sign-up tab: a returning member on the Log-in tab is not told they are free for 7 days
+  const { ctx, page } = await visitor({ lang: "en", uses: 3 });
+  await startSong(page, "twinkle");
+  ok(await has(page, "[data-invite-offer]"), "the invitation opens on the Sign-up tab with the offer (free for 7 days, no credit card)");
+  await page.click("[data-trial-invite] .au-segb:nth-child(2)"); await page.waitForTimeout(250);
+  ok(!(await has(page, "[data-invite-offer]")), "...and the Log-in tab does not repeat it");
+  await page.click("[data-trial-invite] .au-segb:nth-child(1)"); await page.waitForTimeout(250);
+  ok(await has(page, "[data-invite-offer]"), "...it is back on the Sign-up tab");
+  await ctx.close();
+}
+
 // Practice Today: a start the preview turns away is not "going in" (it used to finish the plan and pay the bonus without starting anything)
 {
   const { ctx, page, errors } = await visitor({ lang: "en", uses: 3 });

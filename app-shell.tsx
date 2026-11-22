@@ -306,10 +306,11 @@ function GoogleMark() {
    only real button and hid e-mail behind a link reading "log in with existing
    account" — so someone with no Google account, or in a WebView where Google
    refuses to work at all, saw no way to create one. */
-function LoginOptions({ profile, onGoogleLogin, lg, noHead = false }) {   // lg: the language of the caller (LoginModal / GuestGateScreen / TrialInviteModal read it once and use the catalog hook); noHead: the caller draws its own title
+function LoginOptions({ profile, onGoogleLogin, lg, noHead = false, onMode = null }) {   // lg: the language of the caller (LoginModal / GuestGateScreen / TrialInviteModal read it once and use the catalog hook); noHead: the caller draws its own title; onMode: told which tab (signup | login) is open (the invitation shows "free for 7 days" only on the sign-up tab)
   const ext = ownLang(lg);
   const [inApp] = useState(() => inAppBrowser());
-  const [mode, setMode] = useState("signup"); // signup | login
+  const [mode, setModeState] = useState("signup"); // signup | login
+  const setMode = (m: string) => { setModeState(m); if (onMode) onMode(m); };
   const [copied, setCopied] = useState(false);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -604,6 +605,7 @@ export function TrialInviteModal({ reason, profile, onLogin, onClose }) {
   useCatalog(lg);   // PianoApp already holds the catalog of profile.lang; this keeps the card right if it is ever mounted on its own
   const cardRef = useRef<HTMLDivElement>(null);
   const downOnBackdrop = useRef(false);
+  const [tab, setTab] = useState("signup");   // which tab of the form is open: "free for 7 days / no credit card" is the offer to a NEW account, a returning member on the Log-in tab is not told they are free for 7 days
   useDialogBehaviour(cardRef, onClose);
   const title = solo(lg, "ล็อกอินเพื่อเรียนเปียโนกับ TIGA ALPHA", xl(lg, "Log in to learn piano with TIGA ALPHA"));   // the clean string: the dialog is named with it, the heading is drawn with keepWords()
   const why = reason === "ai"
@@ -622,12 +624,12 @@ export function TrialInviteModal({ reason, profile, onLogin, onClose }) {
           <div id="tg-invite-t" style={{ textAlign: "center", fontSize: 21, fontWeight: 800, lineHeight: 1.3, color: "var(--text, inherit)", padding: "0 8px", textWrap: "balance" } as React.CSSProperties}>
             {keepWords(title)}
           </div>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 8, justifyContent: "center" }}>
+          {tab === "signup" && (<div data-invite-offer style={{ display: "flex", flexWrap: "wrap", gap: 8, justifyContent: "center" }}>
             <span style={chip}>✓ {solo(lg, "ฟรี 7 วัน", xl(lg, "Free for 7 days"))}</span>
             <span style={chip}>✓ {solo(lg, "ไม่ต้องใช้บัตรเครดิต", xl(lg, "No credit card needed"))}</span>
-          </div>
+          </div>)}
           <div style={{ textAlign: "center", fontSize: 13.5, opacity: 0.8, lineHeight: 1.5, padding: "0 8px" }}>{why}</div>
-          <LoginOptions profile={profile} onGoogleLogin={onLogin} lg={lg} noHead />
+          <LoginOptions profile={profile} onGoogleLogin={onLogin} lg={lg} noHead onMode={setTab} />
         </div>
       </div>
     </div>

@@ -7,8 +7,10 @@ import { SUPABASE_ANON_KEY } from "./supabase-client";
 export const API_URL = "https://gsaqgbracxnucdmtmcxz.supabase.co/functions/v1/piano-chat";
 export const TTS_URL = "https://gsaqgbracxnucdmtmcxz.supabase.co/functions/v1/piano-tts";
 
-// piano-chat/piano-tts require a genuine per-user session (not just the public
-// anon key) so they can't be called anonymously off the project's AI budget.
+// piano-chat and piano-tts are NOT protected by a per-user session on the server (checked 2026-11-21, deployed v35 / v43): they have verify_jwt on, and the project's PUBLIC anon key is a valid JWT, so
+// whoever holds that key can call them. Only piano-jev checks who is calling. The app asks for an account in the client (requireLogin / guestStart), so EVERY guest-reachable call to piano-chat or
+// piano-tts needs a client guard of its own (the narrated clips of Video Lessons are one: VideoLessonsPage in App.tsx counts a guest's use first). Closing it for good is a server change that needs
+// the owner's approval and a deploy: decode the JWT in both functions and answer 401 unless role is "authenticated" and sub is set.
 // Kept up to date by the auth-state listener in App() via setAccessToken() —
 // every fetch below reads it fresh via apiHeaders() rather than a stale captured
 // header object.

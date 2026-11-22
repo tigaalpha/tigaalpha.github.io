@@ -3768,7 +3768,7 @@ function VideoSlide({ s, active, lang, onAsk, likeN, likedByMe, onToggleLike }) 
 import { CLIPS, ConceptClipFeed, CLIP_CSS } from "./concept-clips";
 import { pickT, xl, ALL_LANGS, EXTRA_LANGS, LANG_META, localeOf, dateLocale, by, isExtraLang, loadCatalog, dirOf, applyDigitRule } from "./lang-extra";
 import { useCatalog } from "./use-catalog";
-const VideoLessonsPage = memo(function VideoLessonsPage({ lang, onAsk, onWatched, onLang }) {
+const VideoLessonsPage = memo(function VideoLessonsPage({ lang, onAsk, onWatched, onLang, guest = false, onGuestStart = null }) {
   const lc = L[lang];
   const [flagOpen, setFlagOpen] = useState(false);
   /* th = the YouTube series (Thai); en / zh = the drawn clip feed; the flag button top right picks it (and the app language). The two series exist in th / en / zh only: the seven extra languages open on the
@@ -3776,6 +3776,16 @@ const VideoLessonsPage = memo(function VideoLessonsPage({ lang, onAsk, onWatched
   const vtabOf = (l) => (l === "en" || l === "zh" ? l : isExtraLang(l) ? "en" : "th");
   const [vtab, setVtab] = useState(vtabOf(lang));
   useEffect(() => { setVtab(vtabOf(lang)); }, [lang]);
+  /* The narrated clips are a paid service: every line is a text-to-speech request made with the project's PUBLIC key (piano-tts answers whoever holds it, it does not ask who is calling), and the feed
+     prefetches three clips ahead and retries for ever. So a guest's free preview pays for them: the feed opens only after guestStart("video") said yes (one use per visit to this page, however often the
+     flag button is toggled; a member always gets yes at once). When the preview is used up the invitation is raised and the page shows the Thai series instead (a YouTube frame, no cost). The Thai tab
+     itself is never counted. (Found by the second honesty review, 2026-11-21: before the guest-first entry the wall kept anonymous visitors of the main domain off this page.) */
+  const [clipsOk, setClipsOk] = useState(!guest);
+  const clipsPaid = useRef(false);
+  useEffect(() => {
+    if (!guest || vtab === "th" || clipsPaid.current) return;
+    if (onGuestStart && onGuestStart("video")) { clipsPaid.current = true; setClipsOk(true); } else setVtab("th");
+  }, [vtab, guest]);
   const [categories, setCategories] = useState(null);  // null = loading; each row is one published lesson_videos entry
   const [activeCat, setActiveCat] = useState(null);     // lesson_videos.id of the selected category
   const [slides, setSlides] = useState(null);           // null = loading this category's videos
@@ -3924,7 +3934,7 @@ const VideoLessonsPage = memo(function VideoLessonsPage({ lang, onAsk, onWatched
   return (
     <div className="vidwrap">
       <style>{CLIP_CSS}</style>
-      {vtab !== "th" && <ConceptClipFeed key={vtab} inline clips={CLIPS[vtab]} start={0} lang={vtab} onClose={() => setVtab("th")} />}
+      {vtab !== "th" && (clipsOk || !guest) && <ConceptClipFeed key={vtab} inline clips={CLIPS[vtab]} start={0} lang={vtab} onClose={() => setVtab("th")} />}
       {onLang && (
         <div className="vidflag">
           <button className="vidflag-b" aria-label={xl(lang, "Language")} onClick={() => { playUi("click"); setFlagOpen(o => !o); }}>{lang === "th" ? "🇹🇭" : lang === "zh" ? "🇨🇳" : xl(lang, "🇬🇧")}</button>
@@ -11995,7 +12005,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     } catch (e) { return { ok: false, why: "error" }; }
   }
   async function fetchAutoTeachTip() {
-    if (isGuest) return;   // a live-AI call: a guest has no account for it (it failed silently and only cost requests)
+    if (isGuest) return;   // a live-AI call: a guest has no account for it (the client does not make it; note the server would answer the public key: see ai-backend.ts)
     // App-wide now (was Pathway-only) — admin/school are role dashboards, not learner
     // practice contexts, so a beginner-coaching card there would be talking about a
     // profile that isn't the person looking at the screen.
@@ -13695,7 +13705,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
         </button>
       )}
       {page === "videos" && (
-        <VideoLessonsPage lang={lang} onLang={setLang}
+        <VideoLessonsPage lang={lang} onLang={setLang} guest={isGuest} onGuestStart={guestStart}
           onWatched={() => {
             if (!takeEarn("video")) return false;          // today's ceiling is spent
             earnCoins(EARN.video); gainExp(EXP.chapter, { quest: true }); playUi("reward");
