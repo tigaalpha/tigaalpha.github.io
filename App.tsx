@@ -12868,7 +12868,8 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     /* Ticks made before this rule existed were paid under the old one: with no paid list yet, every task that is ticked right now counts as paid (or an old tick could be unticked and ticked once more
        for another 5 coins), and the list is written on this very first toggle, in either direction, so the seed is not recomputed from a smaller set later. */
     const mark = gid + ":" + i;
-    const paid: string[] = Array.isArray(prev._paid) ? prev._paid : Object.keys(prev).filter(g => g !== "_paid" && Array.isArray(prev[g])).flatMap(g => prev[g].map(x => g + ":" + x));
+    const ticked: string[] = Object.keys(prev).filter(g => g !== "_paid" && Array.isArray(prev[g])).flatMap(g => prev[g].map(x => g + ":" + x));
+    const paid: string[] = Array.from(new Set([...(Array.isArray(prev._paid) ? prev._paid : []), ...ticked]));   // always the union: a list that arrived from another device (the cloud merge unions tg_exam) does not know the ticks this browser made under the old rule, and every tick on screen right now was paid by someone
     const pay = adding && !paid.includes(mark);
     const all = { ...prev, [gid]: next, _paid: pay ? [...paid, mark] : paid };
     setExamProgress(all);

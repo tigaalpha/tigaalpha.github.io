@@ -342,6 +342,37 @@ for (const [lang, widths] of [["th", [320, 360, 390, 430]], ["en", [320, 390]], 
   await ctx.close();
 }
 
+// Escape closes the invitation even while a consent CHECKBOX has the focus (a checkbox's value is the constant "on": it used to count as a text field with text in it and the first Escape only blurred it)
+{
+  const { ctx, page } = await visitor({ lang: "en", uses: 3 });
+  await startSong(page, "twinkle");
+  await page.focus("[data-trial-invite] .au-ck input[type=checkbox]");
+  await page.keyboard.press("Escape"); await page.waitForTimeout(300);
+  ok(!(await has(page, "[data-trial-invite]")), "dialog: Escape with the consent checkbox focused closes the invitation at once");
+  await ctx.close();
+}
+// the corner Login pill's modal (the log-in entry every guest sees; the drawer item opens the same card) is a dialog like the invitation
+{
+  const { ctx, page, errors } = await visitor({ lang: "en", w: 1000, h: 800 });
+  await boot(page);
+  await page.click(".guestloginpill"); await page.waitForTimeout(500);
+  const info = await page.evaluate(() => { const c = document.querySelector(".setov .setcard"); return c ? { role: c.getAttribute("role"), modal: c.getAttribute("aria-modal"), name: c.getAttribute("aria-label"), focusIn: c.contains(document.activeElement) } : null; });
+  ok(!!info && info.role === "dialog" && info.modal === "true" && !!info.name && info.focusIn, `corner Login modal: a dialog with a name and the focus inside ${JSON.stringify(info)}`);
+  const inside = () => page.evaluate(() => { const c = document.querySelector(".setov .setcard"); return !!c && c.contains(document.activeElement); });
+  let stayed = true; for (let i = 0; i < 20; i++) { await page.keyboard.press("Tab"); if (!(await inside())) { stayed = false; break; } }
+  ok(stayed, "corner Login modal: Tab never leaves the card (20 presses)");
+  await page.fill(".setov input[type=email]", "a@b.c");
+  const box = await page.locator(".setov input[type=email]").boundingBox();
+  await page.mouse.move(box.x + 12, box.y + box.height / 2); await page.mouse.down(); await page.mouse.move(4, 4, { steps: 4 }); await page.mouse.up(); await page.waitForTimeout(300);
+  ok(await has(page, ".setov .setcard") && (await page.inputValue(".setov input[type=email]")) === "a@b.c", "corner Login modal: a press that starts in a field and ends on the backdrop does not close it (the typed e-mail stays)");
+  await page.focus(".setov input[type=email]"); await page.keyboard.press("Escape"); await page.waitForTimeout(250);
+  ok(await has(page, ".setov .setcard"), "corner Login modal: the first Escape only leaves a field that holds text");
+  await page.keyboard.press("Escape"); await page.waitForTimeout(300);
+  ok(!(await has(page, ".setov .setcard")), "corner Login modal: the second Escape closes it");
+  ok(errors.length === 0, "corner Login modal: no page errors");
+  await ctx.close();
+}
+
 // the standard card has its way out at the top too
 {
   const { ctx, page } = await visitor();
@@ -430,6 +461,13 @@ for (const [w, h] of [[390, 844], [360, 640], [320, 568]]) {
   ok((await coins()) === c2, `Exam Prep: a tick made before the rule existed cannot be paid a second time (${c2} -> ${await coins()})`);
   const t2 = (await page.$$(".extask"))[1]; await t2.click(); await page.waitForTimeout(400);
   ok((await coins()) - c2 === 5, "Exam Prep: a task that was never ticked still pays its 5 coins");
+  // a paid list that came from ANOTHER device (the cloud merge unions tg_exam) does not know the ticks this browser made under the old rule: every tick on screen counts as paid
+  await page.evaluate(() => { const e = JSON.parse(localStorage.getItem("tg_exam") || "{}"); e._paid = ["zzz:9"]; localStorage.setItem("tg_exam", JSON.stringify(e)); });
+  ok(await openExam(), "Exam Prep opens again (the stored paid list is another device's)");
+  const c3 = await coins();
+  task = (await page.$$(".extask"))[0];
+  await task.click(); await page.waitForTimeout(300); await task.click(); await page.waitForTimeout(400);
+  ok((await coins()) === c3, `Exam Prep: with a paid list from another device an old tick is still not paid twice (${c3} -> ${await coins()})`);
   ok(errors.length === 0, "Exam Prep: no page errors");
   await ctx.close();
 }
@@ -508,11 +546,16 @@ for (const lang of ["th", "en", "zh", "ja", "ko", "ru", "hi", "es", "fr", "de", 
 }
 
 {
-  const { ctx, page } = await visitor({ lang: "en", w: 480, h: 800 });   // a big phone / small tablet (431-520 px): the header still has room for it (above 520 px the header is laid out differently)
-  await boot(page);
-  const g = await page.evaluate(() => { const h = document.querySelector(".hdr-r .hdrgo"), p = document.querySelector(".guestloginpill"); return { go: h ? Math.round(h.getBoundingClientRect().width) : 0, pill: !!p }; });
-  ok(g.pill && g.go >= 30, `the guest's profile button is still there at 480 px (the rule drops it only up to 430 px) ${JSON.stringify(g)}`);
-  await ctx.close();
+  // a big phone / small tablet / narrow window (521-699 px): the language flag stays on screen (the guest's Login pill and profile button pushed it completely off from 521 px and partly up to ~640 px) and the profile button is back
+  for (const lang of ["en", "fr", "de", "zh", "ja"]) {
+    for (const w of [521, 560, 600, 640, 699]) {
+      const { ctx, page } = await visitor({ lang, w, h: 800 });
+      await boot(page);
+      const g = await page.evaluate(() => { const f = document.querySelector(".hdr .flagwrap"), h = document.querySelector(".hdr-r .hdrgo"), p = document.querySelector(".guestloginpill"), fr = f && f.getBoundingClientRect(); return { pill: !!p, flagIn: !!fr && fr.left >= 0 && fr.right <= window.innerWidth + 0.5, go: h ? Math.round(h.getBoundingClientRect().width) : 0, over: document.documentElement.scrollWidth - document.documentElement.clientWidth }; });
+      ok(g.pill && g.flagIn && g.go >= 30 && g.over <= 1, `${lang} @${w}px: the language flag is on screen and the profile button is back (the rule drops it only up to 520 px) ${JSON.stringify(g)}`);
+      await ctx.close();
+    }
+  }
 }
 
 await browser.close(); server.close();

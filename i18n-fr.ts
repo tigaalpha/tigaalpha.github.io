@@ -2204,7 +2204,7 @@ const cat: Record<string, string> = {
   "Log in": "Se connecter",
   "Log in or sign up free to keep playing — everything you did stays saved.": "Connecte-toi ou inscris-toi gratuitement pour continuer à jouer — tout ce que tu as fait reste enregistré.",
   "Log in or sign up free to use this — everything you did stays saved.": "Connecte-toi ou inscris-toi gratuitement pour utiliser cette fonction — tout ce que tu as fait reste enregistré.",
-  "Log in to learn piano with TIGA ALPHA": "Connectez-vous pour apprendre le piano avec TIGA ALPHA",
+  "Log in to learn piano with TIGA ALPHA": "Connecte-toi pour apprendre le piano avec TIGA ALPHA",
   "Log in to pick up where you left off": "Connecte-toi pour reprendre où tu en étais",
   "Log in with Google": "Se connecter avec Google",
   "Login": "Connexion",

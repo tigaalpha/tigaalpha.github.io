@@ -546,9 +546,14 @@ function LoginOptions({ profile, onGoogleLogin, lg, noHead = false, onMode = nul
 export function LoginModal({ profile, onGoogleLogin, onClose }) {
   const lg = screenLang(profile);
   useCatalog(lg);   // PianoApp already holds the catalog of profile.lang; this keeps the modal right if it is ever mounted on its own
+  const cardRef = useRef<HTMLDivElement>(null);
+  const downOnBackdrop = useRef(false);
+  useDialogBehaviour(cardRef, onClose);   // the log-in entry every guest sees (the corner pill, the drawer item) behaves like the invitation: focus inside, Tab trapped, Escape, and a press that starts in a field and ends on the backdrop does not close it (a half-typed sign-up form was lost)
   return (
-    <div className="setov" onClick={onClose}>
-      <div className="setcard" style={{ maxWidth: 340 }} onClick={e => e.stopPropagation()}>
+    <div className="setov"
+      onMouseDown={e => { downOnBackdrop.current = e.target === e.currentTarget; }}
+      onClick={e => { const hit = downOnBackdrop.current && e.target === e.currentTarget; downOnBackdrop.current = false; if (hit) onClose(); }}>
+      <div className="setcard" ref={cardRef} tabIndex={-1} role="dialog" aria-modal="true" aria-label={solo(lg, "เข้าสู่ระบบ · Login", xl(lg, "Login"))} style={{ maxWidth: 340, outline: "none" }} onClick={e => e.stopPropagation()}>
         <div className="sethdr"><span>{solo(lg, "🔐 เข้าสู่ระบบ · Login", "🔐 " + xl(lg, "Login"))}</span><button className="cbtn" onClick={onClose}>{pair(lg, "ปิด", xl(lg, "Close"))}</button></div>
         <div className="setbody" style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 10, padding: "14px 6px" }}>
           <LoginOptions profile={profile} onGoogleLogin={onGoogleLogin} lg={lg} />
@@ -581,7 +586,7 @@ function useDialogBehaviour(cardRef: { current: HTMLElement | null }, onClose: (
       if (e.key === "Escape") {
         if (e.isComposing || (e as any).keyCode === 229) return;
         const a = document.activeElement as HTMLInputElement | null;
-        if (a && a.tagName === "INPUT" && a.value && card && card.contains(a)) { a.blur(); try { card.focus({ preventScroll: true }); } catch (er) {} return; }
+        if (a && a.tagName === "INPUT" && /^(text|email|password|search|tel|url|number)$/.test(a.type) && a.value && card && card.contains(a)) { a.blur(); try { card.focus({ preventScroll: true }); } catch (er) {} return; }   // a TEXT field with text in it: a checkbox has the constant value "on" and is not one
         if (closeRef.current) closeRef.current();
         return;
       }

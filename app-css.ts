@@ -4224,8 +4224,9 @@ html:not([data-theme="dark"]) .pvppage:not(.x3) .pvpgfxbtn{background:var(--card
    for a guest; on a phone the row is wider than the screen and the LAST item, the flag, was the one that fell off. On phones the flag is pinned to the header's end corner
    (the spot it has when everything fits: same 14 px edge, same gap) and the group of pills left of it is clipped instead, so the way to change the language is always on
    screen. The flag menu is inside .flagwrap, which is positioned against .hdr, so the clip of .hdr-r does not touch the drop-down. overflow-x:clip keeps the pills' glow
-   (box-shadow) above and below. Logical properties: the same rule serves right-to-left. Wider screens are untouched. */
-@media (max-width:520px){
+   (box-shadow) above and below. Logical properties: the same rule serves right-to-left. It used to stop at 520 px; a guest's header (the Login pill, 87-121 px, and the profile button) pushed the flag completely off the screen from 521 px and
+   partly up to ~640 px (7-inch tablets, narrow windows, landscape phones), so the block now runs up to 699 px (the premium interface, ux2, takes the header over from 700 px; a member's header at those widths is unchanged: measured). */
+@media (max-width:699px){
 .tg .hdr .logo{flex:none}
 .tg .hdr .hdr-r{flex:0 1 auto;min-width:0;margin-inline-start:auto;margin-inline-end:64px;overflow-x:clip}
 .tg .hdr .flagwrap{position:absolute;top:50%;inset-inline-end:14px;transform:translateY(-50%);z-index:3}
@@ -4243,7 +4244,7 @@ html:not([data-theme="dark"]) .pvppage:not(.x3) .pvpgfxbtn{background:var(--card
    down the badge goes (the label says what it is; 412 px phones are the common case). The pill itself never shrinks (the group of pills after it is what the header clips) but it never grows past the room
    it has either: a label that still does not fit ends in an ellipsis instead of being cut mid-letter. Measured in a second pass (2026-11-21, Chromium at 320 / 340 / 360 / 375 / 390 / 412 px, every language):
    with the badge gone and the short Spanish and Arabic labels (App.tsx) the label is whole from 360 px up in every language; at 320 and 340 px the long ones (fr de hi ru) can still end in an ellipsis.
-   A guest's profile button after the pill (and the Game Power bar, hidden up to 430 px since before) is dropped on phones: it was half cut by the flag corner (a 23-27 px sliver of a 35 px circle) and the drawer
+   A guest's profile button after the pill (and the Game Power bar, hidden up to 430 px since before) is dropped up to 520 px: it was half cut by the flag corner (a 23-27 px sliver of a 35 px circle) and the drawer
    and the Pathway cards reach the same page. */
 .tg .hdr .guestloginpill{flex:none;max-width:100%;min-width:0}
 .tg .hdr .guestloginpill-tx{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -4251,7 +4252,7 @@ html:not([data-theme="dark"]) .pvppage:not(.x3) .pvpgfxbtn{background:var(--card
 .tg .hdr .guestloginpill .oauthico{display:none}
 .tg .hdr .guestloginpill{padding-inline:10px!important}
 }
-@media (max-width:430px){.tg .hdr .guestloginpill ~ .hdrgo{display:none}}
+@media (max-width:520px){.tg .hdr .guestloginpill ~ .hdrgo{display:none}}
 @media (max-width:340px){.tg .hdr .guestloginpill{padding-inline:6px!important}}
 /* Korean breaks lines at spaces, never inside a word (a two-syllable noun such as 피아노를 was split 피 | 아노를 in the invitation's headline and in the standard card's title at 320-390 px) */
 :root:lang(ko) #tg-invite-t,:root:lang(ko) [data-login-wall] h1{word-break:keep-all}
