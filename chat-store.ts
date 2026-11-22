@@ -182,6 +182,7 @@ export async function pullThreads(): Promise<boolean> {
     if (error) { if (missing(error)) syncOff = true; return false; }
     rows = data || [];
   } catch (e) { return false; }
+  if ((await uid()) !== u) return false;   // FIX C6: the member signed out (and the browser was wiped) while the answer was on its way: those rows must not be written back
   const idx = listMeta(true); let changed = false;
   for (const r of rows) {
     const upd = Date.parse(r.updated_at) || 0; const i = idx.findIndex(x => x.id === r.id);

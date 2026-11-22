@@ -988,7 +988,7 @@ async function doPull(my: string): Promise<boolean> {
       for (const k of allSyncedKeys()) {
         if (packOf(k)) continue;
         const raw = safeGet(k) || "", mk = meta[k];
-        if (!mk || (mk.h && mk.h !== hashOf(raw))) dirty.set(k, now);
+        if (!mk || (mk.h && mk.h !== hashOf(raw)) || (raw !== "" && !lastCloudKeys.has(k))) dirty.set(k, now);   // FIX H7: also a key the cloud has no row for (it was written while offline in a page that closed before the push)
       }
       for (const p of Object.keys(PACKS)) if (packNeedsPush(p)) dirty.set("@pack:" + p, now);
       for (const k of allSyncedKeys()) if (STRATEGY[k] === "pncounter" && safeGet(k)) { pnMerge(k, pnCloudRaw(k, data)); if (!dirty.has(k)) dirty.set(k, now); }
@@ -1005,6 +1005,7 @@ let roundP: Promise<void> = Promise.resolve();
 let rerunForce = false, rerunNoPull = true;
 async function cycle(wantPush: boolean, opts: CycleOpts = {}): Promise<void> {
   if (!uid) return;
+  if (safeGet(OWNER_KEY) !== uid) return;   // FIX F2: no pull / push for an account that no longer owns this browser's store
   if (inFlight) {
     // a request that arrives while a round runs is not dropped: it runs as ONE more round right after (a flush must still push what changed during the round)
     rerun = true; rerunPush = rerunPush || wantPush; rerunForce = rerunForce || !!opts.force; rerunNoPull = rerunNoPull && !!opts.noPull;
@@ -1101,9 +1102,16 @@ function replayStash(u: string): Array<[string, number]> {
   if (!st) return out;
   const meta = readMeta();
   for (const [k, e] of Object.entries(st.keys)) {
-    if (e.raw === null) continue;
+    if (e.raw === null) {   // FIX F6b: a deletion of a key that is meant to be deletable that never reached the cloud is pushed now (the next pull would otherwise bring the old value back)
+      if (TOMBSTONE_OK.has(k) && safeGet(k) === null) out.push([k, e.ts]);
+      continue;
+    }
     if (!(isSyncedKey(k, true) || packOf(k))) continue;
     const here = safeGet(k);
+    if (packOf(k) && here !== null) {   // FIX F6a: per-song numbers are a max: the member's offline best is kept when the guest played the same song
+      if (num(e.raw) > num(here)) { safeSet(k, String(num(e.raw))); out.push([k, e.ts]); }
+      continue;
+    }
     if (here !== null) {
       /* the device already holds the key (the guest that followed wrote it since the sign-out): a strategy that is a true join keeps BOTH sides, so a change that never reached the cloud is not lost;
          every other strategy keeps what is here (the normal pull decides it against the cloud row) */
@@ -1143,7 +1151,7 @@ function stashChat(u: string) {
   try {
     for (let i = 0; i < localStorage.length; i++) {
       const k = localStorage.key(i);
-      if (k && (k === "tg_chat_idx" || k === "tg_chat_history" || SERVER_PREFIX.some((p) => k.startsWith(p)))) { const v = safeGet(k); if (v !== null) { keys[k] = v; bytes += v.length; } }
+      if (k && (k === "tg_chat_idx" || k === "tg_chat_history" || k === PN_KEY /* FIX F3: the soft-currency ledger and device id travel with the stash */ || SERVER_PREFIX.some((p) => k.startsWith(p)))) { const v = safeGet(k); if (v !== null) { keys[k] = v; bytes += v.length; } }
     }
   } catch (e) {}
   if (!Object.keys(keys).length || bytes > CHAT_STASH_MAX_BYTES) return;
@@ -1182,10 +1190,12 @@ function pruneChatStashes() {
 // the changes of the account that is running now, kept before a switch or a sign-out resets the module
 function stashRunning() {
   if (!uid) return;
+  if (safeGet(OWNER_KEY) !== uid) return;   // FIX F1: the store is not this account's any more (another tab signed out / signed in as someone else): what is in it is not this account's to stash, and the tab that took the browser over stashed what the account held
   poll();
   stashDirty(uid, [...dirty.entries()]);
-  stashedUid = uid;
+  stashedUid = uid; stoppedRaw = new Map(lastRaw);
 }
+let stoppedRaw = new Map<string, string>();   // FIX H3: the raw strings as they were when the sync stopped, so a Sign out can find what the member changed while the log-out request was still on its way
 let stashedUid: string | null = null;   // the account whose changes stopCloudSync stashed in this page (after a reload nothing is in memory, so then everything it holds is kept)
 export function startCloudSync(userId: string) {
   if (!userId) return;
@@ -1231,6 +1241,7 @@ export function wipeAfterSignOut() {
   const owner = safeGet(OWNER_KEY);
   if (!owner) return;
   if (stashedUid !== owner) stashDirty(owner, allSyncedKeys().map((k) => [packOf(k) ? "@pack:" + packOf(k) : k, Date.now()] as [string, number]));
+  else { const ch: Array<[string, number]> = []; for (const k of allSyncedKeys()) if ((safeGet(k) || "") !== (stoppedRaw.get(k) || "")) ch.push([packOf(k) ? "@pack:" + packOf(k) : k, Date.now()]); if (ch.length) stashDirty(owner, ch); }
   stashChat(owner);   // the chat threads are not synced keys: they are kept whole in a stash of their own (see stashChat)
   wipeSyncedLocal();
   safeRemove(OWNER_KEY);
@@ -1255,7 +1266,10 @@ export function stopCloudSync() {
 /** Pushes what is dirty right now (page hide / sign-out): no pull first, nothing is delayed. */
 export function flushCloudSync(): Promise<void> {
   if (!uid) return Promise.resolve();
+  if (safeGet(OWNER_KEY) !== uid) return Promise.resolve();   // FIX F1: never push another account's store
   poll();
+  /* FIX H6: a push WITHOUT a pull replaces a join-type row with the local value; before the first pull has merged the account's rows the local value may be only a part of them (a device that was wiped at Sign out holds nothing of the member), so the stash keeps these changes instead */
+  if (dirty.size && !firstPullDone) { stashDirty(uid, [...dirty.entries()]); return Promise.resolve(); }
   if (dirty.size) { nextTryAt = 0; return cycle(true, { force: true, noPull: true }); }
   return Promise.resolve();
 }

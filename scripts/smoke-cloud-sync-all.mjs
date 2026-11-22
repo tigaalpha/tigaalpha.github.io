@@ -730,5 +730,109 @@ function scalOf(v) { return v && typeof v === "object" && "__s" in v ? v.__s : v
   ok("two tabs: a tab of account one never pushes what account two wrote into the shared browser", !s3.sentKeys((x) => x.device === "P2").has("tg_favs") && !(s3.cloud("user-one-uid", "tg_favs") || []).includes("two-private"), [...s3.sentKeys((x) => x.device === "P2")]);
 }
 
+/* ───────── 13e-13i. the third review round (2026-11-22) of the explicit Sign out: each block is a failure the reviewer reproduced with the real module (they fail on the code before the fixes) ───────── */
+{
+  // 13e. BLOCKER: a device wiped at Sign out holds only a PART of the account until the first pull has succeeded; a push without a pull (a page hide, the Sign out itself) would replace the full cloud row with that part
+  const U = "user-aaaaaaaa-a";
+  const { server, devs: [A] } = await rig(1);
+  await signIn(A, U);
+  A.set("tg_path_done", ["s1", "s2", "s3", "s4"]); A.set("tg_owned", ["skin1", "frame2"]); A.set("tg_arena_best", "40");
+  await A.sync(); await A.sync();
+  A.signOut(); A.mod.wipeAfterSignOut();
+  server.down = true;   // the next session: the sync call fails (a flaky network) while the log-in itself worked
+  A.signIn(U); await tick(10);
+  A.set("tg_path_done", ["s5"]); A.set("tg_owned", ["new-skin"]); A.set("tg_arena_best", "3");
+  await A.tick();
+  server.down = false;   // the network is back for a moment and the member taps Sign out: stopCloudSync flushes
+  A.signOut(); await tick(10); A.mod.wipeAfterSignOut();
+  ok("first pull failed, then Sign out: the cloud rows of earlier sessions are NOT replaced by the partial local value", ["s1", "s2", "s3", "s4"].every((x) => (server.cloud(U, "tg_path_done") || []).includes(x)) && (server.cloud(U, "tg_owned") || []).includes("skin1"), { pd: server.cloud(U, "tg_path_done"), owned: server.cloud(U, "tg_owned") });
+  await signIn(A, U); await A.sync(); await A.sync();
+  const pd = A.json("tg_path_done") || [];
+  ok("...and the next sign-in has the old stages AND the new one, the owned items and the better arena best", ["s1", "s2", "s3", "s4", "s5"].every((x) => pd.includes(x)) && (A.json("tg_owned") || []).includes("skin1") && (A.json("tg_owned") || []).includes("new-skin") && Number(A.get("tg_arena_best")) >= 40, A.snapshot());
+}
+{
+  // 13f. a late (frozen) tab of account A stops after B has taken the shared browser: it must not stash B's values under A, flush them, or pull for A into B's store
+  for (const flow of ["SIGNED_OUT after B signed in", "SIGNED_IN(B) arrives and starts B's sync"]) {
+    const { server, devs: [T1] } = await rig(1);
+    await signIn(T1, "user-aaaaaaaa-a");
+    T1.set("tg_goal", { title: "A goal", date: "2026-12-25" }); await T1.sync();
+    const T2 = await makeDevice("T2", server, CLOCK, T1.ls);
+    await signIn(T2, "user-aaaaaaaa-a");
+    server.down = true;
+    T2.set("tg_path_done", ["a-stage-unflushed"]); T2.set("tg_goal", { title: "A goal v2 (unflushed)", date: "2026-12-26" });
+    await T2.tick();
+    T1.signOut(); T1.mod.wipeAfterSignOut();
+    T1.signIn("user-bbbbbbbb-b"); await tick();
+    T1.set("tg_goal", { title: "B PRIVATE goal", date: "2027-01-01" }); T1.set("tg_path_done", ["b-private-stage"]); T1.set("tg_kid", "B-child-name");
+    if (flow.startsWith("SIGNED_OUT")) { T2.mod.stopCloudSync(); T2.uid = null; } else T2.signIn("user-bbbbbbbb-b");
+    await tick();
+    const sk = Object.keys(T1.snapshot()).find((k) => k.startsWith("tg_sync_stash_user-aaa") && !k.startsWith("tg_sync_stash_chat_")), st = sk ? JSON.parse(T1.get(sk)) : null;
+    ok(`late tab (${flow}): A's stash holds none of B's private values`, !!st && !Object.values(st.keys).some((e) => e.raw && /B PRIVATE|b-private-stage|B-child-name/.test(e.raw)), st && st.keys);
+    ok(`late tab (${flow}): ...and still holds A's own unflushed values`, !!st && !!st.keys.tg_goal && /v2 \(unflushed\)/.test(st.keys.tg_goal.raw) && !!st.keys.tg_path_done && /a-stage-unflushed/.test(st.keys.tg_path_done.raw), st && st.keys);
+    server.down = false;
+    T1.signOut(); T1.mod.wipeAfterSignOut();
+    await signIn(T1, "user-aaaaaaaa-a"); await T1.sync(); await T1.sync();
+    const cg = server.cloud("user-aaaaaaaa-a", "tg_goal"), cp = server.cloud("user-aaaaaaaa-a", "tg_path_done"), ck = server.cloud("user-aaaaaaaa-a", "tg_kid");
+    ok(`late tab (${flow}): B's data never reaches A's cloud rows`, !/B PRIVATE/.test(JSON.stringify(cg)) && !(cp || []).includes("b-private-stage") && !/B-child/.test(JSON.stringify(ck)), { cg, cp, ck });
+  }
+}
+{
+  // 13g. the soft-currency ledger (tg_sync_pn: this device's id and its earned / spent slots) goes with the account's stash: an OFFLINE SPEND must not be refunded by a Sign out + Sign in, and a cycle must not add a device slot
+  const U = "user-aaaaaaaa-a";
+  const { server, devs: [A] } = await rig(1);
+  await signIn(A, U); A.set("tg_adv_crystals", "100"); await A.sync(); await A.sync();
+  server.down = true; A.set("tg_adv_crystals", "70"); await A.tick();
+  A.signOut(); A.mod.wipeAfterSignOut();
+  server.down = false;
+  await signIn(A, U); await A.sync(); await A.sync();
+  ok("an offline spend (100 -> 70) is still 70 after Sign out + Sign in", A.get("tg_adv_crystals") === "70", A.get("tg_adv_crystals"));
+  const { devs: [B] } = await rig(1);
+  await signIn(B, U); B.set("tg_adv_crystals", "100"); await B.sync(); await B.sync();
+  B.set("tg_adv_crystals", "70"); await B.tick(); await B.sync();
+  B.signOut(); B.mod.wipeAfterSignOut();
+  await signIn(B, U); await B.sync(); await B.sync();
+  ok("online control: 70 after Sign out + Sign in", B.get("tg_adv_crystals") === "70", B.get("tg_adv_crystals"));
+}
+{
+  // 13h. what the member changes while the log-out request is still on its way (stopCloudSync has run, wipeAfterSignOut runs after the await) is stashed too
+  const U = "user-aaaaaaaa-a";
+  const { server, devs: [A] } = await rig(1);
+  await signIn(A, U); A.set("tg_path_done", ["old"]); await A.sync();
+  server.down = true;
+  A.mod.stopCloudSync();
+  A.set("tg_path_done", ["old", "finished-while-signing-out"]); A.set("tg_best_song1", "900");
+  A.mod.wipeAfterSignOut();
+  server.down = false;
+  await signIn(A, U); await A.sync();
+  ok("a stage finished and a best score earned in the sign-out window are not lost", (A.json("tg_path_done") || []).includes("finished-while-signing-out") && A.get("tg_best_song1") === "900", A.snapshot());
+}
+{
+  // 13i. stash replay: per-song bests are a max (the offline best survives the guest's lower score), an offline deletion of a deletable key is pushed, a plain max key keeps the higher side
+  const U = "user-aaaaaaaa-a";
+  const { server, devs: [A] } = await rig(1);
+  await signIn(A, U); A.set("tg_best_twinkle", "800"); A.set("tg_stars_twinkle", "2"); await A.sync();
+  server.down = true; A.set("tg_best_twinkle", "900"); A.set("tg_stars_twinkle", "3");
+  A.signOut(); A.mod.wipeAfterSignOut();
+  A.set("tg_best_twinkle", "300"); A.set("tg_stars_twinkle", "1"); server.down = false;
+  await signIn(A, U); await A.sync(); await A.sync();
+  ok("packs: the member's offline personal best (900) survives a guest's lower score of the same song", A.get("tg_best_twinkle") === "900" && (server.cloud(U, "tg_pk_best") || {}).twinkle === 900, { best: A.get("tg_best_twinkle"), cloud: server.cloud(U, "tg_pk_best") });
+  const { server: s2, devs: [G] } = await rig(1);
+  await signIn(G, U); G.set("tg_goal", { title: "exam", date: "2026-12-25" }); await G.sync(); await G.sync();
+  s2.down = true; G.del("tg_goal"); G.signOut(); G.mod.wipeAfterSignOut(); s2.down = false;
+  await signIn(G, U); await G.sync(); await G.sync();
+  ok("tombstone: an offline deletion of tg_goal survives Sign out + Sign in", G.get("tg_goal") === null, G.get("tg_goal"));
+  const { server: s3, devs: [M] } = await rig(1);
+  await signIn(M, U); M.set("tg_arena_best", "5"); await M.sync();
+  s3.down = true; M.set("tg_arena_best", "9"); M.signOut(); M.mod.wipeAfterSignOut(); M.set("tg_arena_best", "3"); s3.down = false;
+  await signIn(M, U); await M.sync(); await M.sync();
+  ok("max: 9 (offline) against the guest's 3 -> 9 here and in the cloud", M.get("tg_arena_best") === "9" && String(s3.cloud(U, "tg_arena_best")) === "9", { local: M.get("tg_arena_best"), cloud: s3.cloud(U, "tg_arena_best") });
+  // a key written offline in an earlier page load that closed before the push, with no cloud row yet, reaches the cloud at the first pull of the next session (it used to stay local-only and a Sign out deleted it)
+  const { server: s4, devs: [L] } = await rig(1);
+  await signIn(L, U); L.set("tg_path_done", ["x"]); await L.sync();
+  s4.down = true; L.set("tg_owned", ["skin-offline"]); L.mod.stopCloudSync(); L.uid = null; s4.down = false;   // the page closes before the push
+  await signIn(L, U); await L.sync(); await L.sync();
+  ok("a key that never reached the cloud (written offline, the page closed) is pushed at the next session's first pull", (s4.cloud(U, "tg_owned") || []).includes("skin-offline"), s4.cloud(U, "tg_owned"));
+}
+
 console.log(`\n${passes} passed, ${fails} failed`);
 process.exit(fails ? 1 : 0);
