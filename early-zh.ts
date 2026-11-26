@@ -4,6 +4,10 @@
    on a literal that has no line here); a gap shows the English, never Thai. Wording follows the web sign-in card (WALL_T.zh): 登录 注册 邮箱 密码 隐私政策. [[ ]] marks the words that become the
    privacy-policy link, {0} is the policy version date. */
 const EARLY_ZH: Record<string, string> = {
+  "Open this page in your browser": "在浏览器中打开此页面",
+  "Tap the ⋯ (three dots) menu of this app — often at the top right or at the bottom.": "点击此应用的 ⋯（三个点）菜单，通常在右上角或底部。",
+  "Choose “Open in browser” or “Open in Safari”.": "选择“在浏览器中打开”或“在 Safari 中打开”。",
+  "The link is already copied — you can also open your browser and paste it.": "链接已复制 — 也可以打开浏览器后粘贴。",
   "Open your email and tap the link to keep learning. No password to set.": "打开邮箱，点击链接即可继续学习，无需设置密码。",
   "Send again": "重新发送",
   "Can't find it? Check your Spam or Promotions folder.": "没收到？请查看垃圾邮件或“促销”文件夹。",

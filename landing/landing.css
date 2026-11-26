@@ -556,3 +556,10 @@ html[dir="rtl"] .lp-caret { margin-left: 0; margin-right: 1px; }
 html[dir="rtl"] .lp-chips { padding: 4px 30px 0 0; }
 html[dir="rtl"] .lp-chiphint { padding: 2px 36px 0 0; }
 html[dir="rtl"] .lp-replay { margin-left: 0; margin-right: 36px; }
+
+/* ── the iOS "open in your browser" guide (Step 2.1) ──
+   A small sheet at the bottom of the screen, closable, never over the e-mail form: x-safari-https:// is refused without an error inside some apps, so after 1.2 s of nothing the visitor gets three plain steps. */
+.lp-escguide { position: fixed; inset-inline: 12px; bottom: 12px; z-index: 70; padding: 12px 14px; padding-inline-end: 40px; border-radius: 14px; background: var(--card); border: 1px solid var(--acc); box-shadow: var(--shadow); font-size: 13px; line-height: 1.45; color: var(--text); }
+.lp-escguide-t { font-weight: 700; margin-bottom: 4px; }
+.lp-escguide ol { margin: 0; padding-inline-start: 18px; }
+.lp-escguide-x { position: absolute; top: 2px; inset-inline-end: 2px; width: 36px; height: 36px; border: 0; background: none; color: inherit; font-size: 22px; line-height: 1; cursor: pointer; opacity: .7; }

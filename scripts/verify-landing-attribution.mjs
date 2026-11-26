@@ -237,6 +237,48 @@ for (const [lg, path0, w, h] of [["th", "/landing/", 390, 844], ["en", "/landing
   await ctx.close();
 }
 
+/* Step 2.1 (owner 2026-11-26): the way out of an in-app browser on the landing, per platform */
+const FB_IOS_UA = "Mozilla/5.0 (iPhone; CPU iPhone OS 17_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 [FBAN/FBIOS;FBAV/430.0.0.30.113;FBBV/500;FBDV/iPhone14,2;FBMD/iPhone;FBSN/iOS;FBSV/17.1;FBLC/th_TH]";
+const LINE_AND_UA = "Mozilla/5.0 (Linux; Android 13; Pixel 7 Build/TQ3A.230901.001; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/120.0.6099.43 Mobile Safari/537.36 Line/13.9.0/IAB";
+{
+  // iOS webview: the link is copied, x-safari-https:// is tried, and when the page does not leave the three-step guide appears (closable); e-mail sign-up stays available
+  const { ctx, p, events, errs } = await newPage(FB_IOS_UA, true);
+  await p.goto(BASE + "/landing/?utm_source=fb", { waitUntil: "load" });
+  await p.waitForTimeout(1200);
+  await p.click(".lp-openbtn"); await p.waitForSelector("[data-escape-guide]", { timeout: 4000 }).catch(() => {});   // (the first tap anywhere also starts the page's teaser riff; its gate comes later, so the guide is checked and closed at once)
+  const shown = await p.evaluate(() => { const g = document.querySelector("[data-escape-guide]"); return !!g && g.getBoundingClientRect().height > 0 && g.querySelectorAll("li").length === 3; });
+  await p.dispatchEvent(".lp-escguide-x", "click"); await p.waitForTimeout(400);   // a DOM click: the pinned full Chromium shows its own "open an external app?" prompt for the x-safari-https:// jump (an iPhone does not) and that prompt swallows pointer clicks; a real pointer click closes it in Playwright's default headless shell (checked by hand)
+  ok(shown, "iOS webview: the jump to Safari did not leave the page, so the three-step guide is shown");
+  ok(!(await p.$("[data-escape-guide]")), "the guide closes with its cross");
+  const copied = await p.evaluate(() => navigator.clipboard.readText().catch(() => "")).catch(() => "");
+  ok(/[?&]hid=|[?&]hsrc=|[?&]hvia=|[?&]hat=/.test(copied) && /\/landing\//.test(copied), "iOS webview: the link (with the hand-over fields) was copied first", copied.slice(0, 120));
+  ok(items(events, "land").includes("openreal-top") && items(events, "land").includes("escape:ios-safari") && items(events, "land").includes("escape:ios-guide"), "iOS webview: openreal-top, escape:ios-safari and escape:ios-guide are logged", items(events, "land").join(","));
+  ok(errs.length === 0, "iOS webview escape: no page errors", errs.join("|"));
+  await ctx.close();
+}
+{
+  // LINE: the button reloads the same address with openExternalBrowser=1 (LINE opens the phone's browser); inside LINE the flag stays
+  const { ctx, p, events, errs } = await newPage(LINE_AND_UA);
+  await p.goto(BASE + "/landing/?utm_source=line", { waitUntil: "load" });
+  await p.waitForTimeout(1200);
+  await Promise.all([p.waitForURL(/openExternalBrowser=1/, { timeout: 8000 }).catch(() => {}), p.click(".lp-openbtn")]);
+  await p.waitForTimeout(800);
+  const u = new URL(p.url());
+  ok(u.searchParams.get("openExternalBrowser") === "1" && u.searchParams.get("utm_source") === "line", "LINE: the same address + openExternalBrowser=1, the campaign kept", p.url());
+  ok(!(await p.$("[data-escape-guide]")), "LINE: no iOS guide");
+  ok(errs.length === 0, "LINE escape: no page errors", errs.join("|"));
+  await ctx.close();
+}
+{
+  // a real browser that arrived through LINE's flag: it is taken out of the address bar, the rest stays
+  const { ctx, p, errs } = await newPage(CHROME_UA);
+  await p.goto(BASE + "/landing/?openExternalBrowser=1&utm_source=line", { waitUntil: "load" });
+  await p.waitForTimeout(1200);
+  ok(!/openExternalBrowser/.test(p.url()) && /utm_source=line/.test(p.url()), "a normal browser: openExternalBrowser is removed from the address bar, utm_source stays", p.url());
+  ok(errs.length === 0, "flag clean-up: no page errors", errs.join("|"));
+  await ctx.close();
+}
+
 await b.close(); server.close();
 console.log(fail ? `\n${fail} FAILED` : "\nall passed");
 process.exit(fail ? 1 : 0);

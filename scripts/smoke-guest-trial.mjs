@@ -569,6 +569,25 @@ for (const [name, ua, want] of [["Facebook (FBAN/FBIOS)", FB_UA, true], ["LINE (
   await ctx.close();
 }
 
+// Step 2.1: the app's way out of an iOS webview: the link is copied, x-safari-https:// is tried, and when the page does not leave the three-step guide (closable) appears; the e-mail sign-up stays reachable
+{
+  const FB_IOS = "Mozilla/5.0 (iPhone; CPU iPhone OS 17_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 [FBAN/FBIOS;FBAV/430.0.0.30.113;FBBV/500;FBLC/th_TH]";
+  const { ctx, page, errors } = await visitor({ ua: FB_IOS, w: 390, h: 844 });
+  const rows = [];
+  await page.route(/rest\/v1\/usage_events/, (r) => { try { rows.push(JSON.parse(r.request().postData() || "{}")); } catch (e) {} r.fulfill({ status: 201, body: "" }); });
+  await boot(page);
+  await page.click("[data-inapp-open]"); await page.waitForSelector("[data-escape-guide]", { timeout: 5000 }).catch(() => {});
+  ok(await has(page, "[data-escape-guide]") && (await page.locator("[data-escape-guide] li").count()) === 3, "iOS webview: 'Open in browser' that does not leave the page raises the three-step guide");
+  ok(rows.some((r) => r.kind === "land" && r.item_id === "escape:ios-safari") && rows.some((r) => r.kind === "land" && r.item_id === "escape:ios-guide"), "iOS webview: escape:ios-safari and escape:ios-guide are logged (kind land, like escape:arrived)");
+  // DOM clicks from here on: the pinned full Chromium shows its own "open an external app?" prompt for the x-safari-https:// jump (an iPhone does not), and that prompt swallows pointer clicks; the default headless shell does not
+  await page.dispatchEvent("[data-escape-guide] .egd-x", "click"); await page.waitForTimeout(300);
+  ok(!(await has(page, "[data-escape-guide]")), "the guide closes with its cross");
+  await page.dispatchEvent("[data-guest-hero-trial]", "click"); await page.waitForTimeout(500);
+  ok(await has(page, ".setov [data-magic-email]") && await has(page, ".setov .au-escb"), "the log-in card in the webview still offers the e-mail link (and 'Open in browser'): staying and signing up by e-mail is always possible");
+  ok(errors.length === 0, "iOS webview escape (app): no page errors" + (errors.length ? ": " + errors[0] : ""));
+  await ctx.close();
+}
+
 // Exam Prep: a task pays its 5 coins once ever, also for a tick made before the rule existed (stored with no paid list)
 {
   const { ctx, page, errors } = await visitor({ lang: "en", seed: { tg_edu_seen: '{"firstCoins":1,"chest":1,"pet":1,"shop":1,"rich":1,"shopIntro":1}' } });   // the first-coins tip is a real pop-up that comes after the first payout: marked seen so it does not sit on top of the next tap

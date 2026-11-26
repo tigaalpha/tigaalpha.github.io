@@ -234,47 +234,115 @@ export function friendlyAuthError(msg, lang = "") {
    work. Email sign-up works perfectly in a WebView and becomes the primary
    path, with a one-tap escape to a real browser for anyone who prefers
    Google. */
+// <inapp-escape:begin> — the SAME text lives in app-shell.tsx and landing/landing-utils.tsx (the landing bundle may not import the app); scripts/verify-inapp-escape.mjs compares the two between these markers. Change one, change both.
 function isNativeShell() {
   try { return !!(window as any).Capacitor && (window as any).Capacitor.isNativePlatform && (window as any).Capacitor.isNativePlatform(); }
   catch (e) { return false; }
 }
-export function inAppBrowser() {
-  if (typeof navigator === "undefined") return false;
-  // our own native build has a WORKING OAuth path (native-auth.ts) — it must
-  // not be told to go and find a different browser
-  if (isNativeShell()) return false;
-  const ua = navigator.userAgent || "";
-  if (/FBAN|FBAV|FB_IAB|FBIOS|Instagram|Messenger|Line\/|LIFF|TikTok|musical_ly|BytedanceWebview|MicroMessenger|KAKAOTALK|Snapchat|Pinterest|Twitter/i.test(ua)) return true;
-  // Android WebViews (YouTube's link handler among them) carry the "; wv)" token
-  if (/Android/i.test(ua) && /;\s*wv\)/i.test(ua)) return true;
-  // iOS WKWebView inside another app: Safari-like UA with no "Safari/" token
-  if (/iPhone|iPad|iPod/i.test(ua) && /AppleWebKit/i.test(ua) && !/Safari\//i.test(ua) && !/CriOS|FxiOS|EdgiOS/i.test(ua)) return true;
-  return false;
+/* Which in-app browser the visitor is in: "line" | "facebook" | "instagram" | "tiktok" | "other-webview", or "" for a real browser. The pure form takes the user agent (the test feeds it sample ones).
+   The three conditions are the ones inAppBrowser() always used: a known app token, an Android WebView ("; wv)"), an iOS WKWebView (WebKit without "Safari/" and not Chrome / Firefox / Edge). */
+export function inAppKindOf(ua: string): string {
+  if (/FBAN|FBAV|FB_IAB|FBIOS|Instagram|Messenger|Line\/|LIFF|TikTok|musical_ly|BytedanceWebview|MicroMessenger|KAKAOTALK|Snapchat|Pinterest|Twitter/i.test(ua)) {
+    if (/Line\/|LIFF/i.test(ua)) return "line";
+    if (/Instagram/i.test(ua)) return "instagram";
+    if (/TikTok|musical_ly|BytedanceWebview/i.test(ua)) return "tiktok";
+    if (/FBAN|FBAV|FB_IAB|FBIOS|Messenger/i.test(ua)) return "facebook";
+    return "other-webview";
+  }
+  if (/Android/i.test(ua) && /;\s*wv\)/i.test(ua)) return "other-webview";
+  if (/iPhone|iPad|iPod/i.test(ua) && /AppleWebKit/i.test(ua) && !/Safari\//i.test(ua) && !/CriOS|FxiOS|EdgiOS/i.test(ua)) return "other-webview";
+  return "";
+}
+export function inAppKind(): string {
+  if (typeof navigator === "undefined") return "";
+  if (isNativeShell()) return "";   // our own native build has a WORKING OAuth path (native-auth.ts): it must not be told to go and find a different browser
+  return inAppKindOf(navigator.userAgent || "");
+}
+export function inAppBrowser(): boolean { return inAppKind() !== ""; }
+
+/* LINE opens the page in the phone's own browser when the link carries openExternalBrowser=1 (LINE's documented switch). Added once, in front of any #fragment; a link that has it is returned as it was.
+   Also for the links shared TO LINE (shareLine in App.tsx). */
+export function withExternalBrowserFlag(url: string): string {
+  if (/[?&]openExternalBrowser=/.test(url)) return url;
+  const h = url.indexOf("#");
+  const base = h < 0 ? url : url.slice(0, h), frag = h < 0 ? "" : url.slice(h);
+  return base + (base.indexOf("?") < 0 ? "?" : "&") + "openExternalBrowser=1" + frag;
+}
+/* In a real browser the flag has done its job: take it out of the address bar (replaceState, no reload, the other parameters stay). Never inside an in-app browser: there it is still needed. */
+export function stripExternalBrowserFlag() {
+  try {
+    if (inAppBrowser()) return;
+    const q0 = window.location.search;
+    if (!/[?&]openExternalBrowser=/.test(q0)) return;
+    const q = q0.replace(/([?&])openExternalBrowser=[^&#]*&?/, "$1").replace(/[?&]$/, "");
+    window.history.replaceState(window.history.state, "", window.location.pathname + q + window.location.hash);
+  } catch (e) {}
 }
 
-/* Best-effort jump out of the in-app WebView into the phone's real browser.
-   Android takes an intent: URL that names Chrome directly. iOS has no such
-   thing — googlechrome:// only works if Chrome is installed and silently does
-   nothing otherwise — so the caller always keeps the copy-link fallback
-   visible rather than relying on this having worked. */
-export function openInRealBrowser() {
-  // handoffUrl() adds the anon id / original source / browser kind, so the real
-  // browser on the other side continues the same visitor (local-identity.ts).
-  const url = handoffUrl(window.location.href);
-  const ua = navigator.userAgent || "";
+/* The address that leaves the in-app browser carries the visitor's anon id, original source and browser kind (local-identity.handoffUrl) so the page that opens on the other side can pick the same
+   person up instead of meeting a stranger. escapeUrl() is exported because the copy-link fallback must copy THE SAME address: a link pasted into Safari has to stitch just like the jump. */
+export function escapeUrl() { return handoffUrl(window.location.href); }
+/* Android: an intent: URL with NO package named, so Android picks the phone's own browser; S.browser_fallback_url is where it goes when no app can take the intent. (A #fragment cannot ride in an intent: URL and is dropped.) */
+export function androidIntentUrl(url: string): string {
+  const scheme = /^http:/i.test(url) ? "http" : "https";
+  const rest = url.replace(/^https?:\/\//i, "").replace(/#.*$/, "");
+  return "intent://" + rest + "#Intent;scheme=" + scheme + ";S.browser_fallback_url=" + encodeURIComponent(url) + ";end";
+}
+/* iOS: Safari opens x-safari-https://... from inside most app webviews; where it does not, nothing happens and the caller shows the three-step guide (waitForPageLeave). */
+export function iosSafariUrl(url: string): string { return url.replace(/^https:\/\//i, "x-safari-https://").replace(/^http:\/\//i, "x-safari-http://"); }
+/* What the "open in browser" button does for this user agent: { method, target }. method is the event name's tail (escape:<method>): line-flag | android-intent | ios-safari | window. Pure, so it can be tested. */
+export function escapePlan(url: string, ua: string): { method: string; target: string } {
+  if (inAppKindOf(ua) === "line") return { method: "line-flag", target: withExternalBrowserFlag(url) };
+  if (/Android/i.test(ua)) return { method: "android-intent", target: androidIntentUrl(url) };
+  if (/iPhone|iPad|iPod/i.test(ua)) return { method: "ios-safari", target: iosSafariUrl(url) };
+  return { method: "window", target: url };
+}
+/* Best-effort jump out of the in-app WebView. The link is put on the clipboard FIRST (a jump that wins the race, or one the app refuses, must never leave somebody with no link and no way out); then the page
+   navigates to the plan's target. Returns the method used ("" when it threw) so the caller can log it and, on iOS, wait to see whether the page really left. */
+export function openInRealBrowser(): string {
+  const url = escapeUrl();
+  const plan = escapePlan(url, navigator.userAgent || "");
+  try { if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(url).catch(() => {}); } catch (e) {}
   try {
-    if (/Android/i.test(ua)) {
-      window.location.href = "intent://" + url.replace(/^https?:\/\//, "") +
-        "#Intent;scheme=https;package=com.android.chrome;end";
-      return true;
-    }
-    if (/iPhone|iPad|iPod/i.test(ua)) {
-      window.location.href = url.replace(/^https?:\/\//, "googlechrome://");
-      return true;
-    }
-    window.open(url, "_blank", "noopener");
-    return true;
-  } catch (e) { return false; }
+    if (plan.method === "window") window.open(plan.target, "_blank", "noopener");
+    else window.location.href = plan.target;
+  } catch (e) { return ""; }
+  return plan.method;
+}
+/* Resolves true when the page is STILL here after `ms` (the jump did not happen: no pagehide, never hidden), false when it left. iOS gives no error for a refused x-safari-https:// link, so this is the only sign. */
+export function waitForPageLeave(ms = 1200): Promise<boolean> {
+  return new Promise((resolve) => {
+    let left = false;
+    const onVis = () => { if (document.visibilityState === "hidden") left = true; };
+    const onHide = () => { left = true; };
+    document.addEventListener("visibilitychange", onVis);
+    window.addEventListener("pagehide", onHide);
+    setTimeout(() => { document.removeEventListener("visibilitychange", onVis); window.removeEventListener("pagehide", onHide); resolve(!left); }, ms);
+  });
+}
+// <inapp-escape:end>
+
+/* The app's "open in browser": one place that jumps, logs which way it went (kind "land", item escape:<method>, next to escape:arrived, so campaign-funnel.ts counts it as an escape tap) and, on iOS, when
+   the page did not leave within 1.2 s, asks the caller to show the three-step guide (escape:ios-guide). The e-mail form on every card stays usable: nothing here blocks anything. */
+export function escapeNow(onGuide?: () => void): string {
+  const how = openInRealBrowser();
+  if (how && how !== "window") { try { logUsage("land", "escape:" + how); } catch (e) {} }
+  if (how === "ios-safari" && onGuide) waitForPageLeave().then((still) => { if (still) { try { logUsage("land", "escape:ios-guide"); } catch (e) {} onGuide(); } });
+  return how;
+}
+/* A small, closable sheet at the bottom of the screen (never over the form's way out): where the menu of each app sits differs, so it says "the menu (three dots)" and does not promise a place. */
+export function EscapeGuide({ lg, onClose }: { lg: string; onClose: () => void }) {
+  return (
+    <div className="egd" data-escape-guide role="group" aria-label={solo(lg, "เปิดหน้านี้ในเบราว์เซอร์", xl(lg, "Open this page in your browser"))}>
+      <button type="button" className="egd-x" aria-label={solo(lg, "ปิด", xl(lg, "Close"))} onClick={onClose}>×</button>
+      <div className="egd-t">{solo(lg, "เปิดหน้านี้ในเบราว์เซอร์", xl(lg, "Open this page in your browser"))}</div>
+      <ol className="egd-o">
+        <li>{solo(lg, "แตะเมนู ⋯ (สามจุด) ของแอปนี้ ซึ่งมักอยู่มุมขวาบนหรือด้านล่าง", xl(lg, "Tap the ⋯ (three dots) menu of this app — often at the top right or at the bottom."))}</li>
+        <li>{solo(lg, "เลือก “เปิดในเบราว์เซอร์” หรือ “Open in Safari”", xl(lg, "Choose “Open in browser” or “Open in Safari”."))}</li>
+        <li>{solo(lg, "ลิงก์ถูกคัดลอกไว้แล้ว — หรือเปิดเบราว์เซอร์แล้ววางลิงก์ได้เลย", xl(lg, "The link is already copied — you can also open your browser and paste it."))}</li>
+      </ol>
+    </div>
+  );
 }
 
 /* The privacy notice this sign-up form asks people to agree to. Bump it
@@ -315,6 +383,7 @@ function LoginOptions({ profile, onGoogleLogin, lg, noHead = false, onMode = nul
   const setMode = (m: string) => { setModeState(m); setUsePw(false); if (onMode) onMode(m); };
   const [usePw, setUsePw] = useState(false);   // the e-mail LINK (one field) is the way in; the long password form opens only from the small link under it (owner 2026-11-26)
   const [copied, setCopied] = useState(false);
+  const [guide, setGuide] = useState(false);   // the iOS three-step guide, raised when the jump to Safari did not leave the page
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -447,8 +516,9 @@ function LoginOptions({ profile, onGoogleLogin, lg, noHead = false, onMode = nul
               </>
             )}
           </div>
+          {guide && <EscapeGuide lg={lg} onClose={() => setGuide(false)} />}
           <div className="au-esc">
-            <button className="au-escb" onClick={() => openInRealBrowser()}>{solo(lg, "🌐 เปิดในเบราว์เซอร์", "🌐 " + xl(lg, "Open in browser"))}</button>
+            <button className="au-escb" onClick={() => escapeNow(() => setGuide(true))}>{solo(lg, "🌐 เปิดในเบราว์เซอร์", "🌐 " + xl(lg, "Open in browser"))}</button>
             <button className="au-escb" onClick={copyLink}>{copied ? solo(lg, "✓ คัดลอกแล้ว", "✓ " + xl(lg, "Copied!")) : solo(lg, "🔗 คัดลอกลิงก์", "🔗 " + xl(lg, "Copy link"))}</button>
           </div>
         </>
@@ -764,6 +834,7 @@ const WALL_T: Record<string, Record<string, string>> = {
 };
 function LoginWall({ profile, onGoogleLogin, onClose = null }) {
   const [inApp] = useState(() => inAppBrowser());
+  const [wallGuide, setWallGuide] = useState(false);
   /* the language the learner already chose (any of the ten; the card used to honour th / en / zh only and showed English to someone who had picked Spanish); a visitor who chose none gets the browser's, as before */
   const lg = (() => { const p = profile && profile.lang; if (ALL_LANGS.includes(p)) return p; try { const n = (navigator.language || "").toLowerCase(); return n.startsWith("th") ? "th" : n.startsWith("zh") ? "zh" : "en"; } catch (e) { return "en"; } })();
   useCatalog(lg);   // an extra language's catalog is a lazy chunk: this loads it if main.tsx did not, and the card redraws when it arrives
@@ -816,7 +887,8 @@ function LoginWall({ profile, onGoogleLogin, onClose = null }) {
         </div>
         {inApp ? (
           <div style={{ background: "#fff4e5", border: "1px solid #f3d2a3", borderRadius: 10, padding: "10px 12px", fontSize: 13, marginBottom: 12 }}>
-            {t.inapp} <button type="button" onClick={() => openInRealBrowser()} style={{ marginLeft: 6, color: clay, fontWeight: 700, background: "none", border: "none", cursor: "pointer", textDecoration: "underline", fontSize: 13 }}>{t.openb}</button>
+            {wallGuide && <EscapeGuide lg={lg} onClose={() => setWallGuide(false)} />}
+            {t.inapp} <button type="button" onClick={() => escapeNow(() => setWallGuide(true))} style={{ marginLeft: 6, color: clay, fontWeight: 700, background: "none", border: "none", cursor: "pointer", textDecoration: "underline", fontSize: 13 }}>{t.openb}</button>
           </div>
         ) : (
           <button type="button" data-wall-google onClick={() => { saveGuestProfile(profile); onGoogleLogin(); }}
@@ -1137,7 +1209,7 @@ export function GuestGateScreen({ reason, profile, onLogin, onClose = null }) {
 
                 {gateInApp ? (
                   <button className="memberlink" style={{ width: "100%", border: "1.5px solid rgba(255,255,255,0.2)", borderRadius: 10, padding: "10px" }}
-                    onClick={() => openInRealBrowser()}>
+                    onClick={() => escapeNow()}>
                     {solo(lg, "🌐 เปิดในเบราว์เซอร์จริงเพื่อใช้ Google · Open in a real browser for Google", "🌐 " + xl(lg, "Open in a real browser for Google"))}
                   </button>
                 ) : (

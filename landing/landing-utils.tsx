@@ -137,45 +137,94 @@ export function friendlyAuthError(msg, lang = "") {
   return m || "เกิดข้อผิดพลาด ลองอีกครั้ง · Something went wrong — please try again";
 }
 
-/* ── VERBATIM from app-shell.tsx inAppBrowser (incl. its isNativeShell) ── */
+/* ── the in-app browser escape: VERBATIM from app-shell.tsx (the block between the markers, compared by scripts/verify-inapp-escape.mjs) ── */
+// <inapp-escape:begin> — the SAME text lives in app-shell.tsx and landing/landing-utils.tsx (the landing bundle may not import the app); scripts/verify-inapp-escape.mjs compares the two between these markers. Change one, change both.
 function isNativeShell() {
   try { return !!(window as any).Capacitor && (window as any).Capacitor.isNativePlatform && (window as any).Capacitor.isNativePlatform(); }
   catch (e) { return false; }
 }
-export function inAppBrowser() {
-  if (typeof navigator === "undefined") return false;
-  if (isNativeShell()) return false;
-  const ua = navigator.userAgent || "";
-  if (/FBAN|FBAV|FB_IAB|FBIOS|Instagram|Messenger|Line\/|LIFF|TikTok|musical_ly|BytedanceWebview|MicroMessenger|KAKAOTALK|Snapchat|Pinterest|Twitter/i.test(ua)) return true;
-  if (/Android/i.test(ua) && /;\s*wv\)/i.test(ua)) return true;
-  if (/iPhone|iPad|iPod/i.test(ua) && /AppleWebKit/i.test(ua) && !/Safari\//i.test(ua) && !/CriOS|FxiOS|EdgiOS/i.test(ua)) return true;
-  return false;
+/* Which in-app browser the visitor is in: "line" | "facebook" | "instagram" | "tiktok" | "other-webview", or "" for a real browser. The pure form takes the user agent (the test feeds it sample ones).
+   The three conditions are the ones inAppBrowser() always used: a known app token, an Android WebView ("; wv)"), an iOS WKWebView (WebKit without "Safari/" and not Chrome / Firefox / Edge). */
+export function inAppKindOf(ua: string): string {
+  if (/FBAN|FBAV|FB_IAB|FBIOS|Instagram|Messenger|Line\/|LIFF|TikTok|musical_ly|BytedanceWebview|MicroMessenger|KAKAOTALK|Snapchat|Pinterest|Twitter/i.test(ua)) {
+    if (/Line\/|LIFF/i.test(ua)) return "line";
+    if (/Instagram/i.test(ua)) return "instagram";
+    if (/TikTok|musical_ly|BytedanceWebview/i.test(ua)) return "tiktok";
+    if (/FBAN|FBAV|FB_IAB|FBIOS|Messenger/i.test(ua)) return "facebook";
+    return "other-webview";
+  }
+  if (/Android/i.test(ua) && /;\s*wv\)/i.test(ua)) return "other-webview";
+  if (/iPhone|iPad|iPod/i.test(ua) && /AppleWebKit/i.test(ua) && !/Safari\//i.test(ua) && !/CriOS|FxiOS|EdgiOS/i.test(ua)) return "other-webview";
+  return "";
+}
+export function inAppKind(): string {
+  if (typeof navigator === "undefined") return "";
+  if (isNativeShell()) return "";   // our own native build has a WORKING OAuth path (native-auth.ts): it must not be told to go and find a different browser
+  return inAppKindOf(navigator.userAgent || "");
+}
+export function inAppBrowser(): boolean { return inAppKind() !== ""; }
+
+/* LINE opens the page in the phone's own browser when the link carries openExternalBrowser=1 (LINE's documented switch). Added once, in front of any #fragment; a link that has it is returned as it was.
+   Also for the links shared TO LINE (shareLine in App.tsx). */
+export function withExternalBrowserFlag(url: string): string {
+  if (/[?&]openExternalBrowser=/.test(url)) return url;
+  const h = url.indexOf("#");
+  const base = h < 0 ? url : url.slice(0, h), frag = h < 0 ? "" : url.slice(h);
+  return base + (base.indexOf("?") < 0 ? "?" : "&") + "openExternalBrowser=1" + frag;
+}
+/* In a real browser the flag has done its job: take it out of the address bar (replaceState, no reload, the other parameters stay). Never inside an in-app browser: there it is still needed. */
+export function stripExternalBrowserFlag() {
+  try {
+    if (inAppBrowser()) return;
+    const q0 = window.location.search;
+    if (!/[?&]openExternalBrowser=/.test(q0)) return;
+    const q = q0.replace(/([?&])openExternalBrowser=[^&#]*&?/, "$1").replace(/[?&]$/, "");
+    window.history.replaceState(window.history.state, "", window.location.pathname + q + window.location.hash);
+  } catch (e) {}
 }
 
-/* ── from app-shell.tsx openInRealBrowser, plus the handoff fields ──
-   The URL that leaves the in-app browser carries the visitor's anon id, original
-   source and browser kind (local-identity.handoffUrl) so the page that opens on
-   the other side can pick the same person up instead of meeting a stranger.
-   escapeUrl() is exported because the copy-link fallback must copy THE SAME
-   address: a link pasted into Safari has to stitch just like the Chrome jump. */
+/* The address that leaves the in-app browser carries the visitor's anon id, original source and browser kind (local-identity.handoffUrl) so the page that opens on the other side can pick the same
+   person up instead of meeting a stranger. escapeUrl() is exported because the copy-link fallback must copy THE SAME address: a link pasted into Safari has to stitch just like the jump. */
 export function escapeUrl() { return handoffUrl(window.location.href); }
-export function openInRealBrowser() {
-  const url = escapeUrl();
-  const ua = navigator.userAgent || "";
-  try {
-    if (/Android/i.test(ua)) {
-      window.location.href = "intent://" + url.replace(/^https?:\/\//, "") +
-        "#Intent;scheme=https;package=com.android.chrome;end";
-      return true;
-    }
-    if (/iPhone|iPad|iPod/i.test(ua)) {
-      window.location.href = url.replace(/^https?:\/\//, "googlechrome://");
-      return true;
-    }
-    window.open(url, "_blank", "noopener");
-    return true;
-  } catch (e) { return false; }
+/* Android: an intent: URL with NO package named, so Android picks the phone's own browser; S.browser_fallback_url is where it goes when no app can take the intent. (A #fragment cannot ride in an intent: URL and is dropped.) */
+export function androidIntentUrl(url: string): string {
+  const scheme = /^http:/i.test(url) ? "http" : "https";
+  const rest = url.replace(/^https?:\/\//i, "").replace(/#.*$/, "");
+  return "intent://" + rest + "#Intent;scheme=" + scheme + ";S.browser_fallback_url=" + encodeURIComponent(url) + ";end";
 }
+/* iOS: Safari opens x-safari-https://... from inside most app webviews; where it does not, nothing happens and the caller shows the three-step guide (waitForPageLeave). */
+export function iosSafariUrl(url: string): string { return url.replace(/^https:\/\//i, "x-safari-https://").replace(/^http:\/\//i, "x-safari-http://"); }
+/* What the "open in browser" button does for this user agent: { method, target }. method is the event name's tail (escape:<method>): line-flag | android-intent | ios-safari | window. Pure, so it can be tested. */
+export function escapePlan(url: string, ua: string): { method: string; target: string } {
+  if (inAppKindOf(ua) === "line") return { method: "line-flag", target: withExternalBrowserFlag(url) };
+  if (/Android/i.test(ua)) return { method: "android-intent", target: androidIntentUrl(url) };
+  if (/iPhone|iPad|iPod/i.test(ua)) return { method: "ios-safari", target: iosSafariUrl(url) };
+  return { method: "window", target: url };
+}
+/* Best-effort jump out of the in-app WebView. The link is put on the clipboard FIRST (a jump that wins the race, or one the app refuses, must never leave somebody with no link and no way out); then the page
+   navigates to the plan's target. Returns the method used ("" when it threw) so the caller can log it and, on iOS, wait to see whether the page really left. */
+export function openInRealBrowser(): string {
+  const url = escapeUrl();
+  const plan = escapePlan(url, navigator.userAgent || "");
+  try { if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(url).catch(() => {}); } catch (e) {}
+  try {
+    if (plan.method === "window") window.open(plan.target, "_blank", "noopener");
+    else window.location.href = plan.target;
+  } catch (e) { return ""; }
+  return plan.method;
+}
+/* Resolves true when the page is STILL here after `ms` (the jump did not happen: no pagehide, never hidden), false when it left. iOS gives no error for a refused x-safari-https:// link, so this is the only sign. */
+export function waitForPageLeave(ms = 1200): Promise<boolean> {
+  return new Promise((resolve) => {
+    let left = false;
+    const onVis = () => { if (document.visibilityState === "hidden") left = true; };
+    const onHide = () => { left = true; };
+    document.addEventListener("visibilitychange", onVis);
+    window.addEventListener("pagehide", onHide);
+    setTimeout(() => { document.removeEventListener("visibilitychange", onVis); window.removeEventListener("pagehide", onHide); resolve(!left); }, ms);
+  });
+}
+// <inapp-escape:end>
 
 /* ── VERBATIM from app-shell.tsx PDPA_VERSION — keep in lockstep! ── */
 export const PDPA_VERSION = "2026-09-11";

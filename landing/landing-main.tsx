@@ -1,7 +1,7 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import LandingPage1 from "./LandingPage1";
-import { ErrorBoundary, logReadyMs } from "./landing-utils";
+import { ErrorBoundary, logReadyMs, stripExternalBrowserFlag } from "./landing-utils";
 import { adoptHandoff } from "../local-identity";
 import { logLand } from "./land-log";
 
@@ -15,6 +15,7 @@ import { logLand } from "./land-log";
    BEFORE the page renders: the first read of the anon id fixes it for good, and
    the page logs its "view" the moment it mounts. */
 const arrival = adoptHandoff();
+stripExternalBrowserFlag();   // arrived from LINE through openExternalBrowser=1: take the flag out of the address bar
 if (arrival) {
   try { logLand("land", "escape:arrived" + (arrival.adopted ? "" : "-known") + ":" + (arrival.ua || "?")); } catch (e) {}
 }

@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useCallback, Fragment } from "react";
 import { Piano, startPianoNote, releasePianoNote } from "../music-engine";
 import { logLand } from "./land-log";
 import { GUEST_PROFILE_KEY, setSkipOnboard, stampLandingOrigin, attributionEvent, handoffUrl, landingVariant } from "../local-identity";
-import { inAppBrowser, openInRealBrowser, escapeUrl, PDPA_VERSION, friendlyAuthError } from "./landing-utils";
+import { inAppBrowser, openInRealBrowser, waitForPageLeave, escapeUrl, PDPA_VERSION, friendlyAuthError } from "./landing-utils";
 import { LESSONS } from "./landing-lessons";
 import { C, LANGS, FLAGS, FLAG_NAMES, LANG_SHORT, pickLang, dirOf } from "./landing-copy";
 import { askLandingAI } from "./landing-ai";
@@ -228,6 +228,7 @@ export default function LandingPage1() {
   /* escaping an in-app browser (Facebook / LINE / TikTok / Instagram) */
   const [inApp] = useState(() => inAppBrowser());
   const [copied, setCopied] = useState(false);
+  const [escGuide, setEscGuide] = useState(false);   // the iOS three-step guide
   const escapeBrowser = () => {
     land("openreal-top");
     /* Copy BEFORE trying to leave. openInRealBrowser() navigates by assigning
@@ -244,7 +245,7 @@ export default function LandingPage1() {
     /* Best effort only. Android takes an intent: URL naming Chrome; iOS has no
        equivalent that is allowed to work, so the copied link above is the real
        fallback there rather than a nicety. */
-    openInRealBrowser();
+    escapeNow(() => setEscGuide(true));
   };
 
   /* The full-screen version of the same escape, shown inside webviews above
@@ -706,6 +707,7 @@ export default function LandingPage1() {
 
       {inApp && <p className="lp-openwhy">⚠️ {t.openWhy}</p>}
       {copied && <p className="lp-opencopied" role="status">{t.openCopied}</p>}
+      {escGuide && <EscapeGuide t={t} onClose={() => setEscGuide(false)} />}
 
       {/* A2: members get a welcome strip instead of the sales funnel — one
           quiet line, one button into the app. Everything else on this page
@@ -867,7 +869,7 @@ export default function LandingPage1() {
       </div>
 
       {signup
-        ? <div ref={signupRef}><SignupCard q={signup.q} quota={signup.quota} timeUp={signup.timeUp} focus={!!signup.focus && !escapeFull} t={t} lang={lang} /></div>
+        ? <div ref={signupRef}><SignupCard q={signup.q} quota={signup.quota} timeUp={signup.timeUp} focus={!!signup.focus && !escapeFull} onGuide={() => setEscGuide(true)} t={t} lang={lang} /></div>
         : (
           <div className="lp-proof" role="list">
             <div><b>{t.proofSongs}</b><span>{t.proof1}</span></div>
@@ -942,6 +944,25 @@ export default function LandingPage1() {
    friendly errors — because there must be exactly one way an account is made. */
 /* The language switcher: ONE button (flag, short code, caret) that opens the list of the 11 languages. A plain button + a list of buttons: no library, keyboard and screen-reader friendly
    (aria-expanded, Escape closes and hands the focus back, each option carries its own lang), and logical CSS (inset-inline-end) so the list opens toward the page and not off it in Arabic. */
+/* The landing's "open in browser": one place that jumps, logs the way it went (escape:line-flag | android-intent | ios-safari, next to escape:arrived: campaign-funnel.ts counts each as an escape tap) and, on iOS, when the
+   page did not leave within 1.2 s (x-safari-https:// is refused without an error), asks the caller to show the three-step guide (escape:ios-guide). The e-mail sign-up stays available everywhere: nothing here blocks anything. */
+function escapeNow(onGuide?: () => void): string {
+  const how = openInRealBrowser();
+  if (how && how !== "window") land("escape:" + how);
+  if (how === "ios-safari" && onGuide) waitForPageLeave().then((still) => { if (still) { land("escape:ios-guide"); onGuide(); } });
+  return how;
+}
+/* A small closable sheet at the bottom of the screen (never over the e-mail form's way out): the menu sits in a different place in every app, so it says "the menu (three dots)" and promises no position. */
+function EscapeGuide({ t, onClose }) {
+  return (
+    <div className="lp-escguide" role="group" aria-label={t.escGuideT} data-escape-guide>
+      <button type="button" className="lp-escguide-x" aria-label="×" onClick={onClose}>×</button>
+      <div className="lp-escguide-t">{t.escGuideT}</div>
+      <ol><li>{t.escGuide1}</li><li>{t.escGuide2}</li><li>{t.escGuide3}</li></ol>
+    </div>
+  );
+}
+
 function LangPicker({ lang, onPick }) {
   const [open, setOpen] = useState(false);
   const wrapRef = useRef(null);
@@ -975,7 +996,7 @@ function LangPicker({ lang, onPick }) {
   );
 }
 
-function SignupCard({ q, quota, timeUp, t, lang, focus = false }) {
+function SignupCard({ q, quota, timeUp, t, lang, focus = false, onGuide = undefined }) {
   const [inApp] = useState(() => inAppBrowser());
   /* "pick" = Google + the ONE-field e-mail link, "email" = the full name/e-mail/
      password/consent form. In-app visitors used to start on the full form — the
@@ -1168,7 +1189,7 @@ function SignupCard({ q, quota, timeUp, t, lang, focus = false }) {
             <>
               <div className="lp-or">{t.or}</div>
               <button className="lp-btn google" type="button" disabled={busy}
-                onClick={() => { land("openreal"); openInRealBrowser(); }}>
+                onClick={() => { land("openreal"); escapeNow(onGuide); }}>
                 <GoogleG /> {t.googleInApp}
               </button>
             </>
@@ -1203,7 +1224,7 @@ function SignupCard({ q, quota, timeUp, t, lang, focus = false }) {
             {busy ? t.submitBusy : t.submit}
           </button>
           {!inApp && <button className="lp-btn ghost" type="button" onClick={() => setMode("pick")}>{t.useGoogle}</button>}
-          {inApp && <button className="lp-btn ghost" type="button" onClick={() => { land("openreal"); openInRealBrowser(); }}>{t.openReal}</button>}
+          {inApp && <button className="lp-btn ghost" type="button" onClick={() => { land("openreal"); escapeNow(onGuide); }}>{t.openReal}</button>}
         </form>
       )}
 

@@ -53689,5 +53689,45 @@
   "hi": "⚔️ TIGA ALPHA पर फ़ैमिली बैटल! P1: {0}% बनाम P2: {1}% — {2} {3}",
   "ar": "⚔️ معركة العائلة على TIGA ALPHA! اللاعب 1: {0}% مقابل اللاعب 2: {1}% — {2} {3}",
   "de": "⚔️ Familienduell auf TIGA ALPHA! S1: {0}% gegen S2: {1}% – {2} {3}"
+ },
+ "Open this page in your browser": {
+  "ja": "このページをブラウザで開く",
+  "ko": "이 페이지를 브라우저에서 열기",
+  "ru": "Откройте эту страницу в браузере",
+  "hi": "इस पेज को ब्राउज़र में खोलें",
+  "es": "Abre esta página en tu navegador",
+  "fr": "Ouvrez cette page dans votre navigateur",
+  "ar": "افتح هذه الصفحة في المتصفح",
+  "de": "Öffne diese Seite in deinem Browser"
+ },
+ "Tap the ⋯ (three dots) menu of this app — often at the top right or at the bottom.": {
+  "ja": "このアプリの ⋯（3つの点）メニューをタップします。右上か下部にあることが多いです。",
+  "ko": "이 앱의 ⋯(점 세 개) 메뉴를 누르세요. 보통 오른쪽 위나 아래쪽에 있어요.",
+  "ru": "Нажмите меню ⋯ (три точки) в этом приложении — обычно оно вверху справа или внизу.",
+  "hi": "इस ऐप का ⋯ (तीन बिंदु) मेनू दबाएँ — यह अक्सर ऊपर दाएँ या नीचे होता है।",
+  "es": "Toca el menú ⋯ (tres puntos) de esta app, normalmente arriba a la derecha o abajo.",
+  "fr": "Touchez le menu ⋯ (trois points) de cette appli, souvent en haut à droite ou en bas.",
+  "ar": "اضغط على قائمة ⋯ (النقاط الثلاث) في هذا التطبيق، وغالبًا ما تكون أعلى اليمين أو في الأسفل.",
+  "de": "Tippe auf das ⋯-Menü (drei Punkte) dieser App, oft oben rechts oder unten."
+ },
+ "Choose “Open in browser” or “Open in Safari”.": {
+  "ja": "「ブラウザで開く」または「Safariで開く」を選びます。",
+  "ko": "‘브라우저에서 열기’ 또는 ‘Safari에서 열기’를 선택하세요.",
+  "ru": "Выберите «Открыть в браузере» или «Открыть в Safari».",
+  "hi": "“ब्राउज़र में खोलें” या “Safari में खोलें” चुनें।",
+  "es": "Elige «Abrir en el navegador» o «Abrir en Safari».",
+  "fr": "Choisissez « Ouvrir dans le navigateur » ou « Ouvrir dans Safari ».",
+  "ar": "اختر «فتح في المتصفح» أو «فتح في Safari».",
+  "de": "Wähle „Im Browser öffnen“ oder „In Safari öffnen“."
+ },
+ "The link is already copied — you can also open your browser and paste it.": {
+  "ja": "リンクはコピー済みです。ブラウザを開いて貼り付けることもできます。",
+  "ko": "링크가 이미 복사되었어요. 브라우저를 열고 붙여넣어도 됩니다.",
+  "ru": "Ссылка уже скопирована — можно также открыть браузер и вставить её.",
+  "hi": "लिंक पहले से कॉपी हो चुका है — आप ब्राउज़र खोलकर उसे पेस्ट भी कर सकते हैं।",
+  "es": "El enlace ya está copiado: también puedes abrir tu navegador y pegarlo.",
+  "fr": "Le lien est déjà copié : vous pouvez aussi ouvrir votre navigateur et le coller.",
+  "ar": "تم نسخ الرابط بالفعل — ويمكنك أيضًا فتح المتصفح ولصقه.",
+  "de": "Der Link ist schon kopiert — du kannst auch den Browser öffnen und ihn einfügen."
  }
 }

@@ -146,7 +146,7 @@ import {
   readLandingOrigin, clearLandingOrigin, anonId,
 } from "./shared-infra";
 import { startCloudSync, stopCloudSync, wipeAfterSignOut, cloudSyncReady, onCloudPulled } from "./cloud-sync";
-import { Splash, BannedScreen, GuestGateScreen, TrialInviteModal, ProfileForm, LangPickerScreen, CountUp, LoginModal, SafeZone, inAppBrowser } from "./app-shell";
+import { Splash, BannedScreen, GuestGateScreen, TrialInviteModal, ProfileForm, LangPickerScreen, CountUp, LoginModal, SafeZone, inAppBrowser, withExternalBrowserFlag } from "./app-shell";
 import { GuestHeroStrips } from "./guest-strips";
 import { shareUrl, SHARE_HOST } from "./share-links";
 import { PricingOverlay } from "./PricingOverlay";
@@ -6521,6 +6521,8 @@ const ALL_STICKERS = [...SHOP_STICKERS, ...GEM_RELICS];
 
 // F2: LINE achievement share — opens LINE app on mobile, fallback clipboard on desktop
 function shareLine(text: string) {
+  /* a link that is opened INSIDE LINE (its in-app browser) leaves for the phone's own browser when it carries openExternalBrowser=1: every landing link in the text gets the flag (never twice) */
+  text = text.replace(/https:\/\/www\.tigaalpha\.com\/[^\s"')]*/g, (u) => withExternalBrowserFlag(u));
   const url = "https://line.me/R/share?text=" + encodeURIComponent(text);
   if (!window.open(url, "_blank", "noopener")) {
     try { navigator.clipboard.writeText(text.split("utm_medium=line").join("utm_medium=copy")); } catch (_) {}   // the LINE window was blocked: what lands on the clipboard says "copy"

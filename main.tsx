@@ -2,7 +2,7 @@ import "./chunk-reload";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import App from "./App";
-import { ErrorBoundary } from "./app-shell";
+import { ErrorBoundary, stripExternalBrowserFlag } from "./app-shell";
 import { logUsage } from "./shared-infra";
 // Learning Data v1 (owner spec §1-§21): session lifecycle lives OUTSIDE React —
 // main.tsx is the only app file that can mount once per real page load, so it is
@@ -18,6 +18,7 @@ import { loadClassicalSongs } from "./songs-data";
    carrying their anon id; it must be adopted before anything below reads it
    (the first read fixes the id for the device). See local-identity.handoffUrl. */
 const arrival = adoptHandoff();
+stripExternalBrowserFlag();   // arrived from LINE through openExternalBrowser=1: the flag has done its job, take it out of the address bar
 initLearningData();
 // The classical tunes are a separate chunk. The boot screen stays up until they
 // are on the same list the rest of the app reads, so the daily song cannot

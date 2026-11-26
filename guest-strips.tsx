@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { pickT, xl } from "./lang-extra";
 import { logUsage } from "./shared-infra";
-import { inAppBrowser, openInRealBrowser } from "./app-shell";
+import { inAppBrowser, escapeNow, EscapeGuide } from "./app-shell";
 import { TRIAL_DAYS_STANDARD } from "./payment";
 import { trialPriceFor } from "./use-conversion";
 
@@ -20,6 +20,7 @@ export function GuestHeroStrips({ lang, onTrial }: { lang: string; onTrial: () =
   const [inApp] = useState(() => inAppBrowser());
   const [copied, setCopied] = useState(false);
   const [copyErr, setCopyErr] = useState(false);
+  const [guide, setGuide] = useState(false);
   useEffect(() => { if (!closed && !shownLogged) { shownLogged = true; logUsage("guesthero", "shown"); } }, []);
 
   const price = trialPriceFor(lang || "th");
@@ -55,9 +56,10 @@ export function GuestHeroStrips({ lang, onTrial }: { lang: string; onTrial: () =
         <div className="gnotice" data-inapp-notice role="note">
           <div className="gnotice-t">{T("คุณเปิดผ่านแอปโซเชียล — ปุ่ม Google อาจใช้ไม่ได้ แนะนำเปิดในเบราว์เซอร์ หรือสมัครด้วยอีเมลได้เลย", "You opened this inside a social app — Google sign-in may not work. Open it in your browser, or sign up with your email.", "你是通过社交应用打开的 — Google 登录可能无法使用。建议在浏览器中打开，或直接用邮箱注册。")}</div>
           <div className="gnotice-act">
-            <button type="button" className="gnotice-b" data-inapp-open onClick={() => { logUsage("guesthero", "inapp-open"); openInRealBrowser(); }}>{T("🌐 เปิดในเบราว์เซอร์", "🌐 " + xl(lang, "Open in browser"), "🌐 在浏览器中打开")}</button>
+            <button type="button" className="gnotice-b" data-inapp-open onClick={() => { logUsage("guesthero", "inapp-open"); escapeNow(() => setGuide(true)); }}>{T("🌐 เปิดในเบราว์เซอร์", "🌐 " + xl(lang, "Open in browser"), "🌐 在浏览器中打开")}</button>
             <button type="button" className="gnotice-b" data-inapp-copy onClick={copyLink}>{copied ? T("✓ คัดลอกแล้ว", "✓ " + xl(lang, "Copied!"), "✓ 已复制") : T("🔗 คัดลอกลิงก์", "🔗 " + xl(lang, "Copy link"), "🔗 复制链接")}</button>
           </div>
+          {guide && <EscapeGuide lg={lang} onClose={() => setGuide(false)} />}
           {copyErr && <div className="gnotice-e" role="alert">{T("คัดลอกไม่สำเร็จ กดค้างที่แถบที่อยู่เพื่อคัดลอก", xl(lang, "Copy failed — long-press the address bar instead"), "复制失败 — 请改为长按地址栏")}</div>}
         </div>
       )}

@@ -4279,6 +4279,12 @@ html:not([data-theme="dark"]) .pvppage:not(.x3) .pvpgfxbtn{background:var(--card
    110 px tall). On phones the row now wraps, so nothing falls off and the title keeps its width. Wider screens and the landscape fight overlay (.pvppage.land, wider than 520 px) are untouched. */
 @media (max-width:520px){.pvphdr{flex-wrap:wrap;row-gap:6px}}
 
+/* the iOS "open in your browser" guide of the app (Step 2.1): a small closable sheet at the bottom, above the log-in cards, never over their form */
+.egd{position:fixed;inset-inline:12px;bottom:12px;z-index:100002;padding:12px 14px;padding-inline-end:40px;border-radius:14px;background:var(--card,#fff);border:1px solid #d97757;box-shadow:0 8px 24px rgba(0,0,0,.25);font-family:var(--f-app);font-size:13px;line-height:1.45;color:var(--text,#2a211b)}
+.egd-t{font-weight:700;margin-bottom:4px}
+.egd-o{margin:0;padding-inline-start:18px}
+.egd-x{position:absolute;top:2px;inset-inline-end:2px;width:36px;height:36px;border:0;background:none;color:inherit;font-size:22px;line-height:1;cursor:pointer;opacity:.7}
+
 /* The corner Login pill is the only way in that stays on a guest's first screen (the full-screen wall is gone): in the long languages (es fr de hi ar) and on narrow phones its label was cut by the flag
    pinned to the header's end corner. The narrow-screen rule that was meant to drop the round "G" badge sat BEFORE the rule that shows it (same specificity), so it never applied. From 440 px
    down the badge goes (the label says what it is; 412 px phones are the common case). The pill itself never shrinks (the group of pills after it is what the header clips) but it never grows past the room

@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { shareUrl } from "./share-links";
+import { withExternalBrowserFlag } from "./app-shell";
 
 import { by } from "./lang-extra";
 /* ── ReferralDashboard.tsx ──
@@ -138,7 +139,7 @@ export function ReferralDashboard({ lang = "th" }: { lang?: string }) {
     if (!stats) return;
     const msg = c.shareMsg.replace("{code}", stats.code);
     const medium = platform === "line" ? "line" : platform === "facebook" ? "facebook" : "copy";
-    const url = shareUrl(medium);   // the landing page of the real domain, the channel in utm_medium
+    const url = medium === "line" ? withExternalBrowserFlag(shareUrl(medium)) : shareUrl(medium);   // the landing page of the real domain, the channel in utm_medium; a link opened inside LINE leaves for the phone's browser
     
     if (platform === "line") {
       window.open(`https://social-plugins.line.me/lineit/share?url=${encodeURIComponent(url)}&text=${encodeURIComponent(msg)}`, "_blank");

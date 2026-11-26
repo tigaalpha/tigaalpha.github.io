@@ -52,6 +52,15 @@ ok(by("inapp")["real"].submitted === 1 && by("inapp")["real"].tried === 2, "emai
 ok(F.regionOfTz("Asia/Taipei") === "HK/MO/TW" && F.regionOfTz("America/New_York") === "Americas" && F.regionOfTz("") === "?", "regionOfTz buckets");
 ok(JSON.stringify(F.parseTags("touch;c=a b;k=x")) === '{"c":"a b","k":"x"}', "parseTags");
 
+// Step 2.1: the four escape:* rows (how the jump out of an in-app browser went) are escape taps like openreal / openreal-top
+{
+  const r2 = []; let n = 0;
+  const a2 = (anon, item) => r2.push({ id: ++n, anon_id: anon, kind: "land", item_id: item, ua: "facebook-webview", src: "fb" });
+  for (const [anon, ev] of [["L1", "escape:line-flag"], ["L2", "escape:android-intent"], ["L3", "escape:ios-safari"], ["L4", "escape:ios-guide"], ["L5", null]]) { a2(anon, "view"); a2(anon, "page:th"); if (ev) a2(anon, ev); }
+  const v2 = F.buildVisitors(r2), e2 = Object.fromEntries(F.groupVisitors(v2.values(), "escape").map(r => [r.key, r]));
+  ok(e2.escaped.n === 4 && e2.escaped.escTap === 4 && e2.stayed.n === 1, "escape:line-flag / android-intent / ios-safari / ios-guide each count as an escape tap (4 escaped, 1 stayed)");
+}
+
 /* ── 2. attribution + handoff in a fake browser ── */
 const store = new Map();
 let uuidN = 0;

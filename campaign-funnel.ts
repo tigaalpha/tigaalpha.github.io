@@ -12,7 +12,7 @@
    session to find. The rows it reads:
 
      kind "land"  item_id: page:<lang> (th|en|zh|ja|ko|ru|hi|es|fr|ar|de) · view · hero:seen · piano · aha:heard ·
-                  ask · gate:shown · gate:inapp · openreal-top · openreal ·
+                  ask · gate:shown · gate:inapp · openreal-top · openreal · escape:line-flag|android-intent|ios-safari|ios-guide ·
                   escape:arrived[-known]:<browser> · try:* · signup:* ·
                   signed_up_landing:<lg> · signed_up_from:<anon_id>
      kind "attr"  item_id: first;s=fb;m=…;c=<campaign>;k=<creative>;t=<ad set>;
@@ -95,7 +95,7 @@ export function buildVisitors(rows: Array<{ anon_id?: string | null; kind: strin
     else if (it === "ask" || it === "q:spend") v.asked = true;
     else if (it === "gate:shown" || it === "nudge:shown" || it === "timeup") v.gate = true;
     else if (it === "gate:inapp") v.inappGate = true;
-    else if (it === "openreal-top" || it === "openreal") v.escTap = true;
+    else if (it === "openreal-top" || it === "openreal" || it === "escape:line-flag" || it === "escape:android-intent" || it === "escape:ios-safari" || it === "escape:ios-guide") v.escTap = true;   // the four escape:* rows (Step 2.1) say HOW the jump went; each is a tap on the way out
     else if (it.startsWith("escape:arrived")) { v.arrived = true; const o = it.split(":")[2]; if (o && !v.oua) v.oua = o; }
     else if (it.startsWith("try:")) v.tried = true;
     else if (it === "signup:email-otp" || it === "signup:email") v.submitted = true;
