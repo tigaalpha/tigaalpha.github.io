@@ -1,4 +1,8 @@
+<<<<<<<< HEAD:bundle/hi-fx-DK1VSPCr.js
 import{M as st,$ as at,B as ot,h as Ge,a0 as z,a1 as R,N as y,a2 as W,a3 as H,a4 as F,a5 as rt,C as ce,V as B,o as nt,d as lt,a6 as ct,a7 as ht,a8 as ut,a9 as ft,aa as dt,ab as vt,A as mt,ac as pt,ad as xt,ae as gt,X as be,af as Ze,s as Ae,ag as Tt,ah as me,ai as pe,aj as Ye,ak as ke,al as Mt,am as St,an as bt,ao as At,ap as we,aq as wt,ar as Dt,as as qe,at as Pt}from"./three.module-DkZ4ldBZ.js";import{i as Ct,b as Et}from"./index.template-AeT0iBlQ.js";const le={name:"CopyShader",uniforms:{tDiffuse:{value:null},opacity:{value:1}},vertexShader:`
+========
+import{M as st,$ as at,B as ot,h as Ge,a0 as z,a1 as R,N as y,a2 as W,a3 as H,a4 as F,a5 as rt,C as ce,V as B,o as nt,d as lt,a6 as ct,a7 as ht,a8 as ut,a9 as ft,aa as dt,ab as vt,A as mt,ac as pt,ad as xt,ae as gt,X as be,af as Ze,s as Ae,ag as Tt,ah as me,ai as pe,aj as Ye,ak as ke,al as Mt,am as St,an as bt,ao as At,ap as we,aq as wt,ar as Dt,as as qe,at as Pt}from"./three.module-DkZ4ldBZ.js";import{i as Ct,b as Et}from"./index.template-CwRW--xE.js";const le={name:"CopyShader",uniforms:{tDiffuse:{value:null},opacity:{value:1}},vertexShader:`
+>>>>>>>> origin/main:bundle/hi-fx-DqIhTx6D.js
 
 		varying vec2 vUv;
 
