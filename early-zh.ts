@@ -4,6 +4,15 @@
    on a literal that has no line here); a gap shows the English, never Thai. Wording follows the web sign-in card (WALL_T.zh): 登录 注册 邮箱 密码 隐私政策. [[ ]] marks the words that become the
    privacy-policy link, {0} is the policy version date. */
 const EARLY_ZH: Record<string, string> = {
+  "Open your email and tap the link to keep learning. No password to set.": "打开邮箱，点击链接即可继续学习，无需设置密码。",
+  "Send again": "重新发送",
+  "Can't find it? Check your Spam or Promotions folder.": "没收到？请查看垃圾邮件或“促销”文件夹。",
+  "Sign up with a password instead": "改用密码注册",
+  "Log in with a password instead": "改用密码登录",
+  "Use a free email link instead": "改用免费邮件链接",
+  "By sending the link you acknowledge the [[Privacy Policy]]": "发送链接即表示你已阅读[[隐私政策]]",
+  "Try Pro free for {0} days": "免费试用 Pro {0} 天",
+  "Then {0} per month, cancel anytime": "之后每月 {0}，可随时取消",
   "(Optional) Email me news about new courses and promotions": "（选填）给我发送新课程和优惠活动的邮件",
   "(Optional) Email me news about new courses and promotions — you can sign up without ticking this": "（选填）给我发送新课程和优惠活动的邮件 — 不勾选也可以注册",
   "Account created! Check your email to confirm, then log in": "注册成功！请查收邮件确认后再登录",

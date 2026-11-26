@@ -6,6 +6,8 @@ import { handoffUrl } from "./local-identity";
 import { by, ALL_LANGS, LANG_META, isRtl, isExtraLang, xl as xlBase, hasCatalog, loadCatalog } from "./lang-extra";
 import { zhEarly } from "./early-zh";
 import { useCatalog } from "./use-catalog";
+import { TRIAL_DAYS_STANDARD } from "./payment";
+import { trialPriceFor } from "./use-conversion";
 /* ── app-shell.tsx ──
    Small presentational components clustered around the App() root: the
    membership-gate screens (Splash/BannedScreen/GuestGateScreen/ProfileForm,
@@ -306,11 +308,12 @@ function GoogleMark() {
    only real button and hid e-mail behind a link reading "log in with existing
    account" — so someone with no Google account, or in a WebView where Google
    refuses to work at all, saw no way to create one. */
-function LoginOptions({ profile, onGoogleLogin, lg, noHead = false, onMode = null }) {   // lg: the language of the caller (LoginModal / GuestGateScreen / TrialInviteModal read it once and use the catalog hook); noHead: the caller draws its own title; onMode: told which tab (signup | login) is open (the invitation shows "free for 7 days" only on the sign-up tab)
+function LoginOptions({ profile, onGoogleLogin, lg, noHead = false, onMode = null, via = "app-gate-otp" }) {   // lg: the language of the caller (LoginModal / GuestGateScreen / TrialInviteModal read it once and use the catalog hook); noHead: the caller draws its own title; onMode: told which tab (signup | login) is open (the invitation shows "free for 7 days" only on the sign-up tab)
   const ext = ownLang(lg);
   const [inApp] = useState(() => inAppBrowser());
   const [mode, setModeState] = useState("signup"); // signup | login
-  const setMode = (m: string) => { setModeState(m); if (onMode) onMode(m); };
+  const setMode = (m: string) => { setModeState(m); setUsePw(false); if (onMode) onMode(m); };
+  const [usePw, setUsePw] = useState(false);   // the e-mail LINK (one field) is the way in; the long password form opens only from the small link under it (owner 2026-11-26)
   const [copied, setCopied] = useState(false);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -458,6 +461,15 @@ function LoginOptions({ profile, onGoogleLogin, lg, noHead = false, onMode = nul
         </>
       )}
 
+      {!usePw ? (
+        <>
+          <MagicLinkForm profile={profile} lg={lg} via={via} email={email} onEmail={v => { setEmail(v); if (err) setErrState(""); }} />
+          <button className="au-link" data-pw-toggle onClick={() => { setUsePw(true); setErr(""); setMsg(""); }}>
+            {signup ? solo(lg, "สมัครด้วยรหัสผ่านแทน", xl(lg, "Sign up with a password instead")) : solo(lg, "เข้าสู่ระบบด้วยรหัสผ่าน", xl(lg, "Log in with a password instead"))}
+          </button>
+        </>
+      ) : (
+        <>
       <div className="au-f">
         {signup && (
           <input className="au-in" type="text" autoComplete="name" placeholder={pair(lg, "ชื่อที่อยากให้ครูเรียก", xl(lg, "Your name"))}
@@ -517,6 +529,10 @@ function LoginOptions({ profile, onGoogleLogin, lg, noHead = false, onMode = nul
 
       {!signup && <button className="au-link" onClick={forgotPassword}>{pair(lg, "ลืมรหัสผ่าน?", xl(lg, "Forgot password?"))}</button>}
 
+      <button className="au-link" data-pw-back onClick={() => { setUsePw(false); setErr(""); setMsg(""); }}>{solo(lg, "ใช้ลิงก์ทางอีเมลแทน (ไม่ต้องตั้งรหัสผ่าน)", xl(lg, "Use a free email link instead"))}</button>
+        </>
+      )}
+
       {inApp && (
         <button className="au-link" style={{ opacity: .6, fontSize: 12 }} onClick={onGoogleLogin}>
           {pair(lg, "ลองใช้ Google ต่อไป (อาจไม่ทำงานในนี้)", xl(lg, "Try Google anyway"))}
@@ -556,7 +572,7 @@ export function LoginModal({ profile, onGoogleLogin, onClose }) {
       <div className="setcard" ref={cardRef} tabIndex={-1} role="dialog" aria-modal="true" aria-label={solo(lg, "เข้าสู่ระบบ · Login", xl(lg, "Login"))} style={{ maxWidth: 340, outline: "none" }} onClick={e => e.stopPropagation()}>
         <div className="sethdr"><span>{solo(lg, "🔐 เข้าสู่ระบบ · Login", "🔐 " + xl(lg, "Login"))}</span><button className="cbtn" onClick={onClose}>{pair(lg, "ปิด", xl(lg, "Close"))}</button></div>
         <div className="setbody" style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 10, padding: "14px 6px" }}>
-          <LoginOptions profile={profile} onGoogleLogin={onGoogleLogin} lg={lg} />
+          <LoginOptions profile={profile} onGoogleLogin={onGoogleLogin} lg={lg} via="login-pill-otp" />
         </div>
       </div>
     </div>
@@ -630,11 +646,14 @@ export function TrialInviteModal({ reason, profile, onLogin, onClose }) {
             {keepWords(title)}
           </div>
           {tab === "signup" && (<div data-invite-offer style={{ display: "flex", flexWrap: "wrap", gap: 8, justifyContent: "center" }}>
-            <span style={chip}>✓ {solo(lg, "ฟรี 7 วัน", xl(lg, "Free for 7 days"))}</span>
+            <span style={chip}>✓ {solo(lg, "ทดลอง Pro ฟรี " + TRIAL_DAYS_STANDARD + " วัน", xl(lg, "Try Pro free for {0} days").split("{0}").join(String(TRIAL_DAYS_STANDARD)))}</span>
             <span style={chip}>✓ {solo(lg, "ไม่ต้องใช้บัตรเครดิต", xl(lg, "No credit card needed"))}</span>
           </div>)}
+          {tab === "signup" && (<div data-invite-price style={{ textAlign: "center", fontSize: 12.5, opacity: 0.7, marginTop: -4 }}>
+            {solo(lg, "จากนั้น " + trialPriceFor(lg || "th") + " บาท/เดือน ยกเลิกได้", xl(lg, "Then {0} per month, cancel anytime").split("{0}").join(trialPriceFor(lg || "th")))}
+          </div>)}
           <div style={{ textAlign: "center", fontSize: 13.5, opacity: 0.8, lineHeight: 1.5, padding: "0 8px" }}>{why}</div>
-          <LoginOptions profile={profile} onGoogleLogin={onLogin} lg={lg} noHead onMode={setTab} />
+          <LoginOptions profile={profile} onGoogleLogin={onLogin} lg={lg} noHead onMode={setTab} via="invite-otp" />
         </div>
       </div>
     </div>
@@ -656,60 +675,82 @@ export function TrialInviteModal({ reason, profile, onLogin, onClose }) {
    which is where a guest who just played a song is asked to join, gets the same
    door at the top. The link is opened later and usually in another browser, so
    it carries the visit across (local-identity.handoffUrl) like the landing's. */
-function MagicLinkForm({ profile, lg }) {
+const OTP_COOLDOWN_S = 30;   // "Send again" is locked this long after a link went out (a double tap sent two mails and the second one invalidated the first)
+function MagicLinkForm({ profile, lg, via = "app-gate-otp", email: emailProp, onEmail, light = false }: { profile: any; lg: string; via?: string; email?: string; onEmail?: (v: string) => void; light?: boolean }) {   // via: where the card was opened (invite-otp | login-pill-otp | wall-otp ...), written to the auth metadata and the usage row; email / onEmail: the caller's own e-mail state when it shares one with the password form; light: the cream card of LoginWall
   const ext = ownLang(lg);
-  const [email, setEmail] = useState("");
+  const [ownEmail, setOwnEmail] = useState("");
+  const email = emailProp !== undefined ? emailProp : ownEmail;
+  const setEmail = (v: string) => { if (onEmail) onEmail(v); else setOwnEmail(v); };
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState(false);
   const [err, setErr] = useState("");
-  async function send(e) {
-    e.preventDefault();
-    if (busy) return;
+  const [cool, setCool] = useState(0);
+  useEffect(() => { if (cool <= 0) return; const id = setTimeout(() => setCool(c => c - 1), 1000); return () => clearTimeout(id); }, [cool]);
+  async function send() {
+    if (busy || cool > 0) return;
     if (!email.trim()) { setErr(pair(lg, "กรุณากรอกอีเมล", xl(lg, "Please enter your email"))); return; }
     setBusy(true); setErr("");
     try {
       saveGuestProfile(profile);
       setSkipOnboard();
+      try { sessionStorage.setItem("tiga_page", "pathway"); } catch (e) {}   // the same tab lands on the Learning Pathway after the log-in, like the password and Google routes
       const { error } = await sb.auth.signInWithOtp({
         email: email.trim(),
         options: {
           emailRedirectTo: handoffUrl(window.location.origin + "/", { via: "mail" }),
-          data: { pdpa_version: PDPA_VERSION, marketing_consent: false, via: "app-gate-otp" },
+          data: { pdpa_version: PDPA_VERSION, marketing_consent: false, via },
         },
       });
       if (error) { setErr(friendlyAuthError(error.message, lg)); return; }
-      logUsage("gate", "otp:sent");
-      setDone(true);
+      logUsage("gate", "otp:sent:" + via);
+      setDone(true); setCool(OTP_COOLDOWN_S);
     } catch (e2) {
       setErr(friendlyAuthError(e2 && e2.message, lg));
     } finally {
       setBusy(false);
     }
   }
+  /* Enter sends the link, except while an IME is still composing (Thai, Japanese, Chinese, Korean keyboards use Enter to commit the word; Safari fires compositionend BEFORE that Enter, so isComposing is false and keyCode is 229) */
+  const onKey = (e: any) => {
+    if (e.key !== "Enter") return;
+    if ((e.nativeEvent && e.nativeEvent.isComposing) || e.keyCode === 229) return;
+    e.preventDefault();
+    send();
+  };
+  const clay = "#d97757";
+  const lightIn: React.CSSProperties = { width: "100%", boxSizing: "border-box", padding: "13px 14px", borderRadius: 10, border: "1.5px solid #e2d8cf", background: "#fff", color: "#2a211b", fontSize: 16, outline: "none", fontFamily: "inherit" };
   if (done) {
+    const again = cool > 0 ? xl(lg, "Send again") + " (" + cool + ")" : xl(lg, "Send again");
+    const againTh = cool > 0 ? "ส่งอีกครั้ง (" + cool + ")" : "ส่งอีกครั้ง";
     return (
-      <div className="au-warn" role="status" style={{ width: "100%", textAlign: "left" }}>
-        <b>{solo(lg, "✉️ ส่งลิงก์แล้ว · Link sent", "✉️ " + xl(lg, "Link sent"))}</b>
-        {pair(lg, "เปิดอีเมลแล้วกดลิงก์เพื่อเข้าเล่นต่อ ไม่ต้องมีรหัสผ่าน", xl(lg, "Open your email and tap the link — no password needed."))}
+      <div data-magic-done role="status" className={light ? undefined : "au-ok"} style={light ? { width: "100%", boxSizing: "border-box", color: "#1e6b3a", fontSize: 13, background: "#e7f5ec", borderRadius: 10, padding: "10px 12px", lineHeight: 1.5 } : { width: "100%", boxSizing: "border-box" }}>
+        <b style={{ display: "block", marginBottom: 3 }}>{solo(lg, "✉️ ส่งลิงก์แล้ว", "✉️ " + xl(lg, "Link sent"))}</b>
+        {solo(lg, "เปิดอีเมลแล้วกดลิงก์เพื่อเข้าเรียนต่อ ไม่ต้องตั้งรหัสผ่าน", xl(lg, "Open your email and tap the link to keep learning. No password to set."))}
+        <div style={{ opacity: 0.8, fontSize: 12, marginTop: 6 }}>{solo(lg, "ไม่เห็นอีเมล? ลองดูในโฟลเดอร์ Spam หรือ Promotions", xl(lg, "Can't find it? Check your Spam or Promotions folder."))}</div>
+        {err && <div role="alert" style={{ fontSize: 12.5, color: light ? "#b3261e" : "#ff8a80", marginTop: 6 }}>{err}</div>}
+        <button type="button" data-magic-resend disabled={busy || cool > 0} onClick={send} className={light ? undefined : "au-link"}
+          style={light ? { marginTop: 6, background: "none", border: "none", color: clay, fontWeight: 700, fontSize: 13, textDecoration: "underline", cursor: cool > 0 ? "default" : "pointer", opacity: cool > 0 ? 0.55 : 1, fontFamily: "inherit", padding: 3 } : { opacity: cool > 0 ? 0.55 : 1, marginTop: 4 }}>
+          {solo(lg, againTh, again)}
+        </button>
       </div>
     );
   }
   return (
-    <form onSubmit={send} style={{ width: "100%", display: "flex", flexDirection: "column", gap: 8 }}>
-      <input type="email" inputMode="email" autoComplete="email" enterKeyHint="go" placeholder="your@email.com"
-        value={email} onChange={e => setEmail(e.target.value)} aria-label={xl(lg, "Email")}
-        style={{ width: "100%", padding: "12px 14px", borderRadius: 12, border: "1.5px solid rgba(255,255,255,0.2)", background: "rgba(255,255,255,0.08)", color: "inherit", fontSize: 15, outline: "none", boxSizing: "border-box" }} />
-      <button type="submit" disabled={busy}
-        style={{ width: "100%", padding: "12px 22px", borderRadius: 13, border: "2px solid #d97757", background: busy ? "rgba(217,119,87,0.5)" : "linear-gradient(135deg, #d97757, #c25e3f)", color: "#fff", fontSize: 15, fontWeight: 700, cursor: busy ? "default" : "pointer" }}>
-        {busy ? "..." : solo(lg, "✉️ ส่งลิงก์เข้าสู่ระบบฟรี · Email me a free link", "✉️ " + xl(lg, "Email me a free link"))}
+    <div data-magic-form style={{ width: "100%", display: "flex", flexDirection: "column", gap: 8 }}>
+      <input type="email" inputMode="email" autoComplete="email" enterKeyHint="go" placeholder={pair(lg, "อีเมล", xl(lg, "Email"))} data-magic-email
+        value={email} onChange={e => { setEmail(e.target.value); if (err) setErr(""); }} onKeyDown={onKey} aria-label={pair(lg, "อีเมล", xl(lg, "Email"))}
+        className={light ? undefined : "au-in"} style={light ? lightIn : undefined} />
+      <button type="button" data-magic-send disabled={busy} onClick={send} className={light ? undefined : "au-cta"}
+        style={light ? { padding: "14px 0", borderRadius: 10, border: "none", background: clay, color: "#fff", fontSize: 16, fontWeight: 800, cursor: busy ? "default" : "pointer", opacity: busy ? 0.7 : 1, fontFamily: "inherit" } : undefined}>
+        {busy ? "…" : solo(lg, "✉️ ส่งลิงก์เข้าสู่ระบบฟรี", "✉️ " + xl(lg, "Email me a free link"))}
       </button>
-      {err && <div style={{ fontSize: 12.5, color: "#ff8a80", lineHeight: 1.4 }}>{err}</div>}
-      <div style={{ fontSize: 11, opacity: 0.55, lineHeight: 1.5, textAlign: "center" }}>
-        {ext ? <PolicyLine lg={lg} text={xl(lg, "Just one field, no password to set · By signing up you acknowledge the [[Privacy Policy]]")} /> : <>
-        ช่องเดียว ไม่ต้องตั้งรหัสผ่าน · การสมัครถือว่ารับทราบ <a href="privacy-policy.html" target="_blank" rel="noopener noreferrer">นโยบายความเป็นส่วนตัว</a>
+      {err && <div role="alert" style={{ fontSize: 12.5, color: light ? "#b3261e" : "#ff8a80", lineHeight: 1.4 }}>{err}</div>}
+      <div className={light ? undefined : "au-fine"} style={light ? { fontSize: 12, color: "#a39486", lineHeight: 1.5, textAlign: "center" } : undefined}>
+        {ext ? <PolicyLine lg={lg} text={xl(lg, "By sending the link you acknowledge the [[Privacy Policy]]")} style={light ? { color: clay } : undefined} /> : <>
+        การกดส่งลิงก์ถือว่ารับทราบ <a href={PRIVACY_URL} target="_blank" rel="noopener noreferrer" style={light ? { color: clay } : undefined}>นโยบายความเป็นส่วนตัว</a>
         </>}
       </div>
-    </form>
+    </div>
   );
 }
 
@@ -733,6 +774,7 @@ function LoginWall({ profile, onGoogleLogin, onClose = null }) {
   const [mode, setMode] = useState(() => { try { return new URLSearchParams(window.location.search).get("wall") === "signup" ? "signup" : "login"; } catch (e) { return "login"; } });
   const [name, setName] = useState(""), [email, setEmail] = useState(""), [pass, setPass] = useState("");
   const [agree, setAgree] = useState(false), [show, setShow] = useState(false), [busy, setBusy] = useState(false), [err, setErr] = useState(""), [ok, setOk] = useState("");
+  const [usePw, setUsePw] = useState(false);   // the e-mail link (one field) first; the password fields open from the small link under it (owner 2026-11-26)
   const signup = mode === "signup";
   async function submit() {
     if (busy) return; setErr(""); setOk("");
@@ -768,7 +810,7 @@ function LoginWall({ profile, onGoogleLogin, onClose = null }) {
         </div>
         <div style={{ display: "flex", background: "#f4ece4", borderRadius: 12, padding: 4, marginBottom: 16 }}>
           {["login", "signup"].map(m => (
-            <button key={m} type="button" data-wall-tab={m} onClick={() => { setMode(m); setErr(""); setOk(""); }}
+            <button key={m} type="button" data-wall-tab={m} onClick={() => { setMode(m); setUsePw(false); setErr(""); setOk(""); }}
               style={{ flex: 1, padding: "10px 0", border: "none", borderRadius: 9, cursor: "pointer", fontSize: 15, fontWeight: 700, fontFamily: "inherit", background: mode === m ? "#fff" : "transparent", color: mode === m ? clay : "#7a6a5e", boxShadow: mode === m ? "0 1px 4px rgba(0,0,0,.12)" : "none" }}>{m === "login" ? t.login : t.signup}</button>
           ))}
         </div>
@@ -783,6 +825,13 @@ function LoginWall({ profile, onGoogleLogin, onClose = null }) {
           </button>
         )}
         <div style={{ display: "flex", alignItems: "center", gap: 10, margin: "16px 0", color: "#a39486", fontSize: 13 }}><span style={{ flex: 1, height: 1, background: "#eadfd4" }} />{t.or}<span style={{ flex: 1, height: 1, background: "#eadfd4" }} /></div>
+        {!usePw ? (
+          <div style={{ display: "flex", flexDirection: "column", gap: 10, alignItems: "center" }}>
+            <MagicLinkForm profile={profile} lg={lg} via="wall-otp" email={email} onEmail={setEmail} light />
+            <button type="button" data-pw-toggle onClick={() => { setUsePw(true); setErr(""); setOk(""); }} style={{ background: "none", border: "none", color: clay, cursor: "pointer", fontSize: 13, fontWeight: 600, fontFamily: "inherit", textDecoration: "underline", padding: 6 }}>{signup ? solo(lg, "สมัครด้วยรหัสผ่านแทน", xl(lg, "Sign up with a password instead")) : solo(lg, "เข้าสู่ระบบด้วยรหัสผ่าน", xl(lg, "Log in with a password instead"))}</button>
+          </div>
+        ) : (
+          <>
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
           {signup && <input style={inp} placeholder={t.name} value={name} autoComplete="name" onChange={e => setName(e.target.value)} />}
           <input style={inp} type="email" inputMode="email" placeholder={t.email} value={email} autoComplete="email" onChange={e => setEmail(e.target.value)} />
@@ -802,9 +851,12 @@ function LoginWall({ profile, onGoogleLogin, onClose = null }) {
           {ok && <div style={{ color: "#1e6b3a", fontSize: 13, background: "#e7f5ec", borderRadius: 8, padding: "8px 10px" }}>{ok}</div>}
           <button type="button" data-wall-submit disabled={busy} onClick={submit} style={{ padding: "14px 0", borderRadius: 10, border: "none", background: clay, color: "#fff", fontSize: 16, fontWeight: 800, cursor: busy ? "default" : "pointer", opacity: busy ? 0.7 : 1, fontFamily: "inherit" }}>{busy ? "…" : signup ? t.signup : t.login}</button>
         </div>
+          <div style={{ textAlign: "center", marginTop: 6 }}><button type="button" data-pw-back onClick={() => { setUsePw(false); setErr(""); setOk(""); }} style={{ background: "none", border: "none", color: clay, cursor: "pointer", fontSize: 13, fontWeight: 600, fontFamily: "inherit", textDecoration: "underline", padding: 6 }}>{solo(lg, "ใช้ลิงก์ทางอีเมลแทน (ไม่ต้องตั้งรหัสผ่าน)", xl(lg, "Use a free email link instead"))}</button></div>
+          </>
+        )}
         <div style={{ textAlign: "center", marginTop: 16, fontSize: 14, color: "#7a6a5e" }}>
           {signup ? t.haveacc : t.noacc}{" "}
-          <button type="button" onClick={() => { setMode(signup ? "login" : "signup"); setErr(""); setOk(""); }} style={{ background: "none", border: "none", color: clay, fontWeight: 800, cursor: "pointer", fontSize: 14, fontFamily: "inherit" }}>{signup ? t.login : t.signup}</button>
+          <button type="button" onClick={() => { setMode(signup ? "login" : "signup"); setUsePw(false); setErr(""); setOk(""); }} style={{ background: "none", border: "none", color: clay, fontWeight: 800, cursor: "pointer", fontSize: 14, fontFamily: "inherit" }}>{signup ? t.login : t.signup}</button>
         </div>
         {signup && <div style={{ textAlign: "center", marginTop: 8, fontSize: 12, color: "#a39486" }}>{t.free}</div>}
         {/* the card comes up on arrival only for a visitor who asked for it (the blog's "Sign up free" / "Log in" buttons): "Not now" lets them in as a guest, like everyone else */}
@@ -1126,9 +1178,9 @@ export function GuestGateScreen({ reason, profile, onLogin, onClose = null }) {
             </button>
           )}
           {reason === "wall" && !gateInApp && <div style={{ fontSize: 12, opacity: 0.55 }}>หรือใช้อีเมล · or use email</div>}
-          <MagicLinkForm profile={profile} lg={lg} />
+          <MagicLinkForm profile={profile} lg={lg} via="gate-otp" />
           <div style={{ fontSize: 12, opacity: 0.55 }}>{pair(lg, "หรือ", xl(lg, "or"))}</div>
-          <LoginOptions profile={profile} onGoogleLogin={onLogin} lg={lg} />
+          <LoginOptions profile={profile} onGoogleLogin={onLogin} lg={lg} via="gate-otp" />
           <div style={{ marginTop: 12, textAlign: "center" }}>
             <div style={{ fontSize: 13, opacity: 0.6, marginBottom: 10 }}>{pair(lg, "หรือสมัครสมาชิกฟรีด้านล่าง", xl(lg, "Or sign up free below"))}</div>
             <button

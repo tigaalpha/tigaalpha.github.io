@@ -53559,5 +53559,95 @@
   "hi": "7 दिन मुफ़्त",
   "ar": "مجانًا لمدة 7 أيام",
   "de": "7 Tage kostenlos"
+ },
+ "Open your email and tap the link to keep learning. No password to set.": {
+  "ja": "メールを開いてリンクをタップすると、続きを学べます。パスワードの設定は不要です。",
+  "ko": "이메일을 열고 링크를 누르면 계속 배울 수 있어요. 비밀번호는 만들지 않아도 돼요.",
+  "ru": "Откройте почту и нажмите на ссылку, чтобы продолжить обучение. Пароль придумывать не нужно.",
+  "hi": "ईमेल खोलें और लिंक पर टैप करके सीखना जारी रखें। पासवर्ड बनाने की ज़रूरत नहीं है।",
+  "es": "Abre tu correo y toca el enlace para seguir aprendiendo. No hace falta crear una contraseña.",
+  "fr": "Ouvre ta boîte mail et touche le lien pour continuer à apprendre. Pas besoin de mot de passe.",
+  "ar": "افتح بريدك الإلكتروني واضغط على الرابط لمتابعة التعلّم. لا حاجة إلى كلمة مرور.",
+  "de": "Öffne dein E-Mail-Postfach und tippe auf den Link, um weiterzulernen. Ein Passwort brauchst du nicht."
+ },
+ "Send again": {
+  "ja": "もう一度送る",
+  "ko": "다시 보내기",
+  "ru": "Отправить ещё раз",
+  "hi": "फिर से भेजें",
+  "es": "Enviar de nuevo",
+  "fr": "Renvoyer",
+  "ar": "إعادة الإرسال",
+  "de": "Erneut senden"
+ },
+ "Can't find it? Check your Spam or Promotions folder.": {
+  "ja": "見つからない場合は、迷惑メールフォルダやプロモーションタブも確認してください。",
+  "ko": "메일이 안 보이면 스팸함이나 프로모션 폴더를 확인해 보세요.",
+  "ru": "Не нашли письмо? Загляните в папки «Спам» и «Промоакции».",
+  "hi": "ईमेल नहीं दिख रहा? स्पैम या प्रमोशन फ़ोल्डर देखें।",
+  "es": "¿No lo encuentras? Revisa la carpeta de spam o de promociones.",
+  "fr": "Tu ne le trouves pas ? Regarde dans le dossier spam ou promotions.",
+  "ar": "لا تجده؟ تحقّق من مجلد الرسائل غير المرغوب فيها أو الترويجات.",
+  "de": "Nicht gefunden? Schau im Spam- oder Werbung-Ordner nach."
+ },
+ "Sign up with a password instead": {
+  "ja": "パスワードで登録する",
+  "ko": "비밀번호로 가입하기",
+  "ru": "Зарегистрироваться с паролем",
+  "hi": "पासवर्ड से साइन अप करें",
+  "es": "Registrarme con contraseña",
+  "fr": "M'inscrire avec un mot de passe",
+  "ar": "التسجيل بكلمة مرور بدلًا من ذلك",
+  "de": "Stattdessen mit Passwort registrieren"
+ },
+ "Log in with a password instead": {
+  "ja": "パスワードでログインする",
+  "ko": "비밀번호로 로그인하기",
+  "ru": "Войти с паролем",
+  "hi": "पासवर्ड से लॉग इन करें",
+  "es": "Iniciar sesión con contraseña",
+  "fr": "Me connecter avec un mot de passe",
+  "ar": "تسجيل الدخول بكلمة مرور بدلًا من ذلك",
+  "de": "Stattdessen mit Passwort anmelden"
+ },
+ "Use a free email link instead": {
+  "ja": "無料のメールリンクを使う",
+  "ko": "무료 이메일 링크로 진행하기",
+  "ru": "Лучше получить бесплатную ссылку на почту",
+  "hi": "इसके बजाय मुफ़्त ईमेल लिंक का उपयोग करें",
+  "es": "Mejor usar un enlace gratis por correo",
+  "fr": "Utiliser plutôt un lien gratuit par e-mail",
+  "ar": "استخدام رابط مجاني عبر البريد بدلًا من ذلك",
+  "de": "Lieber einen kostenlosen E-Mail-Link nutzen"
+ },
+ "By sending the link you acknowledge the [[Privacy Policy]]": {
+  "ja": "リンクを送信すると[[プライバシーポリシー]]を確認したものとみなされます",
+  "ko": "링크를 보내면 [[개인정보 처리방침]]을 확인한 것으로 간주됩니다",
+  "ru": "Отправляя ссылку, вы подтверждаете, что ознакомились с [[Политикой конфиденциальности]]",
+  "hi": "लिंक भेजकर आप [[गोपनीयता नीति]] को स्वीकार करते हैं",
+  "es": "Al enviar el enlace aceptas la [[Política de privacidad]]",
+  "fr": "En envoyant le lien, tu reconnais avoir pris connaissance de la [[Politique de confidentialité]]",
+  "ar": "بإرسال الرابط فإنك تقر بـ[[سياسة الخصوصية]]",
+  "de": "Mit dem Senden des Links nimmst du die [[Datenschutzerklärung]] zur Kenntnis"
+ },
+ "Try Pro free for {0} days": {
+  "ja": "Proを{0}日間無料で試す",
+  "ko": "Pro {0}일 무료 체험",
+  "ru": "Пробуйте Pro бесплатно {0} дней",
+  "hi": "Pro को {0} दिन मुफ़्त आज़माएँ",
+  "es": "Prueba Pro gratis durante {0} días",
+  "fr": "Essaie Pro gratuitement pendant {0} jours",
+  "ar": "جرّب Pro مجانًا لمدة {0} أيام",
+  "de": "Teste Pro {0} Tage kostenlos"
+ },
+ "Then {0} per month, cancel anytime": {
+  "ja": "その後は月額{0}。いつでも解約できます",
+  "ko": "이후 월 {0}, 언제든 해지할 수 있어요",
+  "ru": "Затем {0} в месяц, отменить можно в любой момент",
+  "hi": "उसके बाद {0} प्रति माह, कभी भी रद्द करें",
+  "es": "Después, {0} al mes. Cancela cuando quieras",
+  "fr": "Ensuite {0} par mois, résiliable à tout moment",
+  "ar": "ثم {0} شهريًا، ويمكنك الإلغاء في أي وقت",
+  "de": "Danach {0} pro Monat, jederzeit kündbar"
  }
 }

@@ -241,11 +241,11 @@ for (const [name, pageId, sel] of [["Ear Gym", "eargym", "button.tdgo:not(.vio)"
 }
 
 // ── the invitation in every language, at 320 px ──
-const KEY = { title: "Log in to learn piano with TIGA ALPHA", free7: "Free for 7 days", nocard: "No credit card needed" };
-const TH = { title: "ล็อกอินเพื่อเรียนเปียโนกับ TIGA ALPHA", free7: "ฟรี 7 วัน", nocard: "ไม่ต้องใช้บัตรเครดิต" };
-const ZH = { title: "登录，和 TIGA ALPHA 一起学钢琴", free7: "免费 7 天", nocard: "无需信用卡" };
+const KEY = { title: "Log in to learn piano with TIGA ALPHA", free7: "Try Pro free for {0} days", nocard: "No credit card needed" };   // free7 carries the day count as {0} (TRIAL_DAYS_STANDARD = 7)
+const TH = { title: "ล็อกอินเพื่อเรียนเปียโนกับ TIGA ALPHA", free7: "ทดลอง Pro ฟรี 7 วัน", nocard: "ไม่ต้องใช้บัตรเครดิต" };
+const ZH = { title: "登录，和 TIGA ALPHA 一起学钢琴", free7: "免费试用 Pro 7 天", nocard: "无需信用卡" };
 for (const lang of ["th", "en", "zh", "ja", "ko", "ru", "hi", "es", "fr", "ar", "de"]) {
-  const want = lang === "th" ? TH : lang === "en" ? KEY : lang === "zh" ? ZH : { title: catalog[KEY.title][lang], free7: catalog[KEY.free7][lang], nocard: catalog[KEY.nocard][lang] };
+  const want = lang === "th" ? TH : lang === "en" ? { ...KEY, free7: "Try Pro free for 7 days" } : lang === "zh" ? ZH : { title: catalog[KEY.title][lang], free7: catalog[KEY.free7][lang].split("{0}").join("7"), nocard: catalog[KEY.nocard][lang] };
   const { ctx, page, errors } = await visitor({ lang: lang === "th" ? "" : lang, uses: 3, w: 320, h: 640 });
   await startSong(page, "twinkle");
   const shown = await has(page, "[data-trial-invite]");
@@ -328,6 +328,7 @@ for (const [lang, widths] of [["th", [320, 360, 390, 430]], ["en", [320, 390]], 
   let back = true; for (let i = 0; i < 8; i++) { await page.keyboard.press("Shift+Tab"); if (!(await inside())) { back = false; break; } }
   ok(back, "dialog: Shift+Tab never leaves it either");
   await page.click("[data-trial-invite] .au-segb:nth-child(2)").catch(() => {}); await page.waitForTimeout(200);   // the Log in tab
+  await page.click("[data-trial-invite] [data-pw-toggle]"); await page.waitForTimeout(200);   // the e-mail link is the way in; the password fields open from the small link under it
   await page.fill("[data-trial-invite] input[type=email]", "a@b.c"); await page.fill("[data-trial-invite] input[type=password]", "secret1");
   const box = await page.locator("[data-trial-invite] input[type=email]").boundingBox();
   await page.mouse.move(box.x + 12, box.y + box.height / 2); await page.mouse.down(); await page.mouse.move(4, 4, { steps: 4 }); await page.mouse.up(); await page.waitForTimeout(300);
@@ -346,6 +347,7 @@ for (const [lang, widths] of [["th", [320, 360, 390, 430]], ["en", [320, 390]], 
 {
   const { ctx, page } = await visitor({ lang: "en", uses: 3 });
   await startSong(page, "twinkle");
+  await page.click("[data-trial-invite] [data-pw-toggle]"); await page.waitForTimeout(200);   // the consent tick belongs to the password form, folded under the e-mail link
   await page.focus("[data-trial-invite] .au-ck input[type=checkbox]");
   await page.keyboard.press("Escape"); await page.waitForTimeout(300);
   ok(!(await has(page, "[data-trial-invite]")), "dialog: Escape with the consent checkbox focused closes the invitation at once");
@@ -413,6 +415,7 @@ for (const [w, h] of [[390, 844], [360, 640], [320, 568]]) {
   const inv = "[data-trial-invite] ";
   const inCard = (sel) => page.evaluate((s) => { const e = document.querySelector(s), c = document.querySelector("[data-trial-invite] .setcard"); if (!e || !c) return false; const a = e.getBoundingClientRect(), b = c.getBoundingClientRect(); return a.height > 0 && a.top >= b.top - 1 && a.bottom <= b.bottom + 1; }, sel);
   const focusedKind = () => page.evaluate(() => { const a = document.activeElement; if (!a || a.tagName !== "INPUT") return a ? a.tagName : "none"; return a.type === "email" ? "email" : a.type === "password" ? "password:" + [...document.querySelectorAll("[data-trial-invite] input[type=password]")].indexOf(a) : a.type === "checkbox" ? "checkbox" : "name"; });
+  await page.click(inv + "[data-pw-toggle]"); await page.waitForTimeout(200);   // the sign-up form with a password opens from the small link under the e-mail link field
   await page.fill(inv + "input[autocomplete=name]", "Anna");
   await page.focus(inv + "input[type=email]"); await page.keyboard.type("anna@example.com"); await page.keyboard.press("Enter"); await page.waitForTimeout(300);
   ok((await focusedKind()) === "password:0" && !(await has(page, inv + ".au-err")) && reqs.length === 0, `Enter @${w}x${h}: with the password still empty it moves to that field (no error nobody can see, no request)`);
@@ -431,6 +434,70 @@ for (const [w, h] of [[390, 844], [360, 640], [320, 568]]) {
   await page.fill(inv + "input[type=email]", "anna2@example.com"); await page.waitForTimeout(200);
   ok(!(await has(page, inv + ".au-err")), `Enter @${w}x${h}: typing again retires the old message`);
   ok(errors.length === 0, `Enter @${w}x${h}: no page errors`);
+  await ctx.close();
+}
+
+// Step 1.1 (owner 2026-11-26): the one-field e-mail link is the way in; the password form opens from a small link under it
+for (const [w, h] of [[390, 844], [360, 640]]) {
+  const { ctx, page, errors } = await visitor({ lang: "en", uses: 3, w, h });
+  const sent = []; await page.route(/supabase\.co\/auth\/v1\/otp/, (r) => { sent.push(r.request().postData() || ""); r.fulfill({ status: 200, contentType: "application/json", body: "{}" }); });
+  await startSong(page, "twinkle");
+  const inv = "[data-trial-invite] ";
+  ok(await has(page, inv + "[data-magic-email]") && await has(page, inv + "[data-magic-send]"), `magic @${w}x${h}: the invitation opens on the one-field e-mail link (field + button)`);
+  ok(!(await has(page, inv + "input[type=password]")) && !(await has(page, inv + "input[autocomplete=name]")) && !(await has(page, inv + ".au-ck")), `magic @${w}x${h}: no password / name / consent-tick field is shown by default`);
+  const pos = await page.evaluate(() => { const f = document.querySelector("[data-trial-invite] [data-magic-email]").getBoundingClientRect(), b = document.querySelector("[data-trial-invite] [data-magic-send]").getBoundingClientRect(); return { fieldBottom: Math.round(f.bottom), sendBottom: Math.round(b.bottom), vh: innerHeight }; });
+  ok(pos.fieldBottom <= pos.vh && (w !== 390 || pos.sendBottom <= pos.vh), `magic @${w}x${h}: the e-mail field is on screen without scrolling (field bottom ${pos.fieldBottom}, send button bottom ${pos.sendBottom}, screen ${pos.vh})`);
+  const offer = clean(await page.innerText(inv + "[data-invite-offer]")), price = clean(await page.innerText(inv + "[data-invite-price]"));
+  ok(/Try Pro free for 7 days/.test(offer) && /No credit card needed/.test(offer), `magic @${w}x${h}: the offer chips say 'Try Pro free for 7 days' and 'No credit card needed' (${JSON.stringify(offer)})`);
+  ok(/Then .*24\.99.* per month, cancel anytime/.test(price), `magic @${w}x${h}: the price line comes from the price table (${JSON.stringify(price)})`);
+  await page.fill(inv + "[data-magic-email]", "anna@example.com");
+  await page.evaluate(() => { const i = document.querySelector("[data-trial-invite] [data-magic-email]"); i.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", keyCode: 229, bubbles: true, cancelable: true })); });   // Safari: the Enter that commits an IME word arrives with isComposing false and keyCode 229
+  await page.waitForTimeout(500);
+  ok(sent.length === 0, `magic @${w}x${h}: an Enter that only commits an IME word (keyCode 229) sends no link`);
+  await page.focus(inv + "[data-magic-email]"); await page.keyboard.press("Enter"); await page.waitForTimeout(900);
+  let body = {}; try { body = JSON.parse(sent[0] || "{}"); } catch (e) {}
+  ok(sent.length === 1 && body.email === "anna@example.com" && body.data && body.data.via === "invite-otp" && body.data.marketing_consent === false && !!body.data.pdpa_version, `magic @${w}x${h}: Enter sends ONE link request with the e-mail, via=invite-otp, the privacy version and no marketing consent ${JSON.stringify(body.data || null)}`);
+  const done = clean(await page.innerText(inv + "[data-magic-done]").catch(() => ""));
+  ok(/Link sent/.test(done) && /Spam/.test(done) && /No password/.test(done), `magic @${w}x${h}: after sending it says the link is sent, no password, and to check Spam / Promotions`);
+  ok(await page.isDisabled(inv + "[data-magic-resend]") && /Send again \(\d+\)/.test(clean(await page.innerText(inv + "[data-magic-resend]"))), `magic @${w}x${h}: 'Send again' waits out a 30 second cooldown (it cannot be tapped twice)`);
+  await page.click(inv + "[data-pw-toggle]"); await page.waitForTimeout(250);
+  ok(await has(page, inv + "input[type=password]") && (await page.inputValue(inv + "input[type=email]")) === "anna@example.com", `magic @${w}x${h}: the small link opens the password form and keeps the typed e-mail`);
+  await page.click(inv + "[data-pw-back]"); await page.waitForTimeout(250);
+  ok(await has(page, inv + "[data-magic-email]") && !(await has(page, inv + "input[type=password]")), `magic @${w}x${h}: ...and the link under it brings the e-mail link back`);
+  await page.click(inv + ".au-segb:nth-child(2)"); await page.waitForTimeout(250);
+  ok(await has(page, inv + "[data-magic-email]") && !(await has(page, inv + "input[type=password]")) && !(await has(page, "[data-invite-offer]")), `magic @${w}x${h}: the Log-in tab is the e-mail link as well, without the free-trial offer`);
+  ok(errors.length === 0, `magic @${w}x${h}: no page errors` + (errors.length ? ": " + errors[0] : ""));
+  await ctx.close();
+}
+{
+  // the Thai invitation says the owner's offer; the corner pill and the ?wall= card send their own via
+  const { ctx, page, errors } = await visitor({ uses: 3 });
+  const sent = []; await page.route(/supabase\.co\/auth\/v1\/otp/, (r) => { sent.push(r.request().postData() || ""); r.fulfill({ status: 200, contentType: "application/json", body: "{}" }); });
+  await startSong(page, "twinkle");
+  const offer = clean(await page.innerText("[data-trial-invite] [data-invite-offer]")), price = clean(await page.innerText("[data-trial-invite] [data-invite-price]"));
+  ok(offer.includes("ทดลอง Pro ฟรี 7 วัน") && offer.includes("ไม่ต้องใช้บัตรเครดิต") && price.includes("จากนั้น 799 บาท/เดือน ยกเลิกได้"), "th: 'ทดลอง Pro ฟรี 7 วัน' and 'จากนั้น 799 บาท/เดือน ยกเลิกได้' (" + JSON.stringify(offer + " | " + price) + ")");
+  await boot(page);   // back on the Pathway (the song screen covers the corner pill)
+  await page.click(".guestloginpill"); await page.waitForTimeout(500);
+  await page.fill(".setcard [data-magic-email]", "pill@example.com"); await page.click(".setcard [data-magic-send]"); await page.waitForTimeout(900);
+  let b1 = {}; try { b1 = JSON.parse(sent[0] || "{}"); } catch (e) {}
+  ok(sent.length === 1 && b1.data && b1.data.via === "login-pill-otp", "the corner Login pill sends via=login-pill-otp");
+  ok(errors.length === 0, "th pill: no page errors" + (errors.length ? ": " + errors[0] : ""));
+  await ctx.close();
+}
+for (const wall of ["signup", "login"]) {
+  const { ctx, page, errors } = await visitor({ lang: "en", w: 390, h: 844 });
+  const sent = []; await page.route(/supabase\.co\/auth\/v1\/otp/, (r) => { sent.push(r.request().postData() || ""); r.fulfill({ status: 200, contentType: "application/json", body: "{}" }); });
+  await boot(page, "?wall=" + wall); await page.waitForSelector("[data-login-wall]", { timeout: 15000 });
+  const lw = "[data-login-wall] ";
+  ok(await has(page, lw + "[data-wall-google]") && await has(page, lw + "[data-magic-email]") && !(await has(page, lw + "input[type=password]")) && !(await has(page, lw + "[data-wall-submit]")), `?wall=${wall}: Google, then the one-field e-mail link; the password form is folded away`);
+  const y = await page.evaluate(() => { const f = document.querySelector("[data-login-wall] [data-magic-send]").getBoundingClientRect(); return { b: Math.round(f.bottom), vh: innerHeight }; });
+  ok(y.b <= y.vh, `?wall=${wall}: the send button is on screen without scrolling (${y.b} of ${y.vh})`);
+  await page.fill(lw + "[data-magic-email]", "wall@example.com"); await page.click(lw + "[data-magic-send]"); await page.waitForTimeout(900);
+  let b2 = {}; try { b2 = JSON.parse(sent[0] || "{}"); } catch (e) {}
+  ok(sent.length === 1 && b2.data && b2.data.via === "wall-otp" && (await has(page, lw + "[data-magic-done]")), `?wall=${wall}: the link goes out with via=wall-otp and the card says it was sent`);
+  await page.click(lw + "[data-pw-toggle]"); await page.waitForTimeout(250);
+  ok(await has(page, lw + "input[type=password]") && await has(page, lw + "[data-wall-submit]") && (await page.inputValue(lw + "input[type=email]")) === "wall@example.com", `?wall=${wall}: the small link opens the password form (same e-mail)`);
+  ok(errors.length === 0, `?wall=${wall}: no page errors` + (errors.length ? ": " + errors[0] : ""));
   await ctx.close();
 }
 
