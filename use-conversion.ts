@@ -3,7 +3,7 @@
    days at FULL MAX level (see isMaxPlan in payment.tsx), so the day-based
    skeleton was re-cut to fit a week:
 
-     d1–3   welcome    meet ครู TIGA AI, set the 7-day expectation
+     d1–3   welcome    meet ครู TIGA ALPHA, set the 7-day expectation
      d5–6   d7proof    the learner's OWN before/after numbers, only when
                         there is real evidence behind them (never a proud +0)
      d7     closing    "today is the LAST day" + exactly what Max unlocks,
@@ -102,9 +102,9 @@ function copyTable(t) {
       bannerUrgent: `⏳ อีก {n} วัน — หลังจบ ${name} จะหมด: ${perks.th}`,
       bannerUrgentBtn: `ต่อ ${name}`,
       winbackAlt: "ดูทุกแพ็กเกจ",
-      welcome: { ic: "🎓", title: "ครู TIGA AI มาแนะนำตัว", body: `ยินดีต้อนรับสู่ TIGA ALPHA!\n\n7 วันข้างหน้าคุณได้ ${name} เต็มรูปแบบ — ครู AI ไม่จำกัด ${perks.th} ผมจะพาเรียนทีละขั้นแบบครูตัวจริง`, cta: "🚀 เริ่มวันแรกกันเลย" },
+      welcome: { ic: "🎓", title: "ครู TIGA ALPHA มาแนะนำตัว", body: `ยินดีต้อนรับสู่ TIGA ALPHA!\n\n7 วันข้างหน้าคุณได้ ${name} เต็มรูปแบบ — ครู AI ไม่จำกัด ${perks.th} ผมจะพาเรียนทีละขั้นแบบครูตัวจริง`, cta: "🚀 เริ่มวันแรกกันเลย" },
       closing: { ic: "⏳", title: "วันสุดท้ายของการทดลองเล่นฟรี 7 วัน", body: `วันนี้เป็นวันสุดท้ายของการใช้งานฟรี 7 วัน หากต้องการใช้ต่อ แพ็กเกจ ${name} ค่าใช้จ่ายจะอยู่ที่ ${price.th} บาทต่อเดือน หรือ ${year.th} บาทต่อปี`, loss: "ถ้าไม่จ่าย คุณจะเหลือแพ็กเกจฟรี และของทั้งหมดด้านล่างนี้จะใช้ไม่ได้อีกต่อไป", items: perks.items, cta: `💳 ต่อ ${name} ${price.th} บาท/เดือน`, alt: "ดูทุกแพ็กเกจ" },
-      winback: { ic: "🧠", title: "ครู TIGA AI ยังจำคุณได้", body: "ทุกความก้าวหน้า ใบประกาศ และสถิติของคุณยังเก็บอยู่ครบถ้วน กลับมาเรียนต่อได้ทันทีเลย — ไม่มีอะไรหายไป", cta: "💙 กลับมาเรียนต่อ" },
+      winback: { ic: "🧠", title: "ครู TIGA ALPHA ยังจำคุณได้", body: "ทุกความก้าวหน้า ใบประกาศ และสถิติของคุณยังเก็บอยู่ครบถ้วน กลับมาเรียนต่อได้ทันทีเลย — ไม่มีอะไรหายไป", cta: "💙 กลับมาเรียนต่อ" },
       // v3 kinds — body is normally overridden by personalizedBody() with the
       // learner's own numbers; these bodies are the defensive generic fallback.
       d7proof: { ic: "🏅", title: "พิสูจน์แล้วในสัปดาห์แรก", body: `คำแนะนำของครู TIGA ได้ผลจริงกับการซ้อมของคุณ\n\n${name} ต่อได้วันนี้ที่ ${price.th} บาท/เดือน`, cta: `⭐ ต่อ ${name} ${price.th} บาท/เดือน` },
@@ -114,9 +114,9 @@ function copyTable(t) {
       bannerUrgent: `⏳ {n} days left — then ${name} ends: ${perks.en}`,
       bannerUrgentBtn: `Keep ${name}`,
       winbackAlt: "Browse all plans",
-      welcome: { ic: "🎓", title: "Meet Teacher TIGA AI", body: `Welcome to TIGA ALPHA!\n\nFor the next 7 days you get the full ${name} plan — unlimited AI teacher, ${perks.en}. I'll guide you step by step like a real teacher.`, cta: "🚀 Start day one" },
+      welcome: { ic: "🎓", title: "Meet Teacher TIGA ALPHA", body: `Welcome to TIGA ALPHA!\n\nFor the next 7 days you get the full ${name} plan — unlimited AI teacher, ${perks.en}. I'll guide you step by step like a real teacher.`, cta: "🚀 Start day one" },
       closing: { ic: "⏳", title: "Last day of your 7-day free trial", body: `Today is the last day of your 7-day free trial. To keep the ${name} plan, it costs ${price.en} per month, or ${year.en} per year.`, loss: "If you don't pay, you are left on the Free plan — and everything listed below stops working.", items: perks.itemsEn, cta: `💳 Keep ${name} — ${price.en}/month`, alt: "Browse all plans" },
-      winback: { ic: "🧠", title: "Teacher TIGA AI still remembers you", body: "All your progress, certificates and stats are exactly where you left them. You can continue right where you stopped — nothing is lost.", cta: "💙 Continue learning" },
+      winback: { ic: "🧠", title: "Teacher TIGA ALPHA still remembers you", body: "All your progress, certificates and stats are exactly where you left them. You can continue right where you stopped — nothing is lost.", cta: "💙 Continue learning" },
       d7proof: { ic: "🏅", title: "Proven in week one", body: `Teacher TIGA's coaching is already working on your real practice.\n\nKeep ${name} from today at ${price.en} per month.`, cta: `⭐ Keep ${name} — ${price.en}/month` },
       proof: { ic: "📈", title: "The coaching is working", body: `Your trouble spots are improving from real practice.\n\nKeep this teacher after the trial — ${name} at ${price.en} per month.`, cta: `⭐ Keep ${name}` },
     },
@@ -124,9 +124,9 @@ function copyTable(t) {
       bannerUrgent: `⏳ 还剩 {n} 天 — 到期后 ${name} 结束：${perks.zh}`,
       bannerUrgentBtn: `续费 ${name}`,
       winbackAlt: "查看全部套餐",
-      welcome: { ic: "🎓", title: "认识TIGA AI老师", body: `欢迎来到TIGA ALPHA！\n\n接下来7天你将获得完整 ${name} 套餐——AI老师不限次、${perks.zh}。我会像真正的老师一样一步步带你学。`, cta: "🚀 开始第一天" },
+      welcome: { ic: "🎓", title: "认识TIGA ALPHA老师", body: `欢迎来到TIGA ALPHA！\n\n接下来7天你将获得完整 ${name} 套餐——AI老师不限次、${perks.zh}。我会像真正的老师一样一步步带你学。`, cta: "🚀 开始第一天" },
       closing: { ic: "⏳", title: "7 天免费试用的最后一天", body: `今天是 7 天免费试用的最后一天。如需继续使用 ${name} 套餐，费用为每月 ${price.zh}，或每年 ${year.zh}。`, loss: "如果现在不付款，你将只剩免费套餐 —— 下面列出的所有功能都将无法继续使用。", items: perks.itemsZh, cta: `💳 续费 ${name} ${price.zh}/月`, alt: "查看全部套餐" },
-      winback: { ic: "🧠", title: "TIGA AI老师还记得你", body: "你的全部进度、证书和统计都原样保存，随时可以接着学——什么都没有丢失。", cta: "💙 继续学习" },
+      winback: { ic: "🧠", title: "TIGA ALPHA老师还记得你", body: "你的全部进度、证书和统计都原样保存，随时可以接着学——什么都没有丢失。", cta: "💙 继续学习" },
       d7proof: { ic: "🏅", title: "第一周已验证", body: `TIGA 老师的指导对你的真实练习已经见效。\n\n今天起以 ${price.zh}/月 继续使用 ${name}。`, cta: `⭐ 续费 ${name} ${price.zh}/月` },
       proof: { ic: "📈", title: "指导见效了", body: `你的薄弱点正在真实练习中改善。\n\n试用结束后保留这位老师——${name} ${price.zh}/月。`, cta: `⭐ 续费 ${name}` },
     },
@@ -249,6 +249,18 @@ export function convD7(profile, plan) {
   if (!(p.improvedCount >= 1)) return null;        // no proof, no pitch
   if (!takeSellSlot()) return null;                 // someone sold today already
   return { id: "d7", kind: "d7proof", day, proof: p };
+}
+
+// ── day-5 / day-6 soft reminder WITHOUT proof (Step 3.2) ───────────────────
+// Same days as convD7, for the member who has no measured improvement to quote: a calm inline strip on the Pathway (never a pop-up), shown once, and only if nobody sold today (takeSellSlot).
+// No countdown in seconds, no scarcity, no pressure: how many days are left, what keeping Premium costs, and a way to close it.
+export function convDay5(profile, plan) {
+  if (!isTrialPlan(plan) || !profile || !profile.created_at) return null;
+  const day = trialDay(profile);
+  if (day < 5 || day > trialLenDays(profile) - 1 || convSeen("d5strip") || convSeen("d7")) return null;
+  if (proofStats().improvedCount >= 1) return null;   // with proof the d7proof pop-up speaks instead
+  if (!takeSellSlot()) return null;
+  return { id: "d5strip", day };
 }
 
 // ── recurring win-moment proof popup (every ≥7 days, evidence-gated) ──────

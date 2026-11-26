@@ -65,7 +65,7 @@ ok(!fs.existsSync(path.join(OUT, "ko", "Bad_Slug.html")) && !fs.existsSync(path.
 ok(/\(\d+ from blog-src\)/.test(r1.out), "the build reports how many posts came from blog-src: " + (r1.out.match(/\(\d+ from blog-src\)/) || [""])[0]);
 
 console.log("article pages in ja / ko / ru / hi / es / fr / ar");
-// the unlock card's four lines per language (the "read the rest" title, Google button, sign-up button, log-in line); "\xa0" is the no-break space of hi / es / fr / ar (a phone never splits "TIGA AI"; es keeps "Inicia sesión" together), compared as a plain space
+// the unlock card's four lines per language (the "read the rest" title, Google button, sign-up button, log-in line); "\xa0" is the no-break space of hi / es / fr / ar (a phone never splits "TIGA ALPHA"; es keeps "Inicia sesión" together), compared as a plain space
 const wall = { ja: ["無料ログインで、残りの", "Googleで続ける", "無料で会員登録", "ログイン"], ko: ["로그인하고 나머지", "Google로 계속하기", "무료로 가입하기", "로그인"], ru: ["Войдите бесплатно, чтобы прочитать остальные", "Продолжить через Google", "Зарегистрироваться бесплатно", "Войти"],
   hi: ["पढ़ने के लिए मुफ़्त में लॉग इन करें", "Google से जारी रखें", "मुफ़्त में साइन अप करें", "पहले से सदस्य हैं? लॉग इन करें"],
   es: ["Inicia sesión gratis para leer el", "Continuar con Google", "Regístrate gratis", "¿Ya tienes cuenta? Inicia sesión"],
@@ -92,7 +92,7 @@ for (const lang of STAT) {
   ok(h.includes(`"name":"${AUM[lang]}"`), lang + ": the teacher's name in " + lang + " (" + AUM[lang] + ")");
   ok(h.includes(CAT[lang]) && h.includes(BACK[lang]) && h.includes(CTA[lang]), lang + ": category, 'all articles' and call-to-action in " + lang);
   ok(h.includes(`href="${SITE}/blog/${lang}/feed.xml"`), lang + ": the feed is linked from the head");
-  ok(wall[lang].slice(0, 3).every(w => nb(h).includes(nb(w))) && nb(h).includes("TIGA AI"), lang + ": the unlock card copy is in " + lang + " and names the TIGA AI app");
+  ok(wall[lang].slice(0, 3).every(w => nb(h).includes(nb(w))) && nb(h).includes("TIGA ALPHA"), lang + ": the unlock card copy is in " + lang + " and names the TIGA ALPHA app");
   ok(h.includes("<!--tg-gate:v9-->") && h.includes("<!--/tg-gate-->") && h.includes("<!--tg-cut:v1-->") && (h.match(/id="tg-unlock"/g) || []).length === 1 && (h.match(/class="tg-locked"/g) || []).length === 1, lang + ": one unlock card and one locked part, reader block <!--tg-gate:v9-->");
   ok(h.includes(`lg=${lang}`) && h.includes("utm_campaign=piano-posture") && h.includes("go=google") && h.includes("wall=signup") && h.includes("wall=login"), lang + ": wall links carry lg=" + lang + ", the attribution and the three entry points");
   ok(h.includes(`LANG="${lang}"`) && h.includes(`LBL="${WORDS[lang]}"`), lang + ": the reader script knows its language and the unit '" + WORDS[lang] + "'");

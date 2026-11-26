@@ -1,5 +1,5 @@
 /* first-run.tsx — the 3-minute first run of a NEW member (Step 3.1, owner 2026-11-26; the old welcome card stays suspended, this one is short and skippable).
-   Page 1 (welcome): "you are on the free 7-day Pro trial, no card" + one tap for the player's level. Page 2 is the normal song-ready screen of the app (App.tsx opens the easiest short song through chooseSong;
+   Page 1 (welcome): "you are on the free 7-day Premium trial, no card" + one tap for the player's level. Page 2 is the normal song-ready screen of the app (App.tsx opens the easiest short song through chooseSong;
    there is NO second song player). Page 3 (tip): after the song, 1-2 sentences of coach advice from the result, the trial status and "next lesson". Every page has Skip. The tip is rule-based and local: it
    spends no AI budget. Play build: no price anywhere (this file never prints one). Lazy-loaded by App.tsx. */
 import { pickT } from "./lang-extra";
@@ -12,7 +12,7 @@ export function firstRunTip(lang: string, acc: number, stars: number): string {
 }
 export default function FirstRun({ step, lang, daysLeft, showTrial, tip, onLevel, onSkip, onNext }: { step: "welcome" | "tip"; lang: string; daysLeft: number; showTrial: boolean; tip: string; onLevel: (l: Level) => void; onSkip: () => void; onNext: () => void }) {
   const T = (th: string, en: string, zh: string) => pickT(lang, th, en, zh);
-  const trialLine = T("คุณได้ทดลอง Pro ฟรี 7 วัน ไม่ต้องผูกบัตร", "You have a free 7-day Pro trial — no card needed", "你已获得 7 天 Pro 免费试用，无需绑卡");
+  const trialLine = T("คุณได้ทดลอง Premium ฟรี 7 วัน ไม่ต้องผูกบัตร", "You have a free 7-day Premium trial — no card needed", "你已获得 7 天 Premium 免费试用，无需绑卡");
   if (step === "welcome") return (
     <div className="setov" data-first-run="welcome" style={{ zIndex: 1300 }}>
       <div className="setcard" role="dialog" aria-modal="true" aria-label="TIGA ALPHA" style={{ maxWidth: 360, outline: "none" }}>
@@ -31,7 +31,7 @@ export default function FirstRun({ step, lang, daysLeft, showTrial, tip, onLevel
   return (
     <div className="gvalue" data-first-run="tip" role="region" aria-label="TIGA ALPHA">
       <div className="gvalue-t">{tip}</div>
-      {showTrial && daysLeft > 0 && <div className="gvalue-t" style={{ fontWeight: 600, opacity: 0.85 }}>{T("ทดลอง Pro ฟรี: เหลือ " + daysLeft + " วัน", "Free Pro trial: " + daysLeft + " day" + (daysLeft === 1 ? "" : "s") + " left", "Pro 免费试用：还剩 " + daysLeft + " 天")}</div>}
+      {showTrial && daysLeft > 0 && <div className="gvalue-t" style={{ fontWeight: 600, opacity: 0.85 }}>{T("ทดลอง Premium ฟรี: เหลือ " + daysLeft + " วัน", "Free Premium trial: " + daysLeft + " day" + (daysLeft === 1 ? "" : "s") + " left", "Premium 免费试用：还剩 " + daysLeft + " 天")}</div>}
       <div className="gvalue-act">
         <button type="button" className="gvalue-go" data-first-run-next onClick={onNext}>{T("ไปบทเรียนถัดไป", "Go to the next lesson", "去下一课")}</button>
         <button type="button" className="gvalue-x" data-first-run-skip onClick={onSkip}>{T("ข้าม", "Skip", "跳过")}</button>

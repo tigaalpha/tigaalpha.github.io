@@ -281,7 +281,7 @@ function PracticeResultView({ kid = false, practiceResult, lang, lc, restartPrac
       {/* Conversion pill (strategy phase 2): only for free-plan learners and
           only after a genuinely good run (accuracy gate passed via prop) —
           the exact peak moment where an upgrade feels earned, not gated. */}
-      {showKeepGoing && <button className="presultkeep" onClick={onKeepGoing}>{lang === "th" ? "🔥 ฟอร์มนี้กำลังมา — รักษาต่อกับครู TIGA AI ได้ทุกวัน" : lang === "zh" ? "🔥 状态正佳——每天与TIGA AI老师保持下去" : xl(lang, "🔥 You're on a roll — keep it going with Teacher TIGA AI daily")}</button>}
+      {showKeepGoing && <button className="presultkeep" onClick={onKeepGoing}>{lang === "th" ? "🔥 ฟอร์มนี้กำลังมา — รักษาต่อกับครู TIGA ALPHA ได้ทุกวัน" : lang === "zh" ? "🔥 状态正佳——每天与TIGA ALPHA老师保持下去" : xl(lang, "🔥 You're on a roll — keep it going with Teacher TIGA ALPHA daily")}</button>}
 
       {/* Jev practice-next (admin ⚡ toggle): the decision model's next-step
           suggestion from this round's real signals, wired to the matching
@@ -307,8 +307,8 @@ function PracticeResultView({ kid = false, practiceResult, lang, lc, restartPrac
           signed-in only. */}
       {r.tigaTip && r.tigaTip.text && (
         <div className="presultai" style={{ borderColor: "#d97757" }}>
-          {/* Owner: the teacher is "ครู TIGA AI" everywhere on this screen. */}
-          <div className="presultai-h">🧠 {lang === "th" ? "ครู TIGA AI วิเคราะห์" : lang === "zh" ? "TIGA AI模型分析" : xl(lang, "Teacher TIGA AI analysis")}{tigaStrategyLabel(r.tigaTip.strategyId, lang) ? ` · ${tigaStrategyLabel(r.tigaTip.strategyId, lang)}` : ""}</div>
+          {/* Owner: the teacher is "ครู TIGA ALPHA" everywhere on this screen. */}
+          <div className="presultai-h">🧠 {lang === "th" ? "ครู TIGA ALPHA วิเคราะห์" : lang === "zh" ? "TIGA ALPHA模型分析" : xl(lang, "Teacher TIGA ALPHA analysis")}{tigaStrategyLabel(r.tigaTip.strategyId, lang) ? ` · ${tigaStrategyLabel(r.tigaTip.strategyId, lang)}` : ""}</div>
           <div className="presultai-tx">{r.tigaTip.text}</div>
         </div>
       )}
@@ -330,10 +330,10 @@ function PracticeResultView({ kid = false, practiceResult, lang, lc, restartPrac
         <div className="presultai">
           <div className="presultai-h">💬 {lc.practiceCoachSays}</div>
           {/* Waiting state is a real sentence, not an ellipsis: the analysis
-              needs a moment, and "รอครู TIGA AI ประมวลผลสักครู่…" tells the
+              needs a moment, and "รอครู TIGA ALPHA ประมวลผลสักครู่…" tells the
               learner (and their parent watching) exactly what's happening. */}
           {r.aiLoading
-            ? <div className="presultai-loading">{lang === "th" ? "⏳ รอครู TIGA AI ประมวลผลสักครู่…" : lang === "zh" ? "⏳ 等待TIGA AI老师分析中…" : xl(lang, "⏳ Teacher TIGA AI is analyzing, one moment…")}</div>
+            ? <div className="presultai-loading">{lang === "th" ? "⏳ รอครู TIGA ALPHA ประมวลผลสักครู่…" : lang === "zh" ? "⏳ 等待TIGA ALPHA老师分析中…" : xl(lang, "⏳ Teacher TIGA ALPHA is analyzing, one moment…")}</div>
             : <div className="presultai-tx">{r.aiText}</div>}
         </div>
       )}

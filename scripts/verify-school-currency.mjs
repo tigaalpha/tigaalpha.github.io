@@ -78,6 +78,7 @@ async function stage(dir, { realCatalogs = false } = {}) {
   fs.writeFileSync(path.join(dir, "supabase-client.ts"), `export const SUPABASE_URL = "https://sb.test";
 export const sb: any = { rpc: (...a: any[]) => (globalThis as any).__rpc(...a), storage: { from: () => ({ upload: async () => ({ error: null }) }) }, from: () => ({ select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: null }) }) }) }) };\n`);
   fs.writeFileSync(path.join(dir, "ai-backend.ts"), `export const apiHeaders = () => ({ apikey: "k" });\n`);
+  fs.writeFileSync(path.join(dir, "analytics.ts"), `export const track = () => {};\n`);   // payment.tsx -> analytics.ts (Step 2.3); not under test
   fs.writeFileSync(path.join(dir, "entry.tsx"), `import * as P from "./payment.tsx"; ${haveBase ? 'import * as B from "./payment-base.tsx";' : "const B: any = null;"}
 import * as L from "./lang-extra.ts"; import * as React from "react"; import { createRoot } from "react-dom/client";
 (globalThis as any).__S = (globalThis as any).__S || {}; (globalThis as any).__S[${JSON.stringify(path.basename(dir))}] = { P, B, L, React, createRoot };\n`);

@@ -1,6 +1,6 @@
 /* One-off patch: the practice-result AI card header (practiceCoachSays)
-   must read "ครู TIGA AI …" in every language — owner asked that the teacher
-   be called "ครู TIGA AI" everywhere on this page. Idempotent: re-running
+   must read "ครู TIGA ALPHA …" in every language — owner asked that the teacher
+   be called "ครู TIGA ALPHA" everywhere on this page. Idempotent: re-running
    reports "already applied". */
 import { readFileSync, writeFileSync } from "node:fs";
 
@@ -9,15 +9,15 @@ let s = readFileSync(FILE, "utf8");
 const orig = s;
 
 const REPL = [
-  // th — exactly "ครู TIGA AI" (owner crossed out the old suffix)
-  ['practiceCoachSays: "ครู TIGA AI พูดว่า"', 'practiceCoachSays: "ครู TIGA AI"'],
-  ['practiceCoachSays: "ครู TiGA พูดว่า"', 'practiceCoachSays: "ครู TIGA AI"'],
+  // th — exactly "ครู TIGA ALPHA" (owner crossed out the old suffix)
+  ['practiceCoachSays: "ครู TIGA ALPHA พูดว่า"', 'practiceCoachSays: "ครู TIGA ALPHA"'],
+  ['practiceCoachSays: "ครู TiGA พูดว่า"', 'practiceCoachSays: "ครู TIGA ALPHA"'],
   // en
-  ['practiceCoachSays: "Teacher TIGA AI says"', 'practiceCoachSays: "Teacher TIGA AI"'],
-  ['practiceCoachSays: "Coach TiGA says"', 'practiceCoachSays: "Teacher TIGA AI"'],
+  ['practiceCoachSays: "Teacher TIGA ALPHA says"', 'practiceCoachSays: "Teacher TIGA ALPHA"'],
+  ['practiceCoachSays: "Coach TiGA says"', 'practiceCoachSays: "Teacher TIGA ALPHA"'],
   // zh
-  ['practiceCoachSays: "TIGA AI老师说"', 'practiceCoachSays: "TIGA AI老师"'],
-  ['practiceCoachSays: "TiGA老师说"', 'practiceCoachSays: "TIGA AI老师"'],
+  ['practiceCoachSays: "TIGA ALPHA老师说"', 'practiceCoachSays: "TIGA ALPHA老师"'],
+  ['practiceCoachSays: "TiGA老师说"', 'practiceCoachSays: "TIGA ALPHA老师"'],
 ];
 
 let changed = 0;

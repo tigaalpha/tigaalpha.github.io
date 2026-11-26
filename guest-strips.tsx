@@ -78,6 +78,27 @@ export function GuestHeroStrips({ lang, onTrial }: { lang: string; onTrial: () =
   );
 }
 
+/* ── day-5 / day-6 reminder of a member on the free trial (Step 3.2): an inline strip at the top of the Pathway, never a pop-up, once ── */
+export function TrialReminderStrip({ lang, daysLeft, onKeep, onClose }: { lang: string; daysLeft: number; onKeep: () => void; onClose: () => void }) {
+  const T = (th: string, en: string, zh: string) => pickT(lang, th, en, zh);
+  const price = trialPriceFor(lang || "th"), p = lang === "th" ? price + " บาท" : price, n = String(daysLeft);
+  useEffect(() => { logUsage("conv", "d5strip:shown"); }, []);
+  const msg = T("เหลืออีก " + n + " วัน — ต่อ Premium " + p + "/เดือน เพื่อเรียนต่อไม่สะดุด",
+    "Only " + n + " days left — keep Premium at " + p + " per month and carry on learning without a break",
+    "还剩 " + n + " 天 — 每月 " + p + " 继续使用 Premium，学习不中断");
+  const text = (lang === "th" || lang === "en" || lang === "zh") ? msg : xl(lang, "{0} days left — keep Premium at {1} per month and carry on learning without a break").split("{0}").join(n).split("{1}").join(p);
+  return (
+    <div className="ghero" data-trial-reminder role="region" aria-label="TIGA ALPHA">
+      <button type="button" className="ghero-x" data-trial-reminder-close aria-label={T("ปิด", xl(lang, "Close"), "关闭")} onClick={() => { logUsage("conv", "d5strip:close"); onClose(); }}>×</button>
+      <div className="ghero-t">{text}</div>
+      <div className="ghero-act">
+        <button type="button" className="ghero-trial" data-trial-reminder-keep onClick={() => { logUsage("conv", "d5strip:cta"); onKeep(); }}>{T("ต่อ Premium", "Keep Premium", "继续 Premium")}</button>
+        <button type="button" className="ghero-try" data-trial-reminder-later onClick={() => { logUsage("conv", "d5strip:close"); onClose(); }}>{T("ยังไม่ตอนนี้", xl(lang, "Not now"), "暂不")}</button>
+      </div>
+    </div>
+  );
+}
+
 /* ── the soft invitation after a guest's FIRST value moment (Step 2.4, owner 2026-11-26) ──
    A value moment = the first finished practice round / lesson drill, or the first finished song with at least one star. App.tsx shows this ONCE per browser (tg_guest_value_seen), only for a
    guest, only while that result screen is open, and never together with the log-in card. It is a short strip at the bottom of the result screen (above the result overlays, below every dialog),

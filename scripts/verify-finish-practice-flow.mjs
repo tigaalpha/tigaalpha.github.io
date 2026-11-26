@@ -435,7 +435,7 @@ console.log(`  (practiceResult via server probe: ${api.practiceResult ? "set" : 
     overlayMount.remove();
     ok("overlay renders result title", html.includes("เก่งมาก!"));
     ok("overlay shows score 100%", html.includes("100%"));
-    ok("overlay renders TIGA verdict header", html.includes("ครู TIGA AI วิเคราะห์") || html.includes("TIGA Model วิเคราะห์"), "markup: " + html.slice(0, 300));
+    ok("overlay renders TIGA verdict header", html.includes("ครู TIGA ALPHA วิเคราะห์") || html.includes("TIGA Model วิเคราะห์"), "markup: " + html.slice(0, 300));
     ok("overlay renders verdict text", r2.tigaTip && html.includes(r2.tigaTip.text.slice(0, 20).replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
     ok("NO crash-boundary artifacts", !html.includes("Something went wrong"));
 

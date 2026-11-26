@@ -19,6 +19,7 @@ const EARLY_ZH: Record<string, string> = {
   "Try Premium free for {0} days": "免费试用 Premium {0} 天",
   "Great job! Keep this progress — try Premium free for {0} days, no card needed": "太棒了！保存你的进度 — 免费试用 Premium {0} 天，无需绑定银行卡",
   "Keep playing first": "先继续玩",
+  "{0} days left — keep Premium at {1} per month and carry on learning without a break": "还剩 {0} 天 — 每月 {1} 继续使用 Premium，学习不中断",
   "Great start! Log in or sign up free to keep this progress and carry on.": "开局很棒！免费登录或注册，保存进度并继续。",
   "Then {0} per month, cancel anytime": "之后每月 {0}，可随时取消",
   "(Optional) Email me news about new courses and promotions": "（选填）给我发送新课程和优惠活动的邮件",

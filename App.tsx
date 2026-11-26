@@ -35,7 +35,7 @@ import { nativeSTTAvailable, NativeSpeechRecognition } from "./native-stt";
 import { nativeSignInWith, listenForNativeAuthRedirect } from "./native-auth";
 import { initNativeUpdater, OTA_ENABLED } from "./native-updater";
 import { sb, SUPABASE_URL } from "./supabase-client";
-import { convCopyFor, convCheckoutTier, convPopupFor, convWinBack, convSeen, markConvSeen, trialDay, canUseSongGift, consumeSongGift, personalizedBody, proofPopupEligible, firstPaidActivation, ACTIVATION_COPY, logConvEvent } from "./use-conversion";
+import { convCopyFor, convCheckoutTier, convPopupFor, convWinBack, convDay5, convSeen, markConvSeen, trialDay, canUseSongGift, consumeSongGift, personalizedBody, proofPopupEligible, firstPaidActivation, ACTIVATION_COPY, logConvEvent } from "./use-conversion";
 import { EDU_COPY, eduTipFor, eduSeen, markEduSeen, pvpLossCopy } from "./use-educate";
 import { queuedUntilTiga, useTiga, tigaNow, preloadTigamodelOnInteraction, tigaLongTermValue } from "./tiga-gateway";   // tigamodel loads LAZY (plan v3 1.5) — nothing static from it in the main chunk
 import { buildParentReport, buildParentReportData } from "./use-practice-coach";
@@ -148,7 +148,7 @@ import {
 } from "./shared-infra";
 import { startCloudSync, stopCloudSync, wipeAfterSignOut, cloudSyncReady, onCloudPulled } from "./cloud-sync";
 import { Splash, BannedScreen, GuestGateScreen, TrialInviteModal, ProfileForm, LangPickerScreen, CountUp, LoginModal, SafeZone, inAppBrowser, withExternalBrowserFlag } from "./app-shell";
-import { GuestHeroStrips, GuestValueCard, valueSeen, markValueSeen } from "./guest-strips";
+import { GuestHeroStrips, GuestValueCard, TrialReminderStrip, valueSeen, markValueSeen } from "./guest-strips";
 import { shareUrl, SHARE_HOST } from "./share-links";
 import { PricingOverlay } from "./PricingOverlay";
 import { PracticeOverlay } from "./PracticeOverlay";
@@ -1435,11 +1435,11 @@ const MyClassPage = memo(function MyClassPage({ lang, exp, streak, homework, onL
           <div className="gpbar-flow" data-gp-myclass="1"><GamePowerBar lang={lang} onOpen={() => setGpSheet(true)} /></div>
           {gpSheet && <PowerSheet lang={lang} onClose={() => setGpSheet(false)} />}
           {act ? (<>
-            <div style={{ fontSize: 12.5, color: "var(--muted)", marginBottom: 2, display: "flex", alignItems: "center", gap: 8 }}>{T("วันนี้ควรฝึก", "Today's focus", "今日重点")} <span data-by-ai="1" style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "2px 10px", borderRadius: 999, background: "linear-gradient(180deg,#7f52ea,#6a3dd8)", color: "#fff", fontSize: 11.5, fontWeight: 700, letterSpacing: .4, boxShadow: "0 2px 8px rgba(106,61,216,.45), inset 0 1px 0 rgba(255,255,255,.28)" }}>✨ TIGA AI</span></div>
+            <div style={{ fontSize: 12.5, color: "var(--muted)", marginBottom: 2, display: "flex", alignItems: "center", gap: 8 }}>{T("วันนี้ควรฝึก", "Today's focus", "今日重点")} <span data-by-ai="1" style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "2px 10px", borderRadius: 999, background: "linear-gradient(180deg,#7f52ea,#6a3dd8)", color: "#fff", fontSize: 11.5, fontWeight: 700, letterSpacing: .4, boxShadow: "0 2px 8px rgba(106,61,216,.45), inset 0 1px 0 rgba(255,255,255,.28)" }}>✨ TIGA ALPHA</span></div>
             <div style={{ fontSize: 16.5, fontWeight: 700, color: "var(--text)", lineHeight: 1.3 }}>{title}</div>
             <div style={{ fontSize: 12, color: "var(--text2)", marginTop: 3, lineHeight: 1.5 }}><b style={{ color: "var(--clay-ink)" }}>{act.minutes} {T("นาที", "min", "分钟")}</b> · {actWhyText(act, T)}</div>
           </>) : (<>
-            <div style={{ fontSize: 12.5, color: "var(--muted)", marginBottom: 2, display: "flex", alignItems: "center", gap: 8 }}>{T("เริ่มจากตรงนี้", "Start here", "从这里开始")} <span data-by-ai="1" style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "2px 10px", borderRadius: 999, background: "linear-gradient(180deg,#7f52ea,#6a3dd8)", color: "#fff", fontSize: 11.5, fontWeight: 700, letterSpacing: .4, boxShadow: "0 2px 8px rgba(106,61,216,.45), inset 0 1px 0 rgba(255,255,255,.28)" }}>✨ TIGA AI</span></div>
+            <div style={{ fontSize: 12.5, color: "var(--muted)", marginBottom: 2, display: "flex", alignItems: "center", gap: 8 }}>{T("เริ่มจากตรงนี้", "Start here", "从这里开始")} <span data-by-ai="1" style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "2px 10px", borderRadius: 999, background: "linear-gradient(180deg,#7f52ea,#6a3dd8)", color: "#fff", fontSize: 11.5, fontWeight: 700, letterSpacing: .4, boxShadow: "0 2px 8px rgba(106,61,216,.45), inset 0 1px 0 rgba(255,255,255,.28)" }}>✨ TIGA ALPHA</span></div>
             <div style={{ fontSize: 16.5, fontWeight: 700, color: "var(--text)", lineHeight: 1.3 }}>{coldStep ? tr(coldStep.title, lang) : nextStep ? nextStep.label : T("เล่นเพลงสักเพลง", "Play a song", "弹一首歌")}</div>
             {coldStep && <div style={{ fontSize: 12.5, color: "var(--text2)", marginTop: 6, lineHeight: 1.7 }} data-cold="1">{tr(coldStep.why, lang)}</div>}
             <div style={{ fontSize: 12.5, color: "var(--text2)", marginTop: 6 }}>{coldStep ? "" : skipped ? T("วันนี้ข้ามคำแนะนำของครู AI ไว้ — ทำตามแผนด้านล่างได้เลย", "You skipped the mentor's advice today — follow the plan below.", "今天已跳过导师建议——按下面的计划来吧。") : T("ยังซ้อมไม่พอให้ครู AI วิเคราะห์ ซ้อมอีกสักหน่อยแล้วคำแนะนำจะแม่นขึ้น", "Not enough practice yet for the AI to analyse — a little more and the advice gets sharper.", "练习还不够，AI 暂时无法分析——再练一点建议会更准。")}</div>
@@ -8231,7 +8231,7 @@ const CoachPage = memo(function CoachPage({ lang, profile, plan = "", onNavigate
             <span className="mentai-spark" aria-hidden="true">✨</span>
             <span className="mentai-tx">
               <b>{T("Generate โดย AI เพื่อคุณโดยเฉพาะ", "Generated by AI, just for you", "AI 为你量身生成")}</b>
-              <i>{T("คำแนะนำจาก TIGA AI", "Recommendations from TIGA AI", "来自 TIGA AI 的建议")}</i>
+              <i>{T("คำแนะนำจาก TIGA ALPHA", "Recommendations from TIGA ALPHA", "来自 TIGA ALPHA 的建议")}</i>
             </span>
             <span className="mentai-chip" aria-hidden="true">AI</span>
           </div>
@@ -11315,7 +11315,6 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
      pricing, checkout or "keep Premium" screen at all; a member who already pays keeps every feature (the plan is read from the account), and buying happens on the website. */
   const PLAY_BUILD = !OTA_ENABLED;
   /* the guest's two inline strips above the lesson table (owner 2026-11-26, guest-strips.tsx): a stable element, so the memo of PathwayPage still holds */
-  const guestTop = useMemo(() => (isGuest && !PLAY_BUILD) ? <GuestHeroStrips lang={lang} onTrial={() => setLoginModalOpen(true)} /> : null, [isGuest, PLAY_BUILD, lang]);
   useEffect(() => { if (PLAY_BUILD && (pricingOpen || checkout || schoolCheckout)) { setPricingOpen(false); setCheckout(null); setSchoolCheckout(null); } }, [pricingOpen, checkout, schoolCheckout]);
   const [convPopup, setConvPopup] = useState(null);
   useEffect(() => {
@@ -11327,6 +11326,11 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     setConvPopup(next);
     if (next) logConvEvent(next.id, "shown");           // v3 funnel instrumentation
   }, [profile, plan, isGuest]);
+  const [d5Strip, setD5Strip] = useState<any>(null);   // Step 3.2: the day-5 / day-6 inline reminder of a member on the trial who has no proof to quote (use-conversion.convDay5)
+  useEffect(() => { if (isGuest || PLAY_BUILD) { setD5Strip(null); return; } if (!convPopup) { const n = convDay5(profile, plan); if (n) setD5Strip(n); } }, [profile, plan, isGuest, convPopup]);
+  const guestTop = useMemo(() => (isGuest && !PLAY_BUILD) ? <GuestHeroStrips lang={lang} onTrial={() => setLoginModalOpen(true)} />
+    : (!isGuest && !PLAY_BUILD && d5Strip) ? <TrialReminderStrip lang={lang} daysLeft={Math.max(1, trialDaysLeft(profile))} onKeep={() => { markConvSeen("d5strip"); setD5Strip(null); startCheckout(convCheckoutTier(plan), billCycle); }} onClose={() => { markConvSeen("d5strip"); setD5Strip(null); }} /> : null,
+    [isGuest, PLAY_BUILD, lang, d5Strip]);
   function dismissConvPopup() {
     if (convPopup) { markConvSeen(convPopup.id); logConvEvent(convPopup.id, "dismissed"); }
     setConvPopup(null);
@@ -15121,7 +15125,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
       })()}
 
       {/* Conversion-funnel popup (owner decision 2026-10-04): trial-stage
-          messaging from ครู TIGA AI — welcome (d1-3) / first-week proof (d5-6) /
+          messaging from ครู TIGA ALPHA — welcome (d1-3) / first-week proof (d5-6) /
           last-day closing + direct checkout (d7) / expired win-back. One
           instance, highest-priority phase first; dismissal is remembered per
           device. The copy AND the checkout tier both follow the plan: the

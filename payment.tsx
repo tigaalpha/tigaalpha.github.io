@@ -42,13 +42,18 @@ function promptPayPayload(target, amount) {
    cards — a real customer's card is declined and no money moves. That failure is
    invisible from the outside, so the app asks the server which mode it is in and
    refuses to show a card button that cannot take money. Cached per page load. */
+/* Step 3.2: every place a payment can fail writes ONE usage row (kind "payerr", item "<step>:<code>") so a silent failure shows up in the admin analytics. Only a step name and a short code travel: never a card,
+   a name, an e-mail or an amount. shared-infra is loaded lazily (it would be a cycle at import time). */
+export function payErr(step: string, code: string | number) {
+  try { import("./shared-infra").then((m) => m.logUsage("payerr", step + ":" + String(code).slice(0, 24))).catch(() => {}); } catch (e) {}
+}
 let _stripeModeP: Promise<string> | null = null;
 export function stripeMode(): Promise<string> {
   if (!_stripeModeP) {
     _stripeModeP = fetch(SUPABASE_URL + "/functions/v1/stripe-checkout", {
       method: "POST", headers: { ...apiHeaders(), "Content-Type": "application/json" },
       body: JSON.stringify({ probe: true }),
-    }).then(r => r.json()).then(j => (j && j.mode) || "unknown").catch(() => "unknown");
+    }).then(r => r.json()).then(j => (j && j.mode) || "unknown").catch(() => { payErr("mode", "net"); return "unknown"; });
   }
   return _stripeModeP;
 }
@@ -340,6 +345,7 @@ export function CheckoutModal({ lang, checkout, payCfg, session, isAdmin, onClos
     if (!uid || stripeLoading || submittingRef.current) return;
     submittingRef.current = true;
     setStripeLoading(true);
+    let stripeLogged = false;
     try {
       const res = await fetch(SUPABASE_URL + "/functions/v1/stripe-checkout", {
         method: "POST",
@@ -352,28 +358,28 @@ export function CheckoutModal({ lang, checkout, payCfg, session, isAdmin, onClos
         body: JSON.stringify({ plan: checkout.plan, cycle: checkout.cycle || "month", cur, expect: dispAmt }),
       });
       const data = await res.json();
-      if (!res.ok || !data.url) throw new Error(data.error || "no url");
+      if (!res.ok || !data.url) { stripeLogged = true; payErr("stripe", res.ok ? "nourl" : res.status); throw new Error(data.error || "no url"); }
       window.location.href = data.url;
-    } catch { setSt("stripe-err"); setStripeLoading(false); submittingRef.current = false; }
+    } catch (e) { if (!stripeLogged) payErr("stripe", "net"); setSt("stripe-err"); setStripeLoading(false); submittingRef.current = false; }
   }
 
   async function onFile(e) {
     const f = e.target.files && e.target.files[0]; e.target.value = "";
     if (!f || !uid || !selChan || submittingRef.current) return;
-    if (f.size > 6 * 1024 * 1024) { setSt("error"); return; }
+    if (f.size > 6 * 1024 * 1024) { payErr("slip", "toobig"); setSt("error"); return; }
     submittingRef.current = true;
     setSt("uploading");
     try {
       const ext = ((f.type.split("/")[1]) || "jpg").replace("jpeg", "jpg");
       const path = `${uid}/${Date.now()}.${ext}`;
       const up = await sb.storage.from("slips").upload(path, f, { contentType: f.type, upsert: false });
-      if (up.error) throw up.error;
+      if (up.error) { payErr("slip", "upload"); throw up.error; }
       const meta = (session.user.user_metadata) || {};
       const ins = await sb.from("payments").insert({
         user_id: uid, email: session.user.email || null, full_name: meta.full_name || meta.name || null,
         plan: checkout.plan, amount: amountThb, method: selChan.method, slip_path: path, status: "pending", days: checkout.days || 30,
       });
-      if (ins.error) throw ins.error;
+      if (ins.error) { payErr("slip", "insert"); throw ins.error; }
       setSt("done"); playUi("levelup");
     } catch { setSt("error"); submittingRef.current = false; }
   }

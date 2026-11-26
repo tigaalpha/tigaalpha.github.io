@@ -23323,14 +23323,14 @@
     "ar": "الوضع المتوسط",
     "de": "Mittlerer Modus"
   },
-  "Meet Teacher TIGA AI": {
-    "ja": "TIGA AI先生をご紹介します",
-    "ko": "TIGA AI 선생님을 소개합니다",
-    "ru": "Знакомьтесь: учитель TIGA AI",
+  "Meet Teacher TIGA ALPHA": {
+    "ja": "TIGA ALPHA先生をご紹介します",
+    "ko": "TIGA ALPHA 선생님을 소개합니다",
+    "ru": "Знакомьтесь: учитель TIGA ALPHA",
     "es": "Conoce al Profesor TIGA IA",
     "fr": "Découvre Prof TIGA IA",
-    "hi": "मिलिए टीचर TIGA AI से",
-    "ar": "تعرّف على المعلّم TIGA AI",
+    "hi": "मिलिए टीचर TIGA ALPHA से",
+    "ar": "تعرّف على المعلّم TIGA ALPHA",
     "de": "Lerne den KI-Lehrer TIGA kennen"
   },
   "Melodic": {
@@ -32430,15 +32430,15 @@
     "ar": "اقترح عليّ أغنية سهلة أستطيع عزفها الآن",
     "de": "Empfiehl mir ein leichtes Lied, das ich gleich spielen kann"
   },
-  "Recommendations from TIGA AI": {
-    "ja": "TIGA AIからのおすすめ",
-    "ko": "TIGA AI 추천",
-    "ru": "Рекомендации от TIGA AI",
-    "es": "Recomendaciones de TIGA AI",
-    "fr": "Recommandations de TIGA AI",
-    "hi": "TIGA AI की सिफ़ारिशें",
-    "ar": "توصيات من TIGA AI",
-    "de": "Empfehlungen von TIGA AI"
+  "Recommendations from TIGA ALPHA": {
+    "ja": "TIGA ALPHAからのおすすめ",
+    "ko": "TIGA ALPHA 추천",
+    "ru": "Рекомендации от TIGA ALPHA",
+    "es": "Recomendaciones de TIGA ALPHA",
+    "fr": "Recommandations de TIGA ALPHA",
+    "hi": "TIGA ALPHA की सिफ़ारिशें",
+    "ar": "توصيات من TIGA ALPHA",
+    "de": "Empfehlungen von TIGA ALPHA"
   },
   "Recommended": {
     "ja": "おすすめ",
@@ -39510,34 +39510,34 @@
     "ar": "المعلّم",
     "de": "Lehrer"
   },
-  "Teacher TIGA AI": {
-    "ja": "TIGA AI先生",
-    "ko": "TIGA AI 선생님",
-    "ru": "Учитель TIGA AI",
-    "es": "Profesor TIGA AI",
-    "fr": "Prof TIGA AI",
-    "hi": "शिक्षक TIGA AI",
-    "ar": "المعلّم TIGA AI",
-    "de": "Lehrer TIGA AI"
+  "Teacher TIGA ALPHA": {
+    "ja": "TIGA ALPHA先生",
+    "ko": "TIGA ALPHA 선생님",
+    "ru": "Учитель TIGA ALPHA",
+    "es": "Profesor TIGA ALPHA",
+    "fr": "Prof TIGA ALPHA",
+    "hi": "शिक्षक TIGA ALPHA",
+    "ar": "المعلّم TIGA ALPHA",
+    "de": "Lehrer TIGA ALPHA"
   },
-  "Teacher TIGA AI analysis": {
-    "ja": "TIGA AI先生の分析",
-    "ko": "TIGA AI 선생님의 분석",
-    "ru": "Анализ учителя TIGA AI",
-    "es": "Análisis del Profesor TIGA AI",
-    "fr": "Analyse de Prof TIGA AI",
-    "hi": "शिक्षक TIGA AI का विश्लेषण",
-    "ar": "تحليل المعلّم TIGA AI",
+  "Teacher TIGA ALPHA analysis": {
+    "ja": "TIGA ALPHA先生の分析",
+    "ko": "TIGA ALPHA 선생님의 분석",
+    "ru": "Анализ учителя TIGA ALPHA",
+    "es": "Análisis del Profesor TIGA ALPHA",
+    "fr": "Analyse de Prof TIGA ALPHA",
+    "hi": "शिक्षक TIGA ALPHA का विश्लेषण",
+    "ar": "تحليل المعلّم TIGA ALPHA",
     "de": "Analyse von KI-Lehrer TIGA"
   },
-  "Teacher TIGA AI still remembers you": {
-    "ja": "TIGA AI先生はあなたのことをまだ覚えています",
-    "ko": "TIGA AI 선생님은 아직 당신을 기억해요",
-    "ru": "Учитель TIGA AI по-прежнему помнит вас",
+  "Teacher TIGA ALPHA still remembers you": {
+    "ja": "TIGA ALPHA先生はあなたのことをまだ覚えています",
+    "ko": "TIGA ALPHA 선생님은 아직 당신을 기억해요",
+    "ru": "Учитель TIGA ALPHA по-прежнему помнит вас",
     "es": "El Profesor TIGA IA todavía te recuerda",
     "fr": "Prof TIGA IA se souvient encore de toi",
-    "hi": "टीचर TIGA AI को आप अब भी याद हैं",
-    "ar": "المعلّم TIGA AI ما زال يتذكرك",
+    "hi": "टीचर TIGA ALPHA को आप अब भी याद हैं",
+    "ar": "المعلّم TIGA ALPHA ما زال يتذكرك",
     "de": "KI-Lehrer TIGA erinnert sich noch an dich"
   },
   "Teacher TIGA Practice Coach": {
@@ -50647,14 +50647,14 @@
     "ar": "⏳ جارٍ الإنشاء...",
     "de": "⏳ Wird erstellt ..."
   },
-  "⏳ Teacher TIGA AI is analyzing, one moment…": {
-    "ja": "⏳ TIGA AI先生が分析しています。少々お待ちください…",
-    "ko": "⏳ TIGA AI 선생님이 분석하고 있어요. 잠시만 기다려 주세요…",
-    "ru": "⏳ Учитель TIGA AI анализирует, подождите немного…",
-    "es": "⏳ El Profesor TIGA AI está analizando, un momento…",
-    "fr": "⏳ Prof TIGA AI analyse, un instant…",
-    "hi": "⏳ शिक्षक TIGA AI विश्लेषण कर रहे हैं, ज़रा रुकिए…",
-    "ar": "⏳ المعلّم TIGA AI يحلل أداءك، لحظة…",
+  "⏳ Teacher TIGA ALPHA is analyzing, one moment…": {
+    "ja": "⏳ TIGA ALPHA先生が分析しています。少々お待ちください…",
+    "ko": "⏳ TIGA ALPHA 선생님이 분석하고 있어요. 잠시만 기다려 주세요…",
+    "ru": "⏳ Учитель TIGA ALPHA анализирует, подождите немного…",
+    "es": "⏳ El Profesor TIGA ALPHA está analizando, un momento…",
+    "fr": "⏳ Prof TIGA ALPHA analyse, un instant…",
+    "hi": "⏳ शिक्षक TIGA ALPHA विश्लेषण कर रहे हैं, ज़रा रुकिए…",
+    "ar": "⏳ المعلّم TIGA ALPHA يحلل أداءك، لحظة…",
     "de": "⏳ KI-Lehrer TIGA analysiert gerade, einen Moment …"
   },
   "⏳ The AI tutor is paused because today's allowance is used up — it will be back shortly. Sorry for the wait! 🎹": {
@@ -52980,14 +52980,14 @@
     "ar": "🔥 حماسي",
     "de": "🔥 Energiegeladen"
   },
-  "🔥 You're on a roll — keep it going with Teacher TIGA AI daily": {
-    "ja": "🔥 いい調子です — 毎日TIGA AI先生と続けましょう",
-    "ko": "🔥 좋은 흐름이에요 — 매일 TIGA AI 선생님과 이어 가요",
-    "ru": "🔥 У вас отлично получается — продолжайте каждый день с учителем TIGA AI",
-    "es": "🔥 Vas en racha: sigue así con el Profesor TIGA AI cada día",
-    "fr": "🔥 Tu es lancé : continue avec Prof TIGA AI chaque jour",
-    "hi": "🔥 आप शानदार चल रहे हैं — शिक्षक TIGA AI के साथ रोज़ अभ्यास जारी रखें",
-    "ar": "🔥 أنت في أفضل حال، واصل كل يوم مع المعلّم TIGA AI",
+  "🔥 You're on a roll — keep it going with Teacher TIGA ALPHA daily": {
+    "ja": "🔥 いい調子です — 毎日TIGA ALPHA先生と続けましょう",
+    "ko": "🔥 좋은 흐름이에요 — 매일 TIGA ALPHA 선생님과 이어 가요",
+    "ru": "🔥 У вас отлично получается — продолжайте каждый день с учителем TIGA ALPHA",
+    "es": "🔥 Vas en racha: sigue así con el Profesor TIGA ALPHA cada día",
+    "fr": "🔥 Tu es lancé : continue avec Prof TIGA ALPHA chaque jour",
+    "hi": "🔥 आप शानदार चल रहे हैं — शिक्षक TIGA ALPHA के साथ रोज़ अभ्यास जारी रखें",
+    "ar": "🔥 أنت في أفضل حال، واصل كل يوم مع المعلّم TIGA ALPHA",
     "de": "🔥 Du bist gut dabei – bleib dran mit dem täglichen KI-Lehrer TIGA"
   },
   "🔪 The 1920s-30s — radio turned music into free advertising for hardware\n\nEarly stations needed all-day music. Radio manufacturers (RCA, GE, Westinghouse) saw the loop: free music draws listeners → listeners buy radios → manufacturers sell nationwide, while consumer brands (Gillette's razor-blade era logic) pay for ads on stations. Music's own income shifted to licensing structures — ASCAP expanded, BMI was founded in 1939 — because the industry had to negotiate with businesses giving music away.\n\n\"Free thing draws users → sell something else\" is the exact template of Spotify and every streaming platform.\n\n💡 Lesson: give one product away, and another one pays the bills — build the licensing structure early enough to capture it.": {
@@ -53769,5 +53769,15 @@
     "fr": "Beau début ! Connecte-toi ou inscris-toi gratuitement pour garder ta progression et continuer.",
     "ar": "بداية رائعة! سجّل الدخول أو أنشئ حسابًا مجانًا لتحتفظ بتقدّمك وتواصل.",
     "de": "Toller Start! Melde dich kostenlos an oder registriere dich, um deinen Fortschritt zu behalten und weiterzumachen."
+  },
+  "{0} days left — keep Premium at {1} per month and carry on learning without a break": {
+    "ja": "あと{0}日 — Premiumを月額{1}で続けて、中断せずに学びましょう",
+    "ko": "{0}일 남았어요 — 월 {1}에 Premium을 이어가며 끊김 없이 배우세요",
+    "ru": "Осталось дней: {0} — продолжите с Premium за {1} в месяц и учитесь без перерыва",
+    "hi": "{0} दिन बाकी — {1} प्रति माह में Premium जारी रखें और बिना रुके सीखते रहें",
+    "es": "Quedan {0} días — sigue con Premium por {1} al mes y aprende sin pausas",
+    "fr": "Plus que {0} jours — continue avec Premium à {1} par mois et apprends sans interruption",
+    "ar": "تبقّى {0} أيام — واصل مع Premium بسعر {1} شهريًا وتعلّم دون انقطاع",
+    "de": "Noch {0} Tage — mit Premium für {1} pro Monat ohne Unterbrechung weiterlernen"
   }
 }

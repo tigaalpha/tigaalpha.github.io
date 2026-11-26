@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { track as trackEvent } from "./analytics";
-import { isTrialPlan, isPremium, getPlan, effectivePlan, setPlanLS, setPremiumLS, currencyOf, planPriceByCur, yearPriceByCur, yearPrice, PLAN_PRICE } from "./payment";
+import { payErr, isTrialPlan, isPremium, getPlan, effectivePlan, setPlanLS, setPremiumLS, currencyOf, planPriceByCur, yearPriceByCur, yearPrice, PLAN_PRICE } from "./payment";
 import { getAC, playUi } from "./music-engine";
 import { sb, SUPABASE_URL } from "./supabase-client";
 import { apiHeaders } from "./ai-backend";
@@ -72,7 +72,7 @@ export function usePayment({ profile, session, setProfile, lang, mascot, require
     fetch(SUPABASE_URL + "/functions/v1/verify-stripe-payment", {
       method: "POST", headers: { ...apiHeaders(), "Content-Type": "application/json" },
       body: JSON.stringify({ sessionId: sid }),
-    }).then(r => r.json()).catch(() => null).then(refresh);
+    }).then(r => { if (!r.ok) payErr("verify", r.status); return r.json(); }).catch(() => { payErr("verify", "net"); return null; }).then(refresh);
   }, []);
 
   // Detect School Plan Pro Stripe success redirect (?school_paid=1&req=&session_id=) —

@@ -50,7 +50,7 @@ const TXT = {
     more: "เพลงในหมวดเดียวกัน", index: "เพลงทั้งหมดใน TIGA", indexLead: (n) => `${n} เพลงให้เล่นตามบนเปียโนออนไลน์ แบ่งตามหมวดและระดับ ทุกเพลงเริ่มเล่นได้ทันที ไม่ต้องสมัคร`,
   },
   en: {
-    brand: "TIGA AI piano teacher", home: "Home", all: "All songs", play: "▶ Play this song now (no sign-up)",
+    brand: "TIGA ALPHA piano teacher", home: "Home", all: "All songs", play: "▶ Play this song now (no sign-up)",
     title: (n) => `${n} — play along on an online piano | TIGA`,
     desc: (n, lv, sec, notes) => notes ? `Play ${n} on an online piano — level ${lv}, about ${sec} seconds, opening notes ${notes}. No sign-up and nothing to install; practise with the AI teacher at TIGA.` : `Play ${n} on an online piano — level ${lv}, about ${sec} seconds. No sign-up and nothing to install; practise with the AI teacher at TIGA.`,
     facts: "About this song", level: "Level", len: "Length", secs: "seconds", tempo: "Tempo", meter: "Time signature", range: "Range", era: "Category", composer: "Composer / source", first: "Opening notes",
@@ -58,7 +58,7 @@ const TXT = {
     more: "More in this category", index: "All songs on TIGA", indexLead: (n) => `${n} songs to play along to on an online piano, by category and level. Every one starts at once, no sign-up.`,
   },
   zh: {
-    brand: "TIGA AI 钢琴老师", home: "首页", all: "全部曲目", play: "▶ 马上弹这首歌（无需注册）",
+    brand: "TIGA ALPHA 钢琴老师", home: "首页", all: "全部曲目", play: "▶ 马上弹这首歌（无需注册）",
     title: (n) => `${n} — 在线钢琴跟弹 | TIGA`,
     desc: (n, lv, sec, notes) => notes ? `在线钢琴弹奏 ${n}：难度 ${lv}，约 ${sec} 秒，起始音符 ${notes}。无需注册、无需下载，在 TIGA 与 AI 老师一起练习。` : `在线钢琴弹奏 ${n}：难度 ${lv}，约 ${sec} 秒。无需注册、无需下载，在 TIGA 与 AI 老师一起练习。`,
     facts: "曲目信息", level: "难度", len: "时长", secs: "秒", tempo: "速度", meter: "拍号", range: "音域", era: "类别", composer: "作者 / 来源", first: "起始音符",

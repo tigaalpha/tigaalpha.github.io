@@ -39,7 +39,7 @@ rep(
       {/* Conversion pill (strategy phase 2): only for free-plan learners and
           only after a genuinely good run (accuracy gate passed via prop) —
           the exact peak moment where an upgrade feels earned, not gated. */}
-      {showKeepGoing && <button className="presultkeep" onClick={onKeepGoing}>{lang === "th" ? "🔥 ฟอร์มนี้กำลังมา — รักษาต่อกับครู TIGA AI ได้ทุกวัน" : lang === "zh" ? "🔥 状态正佳——每天与TIGA AI老师保持下去" : "🔥 You're on a roll — keep it going with Teacher TIGA AI daily"}</button>}`,
+      {showKeepGoing && <button className="presultkeep" onClick={onKeepGoing}>{lang === "th" ? "🔥 ฟอร์มนี้กำลังมา — รักษาต่อกับครู TIGA ALPHA ได้ทุกวัน" : lang === "zh" ? "🔥 状态正佳——每天与TIGA ALPHA老师保持下去" : "🔥 You're on a roll — keep it going with Teacher TIGA ALPHA daily"}</button>}`,
   "keep-going pill",
 );
 
