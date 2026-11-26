@@ -3769,6 +3769,8 @@ function VideoSlide({ s, active, lang, onAsk, likeN, likedByMe, onToggleLike }) 
     </>
   );
 }
+function firstRunTipOf(lang: string, r: any) { const acc = r && Number(r.acc) ? Number(r.acc) : 0; const stars = r && Number(r.stars) ? Number(r.stars) : 0; return pickT(lang, acc >= 90 || stars >= 3 ? "เยี่ยมมาก! จังหวะแม่นเลย ลองบทเรียนถัดไปเพื่อฝึกให้คล่องขึ้นอีกนิด" : acc >= 60 || stars >= 1 ? "ทำได้ดีเลย! ท่อนที่พลาดลองเล่นช้าลงสักนิดแล้วเล่นซ้ำ จะแม่นขึ้นเร็วมาก" : "ไม่เป็นไร ทุกคนเริ่มจากตรงนี้ ลองลดความเร็วแล้วเล่นช้า ๆ ทีละโน้ต บทเรียนถัดไปจะพาไปทีละก้าว", acc >= 90 || stars >= 3 ? "Lovely! Your timing is solid. Try the next lesson to build on it." : acc >= 60 || stars >= 1 ? "Nice work! Slow the tempo a little on the bars you missed and replay them — accuracy comes fast." : "No worries — everyone starts here. Slow it down and play one note at a time; the next lesson takes you step by step.", acc >= 90 || stars >= 3 ? "太棒了！节奏很稳。试试下一课继续进步。" : acc >= 60 || stars >= 1 ? "做得不错！失误的小节放慢速度再弹一遍，很快就会更准。" : "没关系，大家都从这里开始。放慢速度，一个音一个音地弹，下一课会一步步带你。"); }   // the same rule as first-run.tsx firstRunTip (kept here so the tip is ready when the card mounts)
+const FirstRun = lazy(() => import("./first-run"));   // Step 3.1: the 3-minute first run of a new member
 const ConceptClipsBlock = lazy(() => import("./concept-clips-block"));   // 64 kB out of the main bundle: only the en / zh tabs of Video Lessons draw the clips
 import { pickT, xl, ALL_LANGS, EXTRA_LANGS, LANG_META, localeOf, dateLocale, by, isExtraLang, loadCatalog, dirOf, applyDigitRule } from "./lang-extra";
 import { useCatalog } from "./use-catalog";
@@ -11051,6 +11053,7 @@ export default function App() {
             localStorage.setItem(suKey, "1");
             const ut = signupUtm();
             trackEvent("sign_up", { method, ...ut });
+            try { localStorage.setItem("tg_firstrun", "pending:" + uid); } catch (e) {}   // Step 3.1: this NEW account gets the 3-minute first run once (first-run.tsx); an existing account never gets the flag
             if (ut.utm_source || ut.utm_medium || ut.utm_campaign) logUsage("land", "signed_up_utm:" + [ut.utm_source, ut.utm_medium, ut.utm_campaign].join("|").slice(0, 150));
             if (isTrialPlan(finalData && finalData.plan)) trackEvent("trial_start", { method, ...ut });
           } else if (!sessionStorage.getItem("tg_login_tracked")) {
@@ -11318,7 +11321,9 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   useEffect(() => {
     /* never for a guest (owner 2026-11-21): a guest is only a "trial" on paper (the local profile is born today), has no account to keep and cannot use the live AI the welcome popup
        promises ("unlimited AI teacher"); the Pathway must be the first and only thing on the screen. The invitation to log in (TrialInviteModal) says the real offer at the right moment. */
-    const next = (PLAY_BUILD || isGuest) ? null : (convPopupFor(profile, plan) || convWinBack(profile, plan));
+    let frPending = false; try { frPending = (localStorage.getItem("tg_firstrun") || "").startsWith("pending:"); } catch (e) {}   // Step 3.1: the new member's first run says the same welcome; the sales pop-up must not stack on it
+    if (frPending) markConvSeen("d0");
+    const next = (PLAY_BUILD || isGuest || frPending) ? null : (convPopupFor(profile, plan) || convWinBack(profile, plan));
     setConvPopup(next);
     if (next) logConvEvent(next.id, "shown");           // v3 funnel instrumentation
   }, [profile, plan, isGuest]);
@@ -12317,6 +12322,33 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     if (valueResultOn && !valueOpen && !valueSeen()) { markValueSeen(); setValueOpen(true); }
     if (!valueResultOn && valueOpen) setValueOpen(false);
   }, [isGuest, valueResultOn]);
+  /* ── Step 3.1: the 3-minute first run of a NEW member (first-run.tsx) ──
+     tg_firstrun = "pending:<uid>" is written once, at the first login of a fresh account (the sign_up block of loadProfile); it becomes "done:<uid>" on finish or skip. Welcome (level in one tap) -> the
+     easiest short song through the normal ready screen (chooseSong; no second player) -> a local tip + trial status after the result. Skippable on every page; no AI call. */
+  const [frStep, setFrStep] = useState<null | "welcome" | "song" | "tip">(null);
+  const frUid = session && session.user ? session.user.id : null;
+  useEffect(() => {
+    if (isGuest || !frUid) return;
+    try { if (localStorage.getItem("tg_firstrun") === "pending:" + frUid && !frStep) { setFrStep("welcome"); logUsage("onboard", "start"); trackEvent("tutorial_begin", {}); } } catch (e) {}
+  }, [isGuest, frUid]);
+  function frFinish(how: string) {
+    try { localStorage.setItem("tg_firstrun", "done:" + frUid); } catch (e) {}
+    markConvSeen("d0");   // the day-1 welcome sales pop-up must not stack on top of this
+    setFrStep(null);
+    logUsage("onboard", how === "done" ? "done" : "skip:" + how);
+    if (how === "done") trackEvent("tutorial_complete", {});
+  }
+  function frPickLevel(level: string) {
+    try { localStorage.setItem("tg_firstrun_level", level); } catch (e) {}
+    logUsage("onboard", "level:" + level);
+    // the easiest song, then the shortest: diff 1 for a beginner, diff 2 for someone who already plays
+    const want = level === "played" ? 2 : 1;
+    const pool = SONGS.filter((x: any) => !x.hidden && Array.isArray(x.seq) && x.seq.length > 0 && (x.diff || 1) === want);
+    const best = (pool.length ? pool : SONGS.filter((x: any) => Array.isArray(x.seq) && x.seq.length > 0)).slice().sort((a: any, b: any) => a.seq.length - b.seq.length)[0];
+    setFrStep("song");
+    if (best) { try { setPage("studio"); } catch (e) {} chooseSong(best); } else frFinish("song");
+  }
+  useEffect(() => { if (frStep === "song" && songPhase === "done" && songResult) { setFrStep("tip"); logUsage("onboard", "song:done"); logUsage("onboard", "tip:shown"); } }, [frStep, songPhase, songResult]);
   const startOctavePractice = (seq: any) => { lastSeq.current = seq; startPractice(); };   // Practice Mode for 2-4 octaves: the same judging as a one-octave drill, fed the long sequence
   // One overlay queue (plan 28 · A2): the challenge nudge waits while a practice is open and
   // then shows for ~4 s, so it never sits on top of a primary button during an activity.
@@ -13551,6 +13583,11 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
 
       {guestGateReason === "wall" && (
         <GuestGateScreen reason="wall" profile={profile} onClose={() => { setGuestGateReason(null); try { const u = new URL(window.location.href); if (u.searchParams.has("wall")) { u.searchParams.delete("wall"); window.history.replaceState(null, "", u.pathname + u.search + u.hash); } } catch (e) {} try { takeBlogReturn(window.localStorage, Date.now()); } catch (e) {} /* "Not now" also declines the way back to the article: a log-in made later must land on the Pathway */ }} onLogin={() => { saveGuestProfile(profile); signInWith("google"); }} />
+      )}
+      {frStep && !isGuest && (frStep === "welcome" || frStep === "tip") && (
+        <Suspense fallback={null}><FirstRun step={frStep} lang={lang} daysLeft={Math.max(0, trialDaysLeft(profile))} showTrial={isTrialPlan(plan)}
+          tip={firstRunTipOf(lang, songResult)} onLevel={frPickLevel} onSkip={() => frFinish(frStep)}
+          onNext={() => { frFinish("done"); try { exitSong(); } catch (e) {} setPage("pathway"); }} /></Suspense>
       )}
       {valueOpen && isGuest && !guestGateReason && (
         <GuestValueCard lang={lang} onJoin={() => { setValueOpen(false); raiseGate("value"); }} onClose={() => setValueOpen(false)} />

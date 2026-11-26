@@ -59,6 +59,7 @@ writeFileSync(`${OUT}/lang-extra.ts`, readFileSync("lang-extra.ts", "utf8"));
 for (const m of readFileSync("lang-extra.ts", "utf8").matchAll(/import\("\.\/i18n-([a-z]{2,3})"\)/g)) writeFileSync(`${OUT}/i18n-${m[1]}.ts`, "export default {};\n");
 writeFileSync(`${OUT}/supabase-client.ts`, `export const sb = null; export const SUPABASE_URL = "";\n`);
 writeFileSync(`${OUT}/ai-backend.ts`, `export const apiHeaders = () => ({});\n`);
+writeFileSync(`${OUT}/analytics.ts`, `export const track = () => {};\n`);   // payment.tsx sends begin_checkout through analytics.ts (Step 2.3); the plan arithmetic under test needs none of it
 writeFileSync(`${OUT}/entry.mjs`, `
 import * as P from "./payment.tsx";
 globalThis.__p = P;
