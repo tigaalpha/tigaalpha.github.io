@@ -72,8 +72,8 @@ const browser = await chromium.launch({ executablePath: fs.existsSync("/opt/pw-b
 const catalog = JSON.parse(fs.readFileSync(path.join(ROOT, "i18n-src", "catalog.json"), "utf8"));
 
 // a fresh visitor: nothing stored, the live backend refused (a guest needs none); `seed` is written before the app starts
-async function visitor({ lang = "", uses = null, w = 390, h = 844, seed = {} } = {}) {
-  const ctx = await browser.newContext({ viewport: { width: w, height: h }, locale: lang === "th" || !lang ? "th-TH" : "en-US" });
+async function visitor({ lang = "", uses = null, w = 390, h = 844, seed = {}, ua = null } = {}) {
+  const ctx = await browser.newContext({ viewport: { width: w, height: h }, locale: lang === "th" || !lang ? "th-TH" : "en-US", ...(ua ? { userAgent: ua } : {}) });
   const page = await ctx.newPage(), errors = [];
   page.on("pageerror", (e) => errors.push(String((e && e.stack) || e).slice(0, 240)));
   page.on("console", (m) => { if (m.type() === "error" && /Minified React|Cannot read|is not a function|is not defined/.test(m.text())) errors.push("console: " + m.text().slice(0, 200)); });
@@ -498,6 +498,74 @@ for (const wall of ["signup", "login"]) {
   await page.click(lw + "[data-pw-toggle]"); await page.waitForTimeout(250);
   ok(await has(page, lw + "input[type=password]") && await has(page, lw + "[data-wall-submit]") && (await page.inputValue(lw + "input[type=email]")) === "wall@example.com", `?wall=${wall}: the small link opens the password form (same e-mail)`);
   ok(errors.length === 0, `?wall=${wall}: no page errors` + (errors.length ? ": " + errors[0] : ""));
+  await ctx.close();
+}
+
+// Step 1.3 (owner 2026-11-26): the guest's inline strips above the lesson table, the in-app browser notice, and a header that is not cut off at 390 / 360 px
+const FB_UA = "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 [FBAN/FBIOS;FBAV/430.0]";
+const LINE_UA = "Mozilla/5.0 (Linux; Android 13; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Mobile Safari/537.36 Line/13.0.0";
+const SAFARI_UA = "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1";
+for (const [lang, w, h] of [["", 390, 844], ["", 360, 640], ["en", 390, 844]]) {
+  const tag = (lang || "th") + " @" + w + "x" + h;
+  const { ctx, page, errors } = await visitor({ lang, w, h });
+  const rows = [];
+  await page.route(/rest\/v1\/usage_events/, (r) => { try { rows.push(JSON.parse(r.request().postData() || "{}")); } catch (e) {} r.fulfill({ status: 201, body: "" }); });
+  await boot(page);
+  ok(await has(page, "[data-guest-hero]"), `${tag}: a new guest sees the hero strip`);
+  const g = await page.evaluate(() => {
+    const hero = document.querySelector("[data-guest-hero]"), card = document.querySelector(".pathpage .pcard"), pp = document.querySelector(".pathpage");
+    const hb = hero.getBoundingClientRect(), cb = card ? card.getBoundingClientRect() : null;
+    const hdrr = document.querySelector(".hdr-r").getBoundingClientRect(), gp = document.querySelector(".gpbar-hdrp"), gb = gp ? gp.getBoundingClientRect() : null;
+    const k = document.querySelector(".gpbar-hdrp .gpbar-k"), flag = document.querySelector(".flagwrap").getBoundingClientRect();
+    const hdr = document.querySelector(".hdr");
+    return { h: Math.round(hb.height), inside: !!pp && pp.contains(hero), pos: getComputedStyle(hero).position, cardTop: cb ? Math.round(cb.top) : null, cardBottom: cb ? Math.round(cb.bottom) : null, vh: innerHeight, vw: innerWidth,
+      gpRight: gb ? Math.round(gb.right) : null, hdrrRight: Math.round(hdrr.right), gpKShown: !!k && getComputedStyle(k).display !== "none", flagLeft: Math.round(flag.left), flagRight: Math.round(flag.right), hdrOver: hdr.scrollWidth - hdr.clientWidth, pageOver: document.documentElement.scrollWidth - innerWidth };
+  });
+  ok(g.h <= 125 && g.inside && g.pos !== "fixed" && g.pos !== "absolute", `${tag}: the strip is inline inside the scrolling page (not an overlay) and at most 125 px tall (${g.h} px)`, JSON.stringify(g));
+  ok(g.cardTop !== null && g.cardTop > 0 && g.cardTop + 120 <= g.vh, `${tag}: the first lesson card is on the first screen under it (top ${g.cardTop}, screen ${g.vh})`);
+  ok(g.gpRight !== null && g.gpRight <= g.hdrrRight + 1 && g.gpRight <= g.flagLeft + 1 && !g.gpKShown && g.hdrOver <= 1 && g.pageOver <= 1, `${tag}: the Game Energy pill fits in the header (right edge ${g.gpRight}, group ends ${g.hdrrRight}, flag starts ${g.flagLeft}), its long label is gone, nothing scrolls sideways`);
+  ok(!(await has(page, "[data-inapp-notice]")), `${tag}: a normal browser shows no in-app notice`);
+  ok(rows.some((r) => r.kind === "guesthero" && r.item_id === "shown"), `${tag}: the strip logs guesthero/shown`);
+  if (!lang && w === 390) {
+    // "Try it now": the card opens its key panel; nothing is spent until a key is picked (the lesson itself runs through learnTopic -> guestStart)
+    await page.click("[data-guest-hero-try]"); await page.waitForTimeout(900);
+    ok(await has(page, ".keypanel") && (await uses(page)) === null, `${tag}: 'Try it now' opens the first lesson card and spends no use yet`);
+    await pickFirst(page); await page.waitForTimeout(1200);
+    ok((await uses(page)) === "1", `${tag}: picking the key starts the lesson and spends ONE use (the count still happens in guestStart)`);
+    ok(rows.some((r) => r.kind === "guesthero" && r.item_id === "try"), `${tag}: guesthero/try is logged`);
+    await page.evaluate(() => { try { sessionStorage.clear(); } catch (e) {} }); await boot(page); await page.waitForSelector("[data-guest-hero]", { timeout: 15000 });   // back on the Pathway (the lesson page was the last page)
+    await page.click("[data-guest-hero-trial]"); await page.waitForTimeout(500);
+    ok(await has(page, ".setov .au-g") && await has(page, ".setov [data-magic-email]"), `${tag}: 'Try Pro free for 7 days' opens the log-in card (Google, then the e-mail link)`);
+    ok(rows.some((r) => r.kind === "guesthero" && r.item_id === "trial"), `${tag}: guesthero/trial is logged`);
+    await page.click(".setov .cbtn"); await page.waitForTimeout(300);
+    const fine = clean(await page.innerText("[data-guest-hero] .ghero-fine"));
+    ok(fine.includes("จากนั้น 799 บาท/เดือน ไม่ต้องผูกบัตร"), `${tag}: the price line is 'then 799 baht a month, no card' (${fine})`);
+    await page.click("[data-guest-hero-close]"); await page.waitForTimeout(300);
+    ok(!(await has(page, "[data-guest-hero]")) && (await page.evaluate(() => localStorage.getItem("tg_guest_hero_closed"))) === "1", `${tag}: the cross closes it and remembers on this device (tg_guest_hero_closed)`);
+    ok(rows.some((r) => r.kind === "guesthero" && r.item_id === "close"), `${tag}: guesthero/close is logged`);
+    await boot(page);
+    ok(!(await has(page, "[data-guest-hero]")), `${tag}: after a reload it stays closed`);
+  }
+  ok(errors.length === 0, `${tag}: no page errors` + (errors.length ? ": " + errors[0] : ""));
+  await ctx.close();
+}
+{
+  const { ctx, page } = await visitor({ lang: "en", w: 390, h: 844 });
+  await boot(page);
+  const fine = clean(await page.innerText("[data-guest-hero] .ghero-fine")), btn = clean(await page.innerText("[data-guest-hero-trial]"));
+  ok(/Then US\$24\.99 per month, no card needed/.test(fine) && /Try Pro free for 7 days/.test(btn), `en: the strip says 'Try Pro free for 7 days' and 'Then US$24.99 per month, no card needed' (${btn} | ${fine})`);
+  await ctx.close();
+}
+for (const [name, ua, want] of [["Facebook (FBAN/FBIOS)", FB_UA, true], ["LINE (Line/)", LINE_UA, true], ["Safari", SAFARI_UA, false]]) {
+  const { ctx, page, errors } = await visitor({ ua, w: 390, h: 844 });
+  await boot(page);
+  ok((await has(page, "[data-inapp-notice]")) === want, `${name}: the in-app browser notice is ${want ? "shown" : "not shown"}`);
+  if (want) {
+    ok(await has(page, "[data-inapp-open]") && await has(page, "[data-inapp-copy]"), `${name}: ...with 'Open in browser' and 'Copy link'`);
+    const nb = await page.evaluate(() => { const n = document.querySelector("[data-inapp-notice]").getBoundingClientRect(), c = document.querySelector(".pathpage .pcard").getBoundingClientRect(); return { h: Math.round(n.height), card: Math.round(c.top), vh: innerHeight }; });
+    ok(nb.card + 120 <= nb.vh, `${name}: with both strips the first lesson card is still on the first screen (notice ${nb.h} px, card top ${nb.card} of ${nb.vh})`);
+  }
+  ok(errors.length === 0, `${name}: no page errors` + (errors.length ? ": " + errors[0] : ""));
   await ctx.close();
 }
 

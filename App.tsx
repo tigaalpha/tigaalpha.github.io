@@ -147,6 +147,7 @@ import {
 } from "./shared-infra";
 import { startCloudSync, stopCloudSync, wipeAfterSignOut, cloudSyncReady, onCloudPulled } from "./cloud-sync";
 import { Splash, BannedScreen, GuestGateScreen, TrialInviteModal, ProfileForm, LangPickerScreen, CountUp, LoginModal, SafeZone, inAppBrowser } from "./app-shell";
+import { GuestHeroStrips } from "./guest-strips";
 import { PricingOverlay } from "./PricingOverlay";
 import { PracticeOverlay } from "./PracticeOverlay";
 import { SongPlayOverlay } from "./SongPlayOverlay";
@@ -642,7 +643,7 @@ function groupCells(gid) {
   const rank = (id) => { const i = order.indexOf(id); return i < 0 ? order.length : i; };
   return cells.map((cell, i) => ({ cell, i })).sort((a, b) => rank(a.cell.id) - rank(b.cell.id) || a.i - b.i).map(x => x.cell);
 }
-const PathwayPage = memo(function PathwayPage({ lang, onLearn, onRead, onBoss, onPlayAlong, onProgression, initialOpenStageId, initialSelectedType, userName = "", onUpgrade = null, onMentor = null }) {
+const PathwayPage = memo(function PathwayPage({ lang, onLearn, onRead, onBoss, onPlayAlong, onProgression, initialOpenStageId, initialSelectedType, userName = "", onUpgrade = null, onMentor = null, top = null }) {   // top: the guest's inline strips (guest-strips.tsx), the first thing INSIDE the scrolling page, never over it
   const lc = L[lang];
   const groups = by(PATH_GROUPS, lang);
   /* Card numbers run straight through the whole pathway — foundation 01-02,
@@ -909,6 +910,7 @@ const PathwayPage = memo(function PathwayPage({ lang, onLearn, onRead, onBoss, o
      songs, so the offer was saying what the card beside it already says. */
   return (
     <div className="pathpage">
+      {top}
 
       {/* the "Play your first song" banner used to sit here — removed, see above */}
 
@@ -11286,6 +11288,8 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
   /* Google Play build (VITE_OTA_ENABLED=false): subscriptions are digital goods, and Play only allows those to be sold through Google Play Billing. This build therefore opens no
      pricing, checkout or "keep Premium" screen at all; a member who already pays keeps every feature (the plan is read from the account), and buying happens on the website. */
   const PLAY_BUILD = !OTA_ENABLED;
+  /* the guest's two inline strips above the lesson table (owner 2026-11-26, guest-strips.tsx): a stable element, so the memo of PathwayPage still holds */
+  const guestTop = useMemo(() => (isGuest && !PLAY_BUILD) ? <GuestHeroStrips lang={lang} onTrial={() => setLoginModalOpen(true)} /> : null, [isGuest, PLAY_BUILD, lang]);
   useEffect(() => { if (PLAY_BUILD && (pricingOpen || checkout || schoolCheckout)) { setPricingOpen(false); setCheckout(null); setSchoolCheckout(null); } }, [pricingOpen, checkout, schoolCheckout]);
   const [convPopup, setConvPopup] = useState(null);
   useEffect(() => {
@@ -13660,7 +13664,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
       {/* ─── PAGE: HOME (new landing page — UX refactor) ─── */}
       {/* ─── PAGE: PATHWAY ─── */}
       {page === "pathway" && (
-        <PathwayPage lang={lang} onLearn={learnTopic} onRead={readChapter} onBoss={startBossChallenge}
+        <PathwayPage lang={lang} top={guestTop} onLearn={learnTopic} onRead={readChapter} onBoss={startBossChallenge}
           onPlayAlong={(cat, id) => { playUi("click"); logUsage("nav", "pathway-" + id); setSongsCat(cat); setStudioView("songs"); setPage("studio"); }}
           onProgression={(pc, len, keyId) => { playUi("click"); logUsage("nav", "pathway-" + pc.id + "-" + len + (keyId ? "-" + keyId : "")); learnProgression(pc, len, keyId); }}
           initialOpenStageId={activeStageId} initialSelectedType={activeStageType} userName={(profile && profile.full_name) || ""} onMentor={() => { playUi("click"); logUsage("nav", "pathway-mentor"); stopPracticeListeners(); setPage("coach"); }} onUpgrade={(PLAY_BUILD || (isGuest && !pricingDoor()) || (premium && !isTrialPlan(plan))) ? null : () => { playUi("click"); logUsage("nav", "pathway-upgrade"); setPricingOpen(true); }} />

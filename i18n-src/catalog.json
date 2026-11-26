@@ -53649,5 +53649,45 @@
   "fr": "Ensuite {0} par mois, résiliable à tout moment",
   "ar": "ثم {0} شهريًا، ويمكنك الإلغاء في أي وقت",
   "de": "Danach {0} pro Monat, jederzeit kündbar"
+ },
+ "Learn piano with the AI teacher of TIGA ALPHA — start now, no sign-up": {
+  "ja": "TIGA ALPHAのAI先生とピアノを学ぼう — 登録なしですぐ始められます",
+  "ko": "TIGA ALPHA의 AI 선생님과 피아노를 배워 보세요 — 가입 없이 바로 시작해요",
+  "ru": "Учитесь играть на пианино с ИИ-учителем TIGA ALPHA — начните сразу, без регистрации",
+  "hi": "TIGA ALPHA के AI टीचर के साथ पियानो सीखें — अभी शुरू करें, साइन अप की ज़रूरत नहीं",
+  "es": "Aprende piano con el profesor de IA de TIGA ALPHA — empieza ya, sin registrarte",
+  "fr": "Apprends le piano avec le professeur IA de TIGA ALPHA — commence tout de suite, sans inscription",
+  "ar": "تعلّم البيانو مع معلّم الذكاء الاصطناعي من TIGA ALPHA — ابدأ الآن دون تسجيل",
+  "de": "Lerne Klavier mit dem KI-Lehrer von TIGA ALPHA — starte sofort, ohne Anmeldung"
+ },
+ "Try it now": {
+  "ja": "今すぐ試す",
+  "ko": "지금 해 보기",
+  "ru": "Попробовать сейчас",
+  "hi": "अभी आज़माएँ",
+  "es": "Probar ahora",
+  "fr": "Essayer maintenant",
+  "ar": "جرّب الآن",
+  "de": "Jetzt ausprobieren"
+ },
+ "Then {0} per month, no card needed": {
+  "ja": "その後は月額{0}、カード登録不要",
+  "ko": "이후 월 {0}, 카드 등록 불필요",
+  "ru": "Затем {0} в месяц, без привязки карты",
+  "hi": "उसके बाद {0} प्रति माह, कार्ड जोड़ना ज़रूरी नहीं",
+  "es": "Después, {0} al mes, sin tarjeta",
+  "fr": "Ensuite {0} par mois, sans carte bancaire",
+  "ar": "ثم {0} شهريًا، بلا بطاقة بنكية",
+  "de": "Danach {0} pro Monat, ohne Kreditkarte"
+ },
+ "You opened this inside a social app — Google sign-in may not work. Open it in your browser, or sign up with your email.": {
+  "ja": "ソーシャルアプリ内で開いています — Googleログインが使えない場合があります。ブラウザで開くか、メールで登録してください。",
+  "ko": "소셜 앱 안에서 열었어요 — Google 로그인이 안 될 수 있어요. 브라우저에서 열거나 이메일로 가입해 보세요.",
+  "ru": "Вы открыли страницу внутри соцсети — вход через Google может не работать. Откройте её в браузере или зарегистрируйтесь по e-mail.",
+  "hi": "आपने इसे किसी सोशल ऐप के अंदर खोला है — Google साइन-इन शायद न चले। इसे ब्राउज़र में खोलें, या ईमेल से साइन अप करें।",
+  "es": "Lo abriste dentro de una app social — puede que el acceso con Google no funcione. Ábrelo en tu navegador o regístrate con tu correo.",
+  "fr": "Tu l'as ouvert dans une appli sociale — la connexion Google peut ne pas fonctionner. Ouvre-le dans ton navigateur ou inscris-toi avec ton e-mail.",
+  "ar": "فتحتَ الصفحة داخل تطبيق اجتماعي — قد لا يعمل الدخول عبر Google. افتحها في المتصفح أو سجّل بالبريد الإلكتروني.",
+  "de": "Du hast die Seite in einer Social-App geöffnet — die Google-Anmeldung funktioniert dort eventuell nicht. Öffne sie im Browser oder registriere dich mit deiner E-Mail."
  }
 }

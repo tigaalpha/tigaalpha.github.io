@@ -4233,6 +4233,46 @@ html:not([data-theme="dark"]) .pvppage:not(.x3) .pvpgfxbtn{background:var(--card
 .tg .hdr .flagbtn{background:var(--card,#fff)}
 }
 
+/* ══════════ the header on a phone: the Game Energy pill shrinks instead of being cut off (owner 2026-11-26, Step 1.3) ══════════
+   On the Pathway the header held a 136 px Game Energy pill ("Game Energy · POWER", a nine-segment bar, "60/100") next to the guest's Login pill, in a group the rule above clips to what is left of a 390 px
+   screen: the pill was cut off ("Ga" / "6"), and worse at 360 px. Up to 400 px only .gpbar-hdrp changes (the Game Energy pills of other pages, .gpbar-flow in My Class among them, keep their own look): it
+   takes the width it needs and shows the bolt and the number (the long label, the bar and the "/100" go: the 104-114 px the group has left hold the Login pill and about 50 px), and the group and the flag take a little less room. */
+@media (max-width:400px){
+.tg .hdr .hdr-r{margin-inline-end:56px;gap:3px}
+.tg .hdr .flagwrap{inset-inline-end:8px}
+.gpbar-hdrp{flex:0 0 auto;width:auto;min-width:0}
+.gpbar-hdrp .gpbar{width:auto!important;padding:0 5px 0 4px!important;gap:3px}
+.gpbar-hdrp .gpbar-ic{width:22px;height:22px;font-size:12px}
+.gpbar-hdrp .gpbar-k,.gpbar-hdrp .gpbar-segs,.gpbar-hdrp .gpbar-v em{display:none!important}
+.gpbar-hdrp .gpbar-main{flex:none;width:auto}
+.gpbar-hdrp .gpbar-v b{font-size:14px}
+}
+@media (max-width:370px){
+.guestloginpill{padding-left:6px!important;padding-right:6px!important;font-size:11px!important}
+.gpbar-hdrp .gpbar{padding:0 5px 0 3px!important;gap:2px}
+.gpbar-hdrp .gpbar-ic{width:20px;height:20px;font-size:11px}
+.gpbar-hdrp .gpbar-v b{font-size:13px}
+.tg .hdr .lbox.lmark{padding:0 7px 0 6px}
+}
+
+/* ══════════ the guest's two inline strips above the lesson table (owner 2026-11-26, guest-strips.tsx) ══════════
+   First children of .pathpage: they scroll away with the table, never cover it, and stay about 110 px on a phone. */
+.ghero{position:relative;margin:8px 10px 6px;padding:9px 12px 8px;padding-inline-end:34px;border-radius:14px;border:1px solid #d9775755;background:var(--card2);color:var(--text2);display:flex;flex-direction:column;gap:6px}
+.ghero-t{font-family:var(--f-app);font-size:13px;font-weight:700;line-height:1.3;color:var(--text,inherit);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.ghero-act{display:flex;gap:8px}
+.ghero-try,.ghero-trial{flex:1 1 0;min-width:0;min-height:36px;padding:0 8px;border-radius:12px;font-family:var(--f-app);font-size:13px;font-weight:700;line-height:1.15;cursor:pointer;white-space:normal;overflow-wrap:anywhere}
+.ghero-try{background:#d97757;color:#fff;border:1.5px solid #d97757}
+.ghero-trial{background:transparent;color:#d97757;border:1.5px solid #d97757}
+.ghero-fine{font-family:var(--f-app);font-size:11px;line-height:1.3;opacity:.75;text-align:center}
+.ghero-x{position:absolute;top:0;inset-inline-end:0;width:34px;height:34px;display:flex;align-items:center;justify-content:center;background:none;border:none;color:inherit;opacity:.6;font-size:20px;line-height:1;cursor:pointer}
+.ghero-x:hover{opacity:1}
+.gnotice{margin:8px 10px 0;padding:8px 10px;border-radius:12px;background:var(--auWarnBg,#fff4e5);border:1px solid var(--auWarnBd,#f3d2a3);color:var(--auWarnT,#7a4a00);display:flex;flex-direction:column;gap:6px}
+.gnotice-t{font-family:var(--f-app);font-size:12px;line-height:1.35}
+.gnotice-act{display:flex;gap:8px}
+.gnotice-b{flex:1 1 0;min-width:0;min-height:34px;padding:0 8px;border-radius:10px;border:1px solid var(--auWarnBd,#f3d2a3);background:rgba(255,255,255,.55);color:inherit;font-family:var(--f-app);font-size:12px;font-weight:700;cursor:pointer}
+.gnotice-e{font-size:11.5px;line-height:1.3}
+
+
 /* ══════════ the PvP arena header wraps on a phone (2026-11-16, found by the ten-language crawl) ══════════
    The header holds a back arrow, the title, the shop, the model class chip, the full-screen and the graphics buttons. That is wider than a phone in every language (the graphics button
    sat past the right edge at 360 px in English and Thai too), and a title that has no space to break at, Japanese "PvPアリーナ", was squeezed to one character per line (28 px wide,
