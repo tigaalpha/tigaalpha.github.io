@@ -77,3 +77,28 @@ export function GuestHeroStrips({ lang, onTrial }: { lang: string; onTrial: () =
     </>
   );
 }
+
+/* ── the soft invitation after a guest's FIRST value moment (Step 2.4, owner 2026-11-26) ──
+   A value moment = the first finished practice round / lesson drill, or the first finished song with at least one star. App.tsx shows this ONCE per browser (tg_guest_value_seen), only for a
+   guest, only while that result screen is open, and never together with the log-in card. It is a short strip at the bottom of the result screen (above the result overlays, below every dialog),
+   never a modal and never over the Pathway (it disappears with the result screen). It spends no free use. "Try Premium" opens the standard invitation (reason "value"); "Keep playing first" closes it. */
+export const VALUE_SEEN_KEY = "tg_guest_value_seen";
+export function valueSeen(): boolean { try { return !!localStorage.getItem(VALUE_SEEN_KEY); } catch (e) { return true; } }
+export function markValueSeen() { try { localStorage.setItem(VALUE_SEEN_KEY, new Date().toISOString().slice(0, 10)); } catch (e) {} }
+export function GuestValueCard({ lang, onJoin, onClose }: { lang: string; onJoin: () => void; onClose: () => void }) {
+  const T = (th: string, en: string, zh: string) => pickT(lang, th, en, zh);
+  const days = String(TRIAL_DAYS_STANDARD);
+  useEffect(() => { logUsage("gate", "value:shown"); }, []);
+  const msg = T("เยี่ยมมาก! เก็บความคืบหน้านี้ไว้ — ทดลอง Premium ฟรี " + days + " วัน ไม่ต้องผูกบัตร",
+    xl(lang, "Great job! Keep this progress — try Premium free for {0} days, no card needed").split("{0}").join(days),
+    "太棒了！保存你的进度 — 免费试用 Premium " + days + " 天，无需绑定银行卡");
+  return (
+    <div className="gvalue" data-guest-value role="region" aria-label="TIGA ALPHA">
+      <div className="gvalue-t">{msg}</div>
+      <div className="gvalue-act">
+        <button type="button" className="gvalue-go" data-guest-value-cta onClick={() => { logUsage("gate", "value:cta"); onJoin(); }}>{T("ทดลอง Premium ฟรี " + days + " วัน", xl(lang, "Try Premium free for {0} days").split("{0}").join(days), "免费试用 Premium " + days + " 天")}</button>
+        <button type="button" className="gvalue-x" data-guest-value-close onClick={() => { logUsage("gate", "value:close"); onClose(); }}>{T("เล่นต่อก่อน", xl(lang, "Keep playing first"), "先继续玩")}</button>
+      </div>
+    </div>
+  );
+}

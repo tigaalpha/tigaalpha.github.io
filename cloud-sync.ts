@@ -125,7 +125,7 @@ const EXCLUDE_WHY: Record<string, string> = {
   tg_notif_reward_done: "cache of a server flag", tg_game_power: "pacing resource: a client value must not refill every device",
   tg_gp_seen: "Game Power UI state", tg_pvp_rank: "competitive standing", tg_pvp_season: "competitive standing",
   tg_pvp_ghost: "local opponent", tg_pvp_rival: "local opponent", tg_pvp_daily: "PvP daily reward state", tg_pvp_stage: "PvP stage state",
-  tg_pvp_stage_force: "test door", tg_guest_profile: "guest state stays on the device", tg_guest_ms: "guest state", tg_guest_hero_closed: "device only: the guest closed the inline hero strip above the Pathway (a guest has no account to sync)", tg_guest_uses: "guest state: the free-preview count of this browser, a guest has no account to sync to",
+  tg_pvp_stage_force: "test door", tg_guest_profile: "guest state stays on the device", tg_guest_ms: "guest state", tg_guest_value_seen: "guest state: this browser has been shown the soft invitation after its first value moment (a guest has no account to sync to)", tg_guest_hero_closed: "device only: the guest closed the inline hero strip above the Pathway (a guest has no account to sync)", tg_guest_uses: "guest state: the free-preview count of this browser, a guest has no account to sync to",
   tg_sync_meta: "sync bookkeeping", tg_sync_base: "sync bookkeeping", tg_sync_pn: "sync bookkeeping", tg_sync_owner: "sync bookkeeping",
   tg_sync_dev: "sync bookkeeping", tg_anon_id: "anonymous identity of this browser", tg_user_signed_out: "auth state of this browser",
   tg_auth_bk: "a copy of a credential",

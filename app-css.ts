@@ -4264,6 +4264,12 @@ html:not([data-theme="dark"]) .pvppage:not(.x3) .pvpgfxbtn{background:var(--card
 .ghero-act{display:flex;gap:8px}
 .ghero-try,.ghero-trial{flex:1 1 0;min-width:0;min-height:36px;padding:0 8px;border-radius:12px;font-family:var(--f-app);font-size:13px;font-weight:700;line-height:1.15;cursor:pointer;white-space:normal;overflow-wrap:anywhere}
 .ghero-try{background:#d97757;color:#fff;border:1.5px solid #d97757}
+.gvalue{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(10px + env(safe-area-inset-bottom,0px));z-index:1250;width:min(440px,calc(100vw - 20px));box-sizing:border-box;padding:10px 12px;border-radius:14px;border:1px solid #d9775766;background:var(--card2);color:var(--text2);box-shadow:0 8px 28px rgba(0,0,0,.28);display:flex;flex-direction:column;gap:8px}
+.gvalue-t{font-family:var(--f-app);font-size:13px;font-weight:700;line-height:1.35;color:var(--text,inherit);text-align:start}
+.gvalue-act{display:flex;gap:8px}
+.gvalue-go,.gvalue-x{flex:1 1 0;min-width:0;min-height:38px;padding:0 8px;border-radius:12px;font-family:var(--f-app);font-size:13px;font-weight:700;line-height:1.15;cursor:pointer;white-space:normal;overflow-wrap:anywhere}
+.gvalue-go{background:#d97757;color:#fff;border:1.5px solid #d97757}
+.gvalue-x{background:transparent;color:var(--text2);border:1.5px solid #d9775788}
 .ghero-trial{background:transparent;color:#d97757;border:1.5px solid #d97757}
 .ghero-fine{font-family:var(--f-app);font-size:11px;line-height:1.3;opacity:.75;text-align:center}
 .ghero-x{position:absolute;top:0;inset-inline-end:0;width:34px;height:34px;display:flex;align-items:center;justify-content:center;background:none;border:none;color:inherit;opacity:.6;font-size:20px;line-height:1;cursor:pointer}

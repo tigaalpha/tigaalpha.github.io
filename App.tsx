@@ -148,7 +148,7 @@ import {
 } from "./shared-infra";
 import { startCloudSync, stopCloudSync, wipeAfterSignOut, cloudSyncReady, onCloudPulled } from "./cloud-sync";
 import { Splash, BannedScreen, GuestGateScreen, TrialInviteModal, ProfileForm, LangPickerScreen, CountUp, LoginModal, SafeZone, inAppBrowser, withExternalBrowserFlag } from "./app-shell";
-import { GuestHeroStrips } from "./guest-strips";
+import { GuestHeroStrips, GuestValueCard, valueSeen, markValueSeen } from "./guest-strips";
 import { shareUrl, SHARE_HOST } from "./share-links";
 import { PricingOverlay } from "./PricingOverlay";
 import { PracticeOverlay } from "./PracticeOverlay";
@@ -3769,7 +3769,7 @@ function VideoSlide({ s, active, lang, onAsk, likeN, likedByMe, onToggleLike }) 
     </>
   );
 }
-import { CLIPS, ConceptClipFeed, CLIP_CSS } from "./concept-clips";
+const ConceptClipsBlock = lazy(() => import("./concept-clips-block"));   // 64 kB out of the main bundle: only the en / zh tabs of Video Lessons draw the clips
 import { pickT, xl, ALL_LANGS, EXTRA_LANGS, LANG_META, localeOf, dateLocale, by, isExtraLang, loadCatalog, dirOf, applyDigitRule } from "./lang-extra";
 import { useCatalog } from "./use-catalog";
 const VideoLessonsPage = memo(function VideoLessonsPage({ lang, onAsk, onWatched, onLang, guest = false, onGuestStart = null }) {
@@ -3937,8 +3937,7 @@ const VideoLessonsPage = memo(function VideoLessonsPage({ lang, onAsk, onWatched
   );
   return (
     <div className="vidwrap">
-      <style>{CLIP_CSS}</style>
-      {vtab !== "th" && (clipsOk || !guest) && <ConceptClipFeed key={vtab} inline clips={CLIPS[vtab]} start={0} lang={vtab} onClose={() => setVtab("th")} />}
+      {vtab !== "th" && (clipsOk || !guest) && <Suspense fallback={<LazyBits tall />}><ConceptClipsBlock vtab={vtab} onClose={() => setVtab("th")} /></Suspense>}
       {onLang && (
         <div className="vidflag">
           <button className="vidflag-b" aria-label={xl(lang, "Language")} onClick={() => { playUi("click"); setFlagOpen(o => !o); }}>{lang === "th" ? "🇹🇭" : lang === "zh" ? "🇨🇳" : xl(lang, "🇬🇧")}</button>
@@ -12307,6 +12306,17 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
 
 
   const { practiceOpen, setPracticeOpen, practiceTarget, setPracticeTarget, practiceFingers, setPracticeFingers, practiceLabel, setPracticeLabel, practiceIdx, setPracticeIdx, practiceHitIdxs, setPracticeHitIdxs, practiceMiss, setPracticeMiss, practiceHeard, setPracticeHeard, practiceHelp, practiceSrc, setPracticeSrc, practiceTune, setPracticeTune, practiceStreak, setPracticeStreak, practiceResult, setPracticeResult, practiceActiveRef, practiceTargetRef, practiceKeyRef, practiceModeRef, practiceAscRef, practiceIdxRef, practiceHitSetRef, practiceHitsRef, practiceMissRef, practiceVelsRef, practiceTimesRef, practiceStreakRef, practiceBestStreakRef, practiceLabelRef, practiceWrongByIdxRef, practiceHandlerRef, practiceHeardTimer, tuneOffsetRef, notePitchMatches, handlePlayedNote, startPractice, restartPractice, switchPracticeChordStyle, exitPractice, finishPractice, replayDrill, startSpotPractice } = usePracticeMode({ hand, chordStyle, setChordStyle, lastSeq, clearSeq, earnCoins, gainExp, grantPracticeGem, isGuest, lang, bumpWeekly, guestStart });
+  /* ── the soft invitation after a guest's first value moment (Step 2.4, guest-strips.tsx GuestValueCard) ──
+     A value moment: the first finished practice round / lesson drill (practiceResult appears) or the first finished song with at least one star (songPhase "done", stars >= 1). Once per browser
+     (tg_guest_value_seen), a guest only, never in the Play build, never while the log-in card is up. It is shown while that result screen is open and goes with it. It spends no free use and
+     touches nothing in guestStart(): the count of 3 and the invitation at the 4th start stay exactly as they were. */
+  const [valueOpen, setValueOpen] = useState(false);
+  const valueResultOn = !!practiceResult || (songPhase === "done" && !!songResult && !songResult.practice && Number(songResult.stars) >= 1);
+  useEffect(() => {
+    if (!isGuest || PLAY_BUILD) { setValueOpen(false); return; }
+    if (valueResultOn && !valueOpen && !valueSeen()) { markValueSeen(); setValueOpen(true); }
+    if (!valueResultOn && valueOpen) setValueOpen(false);
+  }, [isGuest, valueResultOn]);
   const startOctavePractice = (seq: any) => { lastSeq.current = seq; startPractice(); };   // Practice Mode for 2-4 octaves: the same judging as a one-octave drill, fed the long sequence
   // One overlay queue (plan 28 · A2): the challenge nudge waits while a practice is open and
   // then shows for ~4 s, so it never sits on top of a primary button during an activity.
@@ -13541,6 +13551,9 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
 
       {guestGateReason === "wall" && (
         <GuestGateScreen reason="wall" profile={profile} onClose={() => { setGuestGateReason(null); try { const u = new URL(window.location.href); if (u.searchParams.has("wall")) { u.searchParams.delete("wall"); window.history.replaceState(null, "", u.pathname + u.search + u.hash); } } catch (e) {} try { takeBlogReturn(window.localStorage, Date.now()); } catch (e) {} /* "Not now" also declines the way back to the article: a log-in made later must land on the Pathway */ }} onLogin={() => { saveGuestProfile(profile); signInWith("google"); }} />
+      )}
+      {valueOpen && isGuest && !guestGateReason && (
+        <GuestValueCard lang={lang} onJoin={() => { setValueOpen(false); raiseGate("value"); }} onClose={() => setValueOpen(false)} />
       )}
       {guestGateReason && guestGateReason !== "wall" && (
         <TrialInviteModal reason={guestGateReason} profile={profile} onClose={() => setGuestGateReason(null)} onLogin={() => { saveGuestProfile(profile); signInWith("google"); }} />

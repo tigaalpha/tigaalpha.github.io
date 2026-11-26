@@ -119,7 +119,8 @@ export function mirrorUsage(kind: string, itemId: string) {
       else if (id === "try:email-otp" || id === "signup:email-otp") track("sign_up_attempt", { method: "email_otp" });
       else if (id === "try:email" || id === "signup:email") track("sign_up_attempt", { method: "email_password" });
     } else if (kind === "gate" && id) {
-      track("trial_invite_shown", { method: id.slice(0, 20) });
+      if (id === "value:cta" || id === "value:close") return;   // the card's own taps are usage rows only
+      track("trial_invite_shown", { method: id === "value:shown" ? "value" : id.slice(0, 20) });
     }
   } catch (e) {}
 }

@@ -719,7 +719,9 @@ export function TrialInviteModal({ reason, profile, onLogin, onClose }) {
   const [tab, setTab] = useState("signup");   // which tab of the form is open: "free for 7 days / no credit card" is the offer to a NEW account, a returning member on the Log-in tab is not told they are free for 7 days
   useDialogBehaviour(cardRef, onClose);
   const title = solo(lg, "ล็อกอินเพื่อเรียนเปียโนกับ TIGA ALPHA", xl(lg, "Log in to learn piano with TIGA ALPHA"));   // the clean string: the dialog is named with it, the heading is drawn with keepWords()
-  const why = reason === "ai"
+  const why = reason === "value"
+    ? solo(lg, "เริ่มต้นได้ดีมาก! ล็อกอินหรือสมัครฟรีเพื่อเก็บความคืบหน้านี้ไว้และเรียนต่อ", xl(lg, "Great start! Log in or sign up free to keep this progress and carry on."))
+    : reason === "ai"
     ? solo(lg, "ฟีเจอร์ AI ครูสอนต้องใช้บัญชีจริง ล็อกอินหรือสมัครสมาชิกฟรีได้เลย — ความคืบหน้าที่ทำไว้จะถูกเก็บไว้ให้ครบ", xl(lg, "This feature needs a real account. Log in or sign up free — everything you did stays saved."))
     : reason === "account"
     ? solo(lg, "ฟีเจอร์นี้ต้องมีบัญชี ล็อกอินหรือสมัครสมาชิกฟรีเพื่อใช้งานส่วนนี้ — ความคืบหน้าที่ทำไว้จะถูกเก็บไว้ให้ครบ", xl(lg, "Log in or sign up free to use this — everything you did stays saved."))
