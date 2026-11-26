@@ -218,7 +218,7 @@ for (const [lg, path0, w, h] of [["th", "/landing/", 390, 844], ["en", "/landing
   await p.click(".lp-sticky .lp-btn.primary"); await p.waitForTimeout(500);
   const f = await p.evaluate(() => { const a = document.activeElement; const email = document.querySelector(".lp-otp input[type=email]"); const g = document.querySelector(".lp-signup .lp-btn.google"); return { onEmail: a === email, google: !!g, emailFirst: !!(email && g && (email.compareDocumentPosition(g) & Node.DOCUMENT_POSITION_FOLLOWING) === 0), offer: (document.querySelector(".lp-trialline") || {}).textContent || "" }; });
   ok(f.onEmail, "the sticky button opens the card and the cursor is in the one e-mail field");
-  ok(f.offer.includes("ทดลอง Pro ฟรี 7 วัน") && f.offer.includes("799 บาท/เดือน") && f.offer.includes("ไม่ต้องผูกบัตร") && !/[0-9,]+\s*(คนแรก|first)/.test(f.offer), "the offer line says: try Pro free for 7 days, then 799 baht a month, no card, and no scarcity line", f.offer);
+  ok(f.offer.includes("ทดลอง Premium ฟรี 7 วัน") && f.offer.includes("799 บาท/เดือน") && f.offer.includes("ไม่ต้องผูกบัตร") && !/[0-9,]+\s*(คนแรก|first)/.test(f.offer), "the offer line says: try Premium free for 7 days, then 799 baht a month, no card, and no scarcity line", f.offer);
   ok(errs.length === 0, "sticky path: no page errors", errs.join("|"));
   await ctx.close();
 }

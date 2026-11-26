@@ -241,11 +241,11 @@ for (const [name, pageId, sel] of [["Ear Gym", "eargym", "button.tdgo:not(.vio)"
 }
 
 // ── the invitation in every language, at 320 px ──
-const KEY = { title: "Log in to learn piano with TIGA ALPHA", free7: "Try Pro free for {0} days", nocard: "No credit card needed" };   // free7 carries the day count as {0} (TRIAL_DAYS_STANDARD = 7)
-const TH = { title: "ล็อกอินเพื่อเรียนเปียโนกับ TIGA ALPHA", free7: "ทดลอง Pro ฟรี 7 วัน", nocard: "ไม่ต้องใช้บัตรเครดิต" };
-const ZH = { title: "登录，和 TIGA ALPHA 一起学钢琴", free7: "免费试用 Pro 7 天", nocard: "无需信用卡" };
+const KEY = { title: "Log in to learn piano with TIGA ALPHA", free7: "Try Premium free for {0} days", nocard: "No credit card needed" };   // free7 carries the day count as {0} (TRIAL_DAYS_STANDARD = 7)
+const TH = { title: "ล็อกอินเพื่อเรียนเปียโนกับ TIGA ALPHA", free7: "ทดลอง Premium ฟรี 7 วัน", nocard: "ไม่ต้องใช้บัตรเครดิต" };
+const ZH = { title: "登录，和 TIGA ALPHA 一起学钢琴", free7: "免费试用 Premium 7 天", nocard: "无需信用卡" };
 for (const lang of ["th", "en", "zh", "ja", "ko", "ru", "hi", "es", "fr", "ar", "de"]) {
-  const want = lang === "th" ? TH : lang === "en" ? { ...KEY, free7: "Try Pro free for 7 days" } : lang === "zh" ? ZH : { title: catalog[KEY.title][lang], free7: catalog[KEY.free7][lang].split("{0}").join("7"), nocard: catalog[KEY.nocard][lang] };
+  const want = lang === "th" ? TH : lang === "en" ? { ...KEY, free7: "Try Premium free for 7 days" } : lang === "zh" ? ZH : { title: catalog[KEY.title][lang], free7: catalog[KEY.free7][lang].split("{0}").join("7"), nocard: catalog[KEY.nocard][lang] };
   const { ctx, page, errors } = await visitor({ lang: lang === "th" ? "" : lang, uses: 3, w: 320, h: 640 });
   await startSong(page, "twinkle");
   const shown = await has(page, "[data-trial-invite]");
@@ -448,7 +448,7 @@ for (const [w, h] of [[390, 844], [360, 640]]) {
   const pos = await page.evaluate(() => { const f = document.querySelector("[data-trial-invite] [data-magic-email]").getBoundingClientRect(), b = document.querySelector("[data-trial-invite] [data-magic-send]").getBoundingClientRect(); return { fieldBottom: Math.round(f.bottom), sendBottom: Math.round(b.bottom), vh: innerHeight }; });
   ok(pos.fieldBottom <= pos.vh && (w !== 390 || pos.sendBottom <= pos.vh), `magic @${w}x${h}: the e-mail field is on screen without scrolling (field bottom ${pos.fieldBottom}, send button bottom ${pos.sendBottom}, screen ${pos.vh})`);
   const offer = clean(await page.innerText(inv + "[data-invite-offer]")), price = clean(await page.innerText(inv + "[data-invite-price]"));
-  ok(/Try Pro free for 7 days/.test(offer) && /No credit card needed/.test(offer), `magic @${w}x${h}: the offer chips say 'Try Pro free for 7 days' and 'No credit card needed' (${JSON.stringify(offer)})`);
+  ok(/Try Premium free for 7 days/.test(offer) && /No credit card needed/.test(offer), `magic @${w}x${h}: the offer chips say 'Try Premium free for 7 days' and 'No credit card needed' (${JSON.stringify(offer)})`);
   ok(/Then .*24\.99.* per month, cancel anytime/.test(price), `magic @${w}x${h}: the price line comes from the price table (${JSON.stringify(price)})`);
   await page.fill(inv + "[data-magic-email]", "anna@example.com");
   await page.evaluate(() => { const i = document.querySelector("[data-trial-invite] [data-magic-email]"); i.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", keyCode: 229, bubbles: true, cancelable: true })); });   // Safari: the Enter that commits an IME word arrives with isComposing false and keyCode 229
@@ -475,7 +475,7 @@ for (const [w, h] of [[390, 844], [360, 640]]) {
   const sent = []; await page.route(/supabase\.co\/auth\/v1\/otp/, (r) => { sent.push(r.request().postData() || ""); r.fulfill({ status: 200, contentType: "application/json", body: "{}" }); });
   await startSong(page, "twinkle");
   const offer = clean(await page.innerText("[data-trial-invite] [data-invite-offer]")), price = clean(await page.innerText("[data-trial-invite] [data-invite-price]"));
-  ok(offer.includes("ทดลอง Pro ฟรี 7 วัน") && offer.includes("ไม่ต้องใช้บัตรเครดิต") && price.includes("จากนั้น 799 บาท/เดือน ยกเลิกได้"), "th: 'ทดลอง Pro ฟรี 7 วัน' and 'จากนั้น 799 บาท/เดือน ยกเลิกได้' (" + JSON.stringify(offer + " | " + price) + ")");
+  ok(offer.includes("ทดลอง Premium ฟรี 7 วัน") && offer.includes("ไม่ต้องใช้บัตรเครดิต") && price.includes("จากนั้น 799 บาท/เดือน ยกเลิกได้"), "th: 'ทดลอง Premium ฟรี 7 วัน' and 'จากนั้น 799 บาท/เดือน ยกเลิกได้' (" + JSON.stringify(offer + " | " + price) + ")");
   await boot(page);   // back on the Pathway (the song screen covers the corner pill)
   await page.click(".guestloginpill"); await page.waitForTimeout(500);
   await page.fill(".setcard [data-magic-email]", "pill@example.com"); await page.click(".setcard [data-magic-send]"); await page.waitForTimeout(900);
@@ -535,7 +535,7 @@ for (const [lang, w, h] of [["", 390, 844], ["", 360, 640], ["en", 390, 844]]) {
     ok(rows.some((r) => r.kind === "guesthero" && r.item_id === "try"), `${tag}: guesthero/try is logged`);
     await page.evaluate(() => { try { sessionStorage.clear(); } catch (e) {} }); await boot(page); await page.waitForSelector("[data-guest-hero]", { timeout: 15000 });   // back on the Pathway (the lesson page was the last page)
     await page.click("[data-guest-hero-trial]"); await page.waitForTimeout(500);
-    ok(await has(page, ".setov .au-g") && await has(page, ".setov [data-magic-email]"), `${tag}: 'Try Pro free for 7 days' opens the log-in card (Google, then the e-mail link)`);
+    ok(await has(page, ".setov .au-g") && await has(page, ".setov [data-magic-email]"), `${tag}: 'Try Premium free for 7 days' opens the log-in card (Google, then the e-mail link)`);
     ok(rows.some((r) => r.kind === "guesthero" && r.item_id === "trial"), `${tag}: guesthero/trial is logged`);
     await page.click(".setov .cbtn"); await page.waitForTimeout(300);
     const fine = clean(await page.innerText("[data-guest-hero] .ghero-fine"));
@@ -553,7 +553,7 @@ for (const [lang, w, h] of [["", 390, 844], ["", 360, 640], ["en", 390, 844]]) {
   const { ctx, page } = await visitor({ lang: "en", w: 390, h: 844 });
   await boot(page);
   const fine = clean(await page.innerText("[data-guest-hero] .ghero-fine")), btn = clean(await page.innerText("[data-guest-hero-trial]"));
-  ok(/Then US\$24\.99 per month, no card needed/.test(fine) && /Try Pro free for 7 days/.test(btn), `en: the strip says 'Try Pro free for 7 days' and 'Then US$24.99 per month, no card needed' (${btn} | ${fine})`);
+  ok(/Then US\$24\.99 per month, no card needed/.test(fine) && /Try Premium free for 7 days/.test(btn), `en: the strip says 'Try Premium free for 7 days' and 'Then US$24.99 per month, no card needed' (${btn} | ${fine})`);
   await ctx.close();
 }
 for (const [name, ua, want] of [["Facebook (FBAN/FBIOS)", FB_UA, true], ["LINE (Line/)", LINE_UA, true], ["Safari", SAFARI_UA, false]]) {

@@ -646,7 +646,7 @@ export function TrialInviteModal({ reason, profile, onLogin, onClose }) {
             {keepWords(title)}
           </div>
           {tab === "signup" && (<div data-invite-offer style={{ display: "flex", flexWrap: "wrap", gap: 8, justifyContent: "center" }}>
-            <span style={chip}>✓ {solo(lg, "ทดลอง Pro ฟรี " + TRIAL_DAYS_STANDARD + " วัน", xl(lg, "Try Pro free for {0} days").split("{0}").join(String(TRIAL_DAYS_STANDARD)))}</span>
+            <span style={chip}>✓ {solo(lg, "ทดลอง Premium ฟรี " + TRIAL_DAYS_STANDARD + " วัน", xl(lg, "Try Premium free for {0} days").split("{0}").join(String(TRIAL_DAYS_STANDARD)))}</span>
             <span style={chip}>✓ {solo(lg, "ไม่ต้องใช้บัตรเครดิต", xl(lg, "No credit card needed"))}</span>
           </div>)}
           {tab === "signup" && (<div data-invite-price style={{ textAlign: "center", fontSize: 12.5, opacity: 0.7, marginTop: -4 }}>

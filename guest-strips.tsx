@@ -8,7 +8,7 @@ import { trialPriceFor } from "./use-conversion";
 /* ── the two inline strips a guest sees at the top of the Learning Pathway (owner 2026-11-26) ──
    They scroll away with the lesson table (they are the first children of .pathpage, drawn by PathwayPage through its `top` prop), they never cover it, and they are only ever drawn for a guest
    outside the Play build (App.tsx decides). AGENTS.md "Guest-first entry": nothing may sit OVER the Pathway; an inline strip above the table is the exception the owner approved on 2026-11-26.
-   1. the hero strip: one sentence, "Try it now" (opens the first recommended lesson THROUGH the card, so the free-preview count still happens in learnTopic -> guestStart), "Try Pro free for 7 days"
+   1. the hero strip: one sentence, "Try it now" (opens the first recommended lesson THROUGH the card, so the free-preview count still happens in learnTopic -> guestStart), "Try Premium free for 7 days"
       (the log-in card) and the price line; the cross remembers the choice on this device (tg_guest_hero_closed, device-only in cloud-sync.ts).
    2. the in-app browser notice: Google refuses to sign anybody in inside Facebook / LINE / TikTok, so a guest in one is told once, shortly, with the two ways out. */
 const HERO_KEY = "tg_guest_hero_closed";
@@ -26,7 +26,7 @@ export function GuestHeroStrips({ lang, onTrial }: { lang: string; onTrial: () =
   const days = String(TRIAL_DAYS_STANDARD);
   const title = T("เรียนเปียโนกับครู AI ของ TIGA ALPHA — เริ่มได้เลย ไม่ต้องสมัคร", "Learn piano with the AI teacher of TIGA ALPHA — start now, no sign-up", "和 TIGA ALPHA 的 AI 老师一起学钢琴 — 马上开始，无需注册");
   const tryLabel = T("ลองเล่นทันที", "Try it now", "马上试玩");
-  const trialLabel = T("ทดลอง Pro ฟรี " + days + " วัน", xl(lang, "Try Pro free for {0} days").split("{0}").join(days), "免费试用 Pro " + days + " 天");
+  const trialLabel = T("ทดลอง Premium ฟรี " + days + " วัน", xl(lang, "Try Premium free for {0} days").split("{0}").join(days), "免费试用 Premium " + days + " 天");
   const fine = lang === "th" ? "จากนั้น " + price + " บาท/เดือน ไม่ต้องผูกบัตร"
     : lang === "zh" ? "之后每月 " + price + "，无需绑定银行卡"
     : xl(lang, "Then {0} per month, no card needed").split("{0}").join(price);

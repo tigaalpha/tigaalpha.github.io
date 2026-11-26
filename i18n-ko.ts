@@ -4372,7 +4372,7 @@ const cat: Record<string, string> = {
   "Try 8 notes first: press the glowing key as the gem reaches the line": "먼저 8개 음을 연습해 봐요: 젬이 선에 닿을 때 빛나는 건반을 눌러요",
   "Try Again": "다시 도전",
   "Try Google anyway": "그래도 Google로 시도",
-  "Try Pro free for {0} days": "Pro {0}일 무료 체험",
+  "Try Premium free for {0} days": "Premium {0}일 무료 체험",
   "Try again": "다시 해보기",
   "Try asking": "이렇게 물어보세요",
   "Try curving your fingers, like holding a small ball 🤲": "작은 공을 쥔 것처럼 손가락을 둥글게 구부려 보세요 🤲",

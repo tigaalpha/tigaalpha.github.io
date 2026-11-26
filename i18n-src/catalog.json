@@ -53630,16 +53630,6 @@
   "ar": "بإرسال الرابط فإنك تقر بـ[[سياسة الخصوصية]]",
   "de": "Mit dem Senden des Links nimmst du die [[Datenschutzerklärung]] zur Kenntnis"
  },
- "Try Pro free for {0} days": {
-  "ja": "Proを{0}日間無料で試す",
-  "ko": "Pro {0}일 무료 체험",
-  "ru": "Пробуйте Pro бесплатно {0} дней",
-  "hi": "Pro को {0} दिन मुफ़्त आज़माएँ",
-  "es": "Prueba Pro gratis durante {0} días",
-  "fr": "Essaie Pro gratuitement pendant {0} jours",
-  "ar": "جرّب Pro مجانًا لمدة {0} أيام",
-  "de": "Teste Pro {0} Tage kostenlos"
- },
  "Then {0} per month, cancel anytime": {
   "ja": "その後は月額{0}。いつでも解約できます",
   "ko": "이후 월 {0}, 언제든 해지할 수 있어요",
@@ -53689,5 +53679,15 @@
   "fr": "Tu l'as ouvert dans une appli sociale — la connexion Google peut ne pas fonctionner. Ouvre-le dans ton navigateur ou inscris-toi avec ton e-mail.",
   "ar": "فتحتَ الصفحة داخل تطبيق اجتماعي — قد لا يعمل الدخول عبر Google. افتحها في المتصفح أو سجّل بالبريد الإلكتروني.",
   "de": "Du hast die Seite in einer Social-App geöffnet — die Google-Anmeldung funktioniert dort eventuell nicht. Öffne sie im Browser oder registriere dich mit deiner E-Mail."
+ },
+ "Try Premium free for {0} days": {
+  "ja": "Premiumを{0}日間無料で試す",
+  "ko": "Premium {0}일 무료 체험",
+  "ru": "Пробуйте Premium бесплатно {0} дней",
+  "hi": "Premium को {0} दिन मुफ़्त आज़माएँ",
+  "es": "Prueba Premium gratis durante {0} días",
+  "fr": "Essaie Premium gratuitement pendant {0} jours",
+  "ar": "جرّب Premium مجانًا لمدة {0} أيام",
+  "de": "Teste Premium {0} Tage kostenlos"
  }
 }

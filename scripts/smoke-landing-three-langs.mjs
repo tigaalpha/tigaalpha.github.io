@@ -205,10 +205,10 @@ for (const lang of ALL) {
     if (text.includes(banned)) { tierSeen = true; no(`${lang}: must not show "${banned}"`); }
   }
   if (!tierSeen) ok(`${lang}: no plan tier named`);
-  /* Step 1.2 (2026-11-26): the offer lines say "try Pro free for 7 days, then <price>/month, no card", the price being the one payment.tsx sells in that language (th 799 THB, zh 176 CNY, the rest US$24.99), and carry no scarcity line */
+  /* Step 1.2 (2026-11-26): the offer lines say "try Premium free for 7 days, then <price>/month, no card", the price being the one payment.tsx sells in that language (th 799 THB, zh 176 CNY, the rest US$24.99), and carry no scarcity line */
   {
     const offer = [COPYC[lang].sticky, COPYC[lang].trialLine], price = lang === "th" ? "799" : lang === "zh" ? "176" : "24.99";
-    if (offer.every((x) => /Pro/.test(x) && /7/.test(x) && x.includes(price)) && offer.every((x) => !/10,000|10\.000|first 100|100 คนแรก/i.test(x))) ok(`${lang}: sticky + trial line: Pro, 7 days, ${price}, no scarcity`);
+    if (offer.every((x) => /Premium/.test(x) && /7/.test(x) && x.includes(price)) && offer.every((x) => !/10,000|10\.000|first 100|100 คนแรก/i.test(x))) ok(`${lang}: sticky + trial line: Premium, 7 days, ${price}, no scarcity`);
     else no(`${lang}: offer lines`, offer.join(" | "));
   }
   if (!/10,000\s*(คน|users|people|first|人|명|человек|первых|लोग|usuarios|personas|utilisateurs|مستخدم)/.test(text)) ok(`${lang}: the 10,000-user cap is not advertised`);

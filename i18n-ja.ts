@@ -4372,7 +4372,7 @@ const cat: Record<string, string> = {
   "Try 8 notes first: press the glowing key as the gem reaches the line": "まず8音だけ試そう：ジェムがラインに届いたら、光る鍵盤を押します",
   "Try Again": "もう一度",
   "Try Google anyway": "それでもGoogleを試す",
-  "Try Pro free for {0} days": "Proを{0}日間無料で試す",
+  "Try Premium free for {0} days": "Premiumを{0}日間無料で試す",
   "Try again": "もう一度",
   "Try asking": "こんな質問をどうぞ",
   "Try curving your fingers, like holding a small ball 🤲": "小さなボールを持つ感じで、指を丸めてみましょう 🤲",

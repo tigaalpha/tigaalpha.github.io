@@ -11,7 +11,7 @@ const EARLY_ZH: Record<string, string> = {
   "Log in with a password instead": "改用密码登录",
   "Use a free email link instead": "改用免费邮件链接",
   "By sending the link you acknowledge the [[Privacy Policy]]": "发送链接即表示你已阅读[[隐私政策]]",
-  "Try Pro free for {0} days": "免费试用 Pro {0} 天",
+  "Try Premium free for {0} days": "免费试用 Premium {0} 天",
   "Then {0} per month, cancel anytime": "之后每月 {0}，可随时取消",
   "(Optional) Email me news about new courses and promotions": "（选填）给我发送新课程和优惠活动的邮件",
   "(Optional) Email me news about new courses and promotions — you can sign up without ticking this": "（选填）给我发送新课程和优惠活动的邮件 — 不勾选也可以注册",
