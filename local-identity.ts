@@ -223,10 +223,45 @@ export function landingVariant() {
     return localStorage.getItem(VARIANT_KEY) || "a";
   } catch (e) { return "a"; }
 }
+/* ── first-touch / last-touch campaign tags, kept 90 days (Step 2.3, owner 2026-11-26) ──
+   tg_utm = {first:{s,m,c,k,t,ck,at}, last:{...}}. Built on urlTags() above, not a second system: the ad's own tags only (utm_source / medium / campaign / content / term), the ad-click kind as
+   presence ("fbclid" | "ttclid" | "gclid"; the id itself is never stored) and the time. Written whenever this URL carries any tag; the first touch is set once and renewed only after it has
+   expired. Read back at sign-up (App.tsx) and added to e-mail links by handoffUrl so a magic link opened in another browser still counts for the campaign. Device-only (cloud-sync.ts). */
+const UTM_KEY = "tg_utm";
+const UTM_TTL = 90 * 24 * 3600 * 1000;
+function utmFromUrl() {
+  const q = new URLSearchParams(window.location.search);
+  const click = q.get("fbclid") ? "fbclid" : q.get("ttclid") ? "ttclid" : q.get("gclid") ? "gclid" : "";
+  const o = { s: tidy(q.get("utm_source"), 60), m: tidy(q.get("utm_medium")), c: tidy(q.get("utm_campaign"), 80), k: tidy(q.get("utm_content"), 60), t: tidy(q.get("utm_term"), 60), ck: click };
+  return (o.s || o.m || o.c || o.k || o.t || o.ck) ? o : null;
+}
+function utmRead() {
+  try {
+    const j = JSON.parse(localStorage.getItem(UTM_KEY) || "null");
+    const ok = (x) => x && typeof x === "object" && Date.now() - Number(x.at || 0) < UTM_TTL;
+    return { first: ok(j && j.first) ? j.first : null, last: ok(j && j.last) ? j.last : null };
+  } catch (e) { return { first: null, last: null }; }
+}
+export function captureUtm() {
+  try {
+    const cur = utmFromUrl();
+    if (!cur) return;
+    const old = utmRead();
+    const rec = { ...cur, at: Date.now() };
+    localStorage.setItem(UTM_KEY, JSON.stringify({ first: old.first || rec, last: rec }));
+  } catch (e) {}
+}
+/* The tags to attach to a sign-up: the last touch (what brought them back to sign up), else the first. { utm_source, utm_medium, utm_campaign } — empty strings when there are none. */
+export function utmForSignup() {
+  const u = utmRead(), t = u.last || u.first;
+  return { utm_source: (t && t.s) || "", utm_medium: (t && t.m) || "", utm_campaign: (t && t.c) || "" };
+}
+
 /* Returns the item_id to log under kind "attr", or null when there is nothing
    new to say. `lg` is the page language (landing: th|en|zh|ja|ko|ru|hi|es|fr|ar|de, app: "app"). */
 export function attributionEvent(lg = "") {
   try {
+    captureUtm();
     const cur = urlTags();
     const has = !!(cur.m || cur.c || cur.k || cur.t || cur.id || cur.ck || cur.v);
     const lgp = tidy(lg, 4);
@@ -275,6 +310,8 @@ export function handoffUrl(href, extra = {}) {
       u.searchParams.set("hid", aid);
       u.searchParams.set("hat", String(Math.floor(Date.now() / 60000)));
     }
+    const ut = utmForSignup();   // the campaign rides the link too, so a magic link opened in another browser is still counted for it
+    if (!u.searchParams.has("utm_source")) { if (ut.utm_source) u.searchParams.set("utm_source", ut.utm_source); if (ut.utm_medium) u.searchParams.set("utm_medium", ut.utm_medium); if (ut.utm_campaign) u.searchParams.set("utm_campaign", ut.utm_campaign); }
     u.searchParams.set("hsrc", trafficSource());
     u.searchParams.set("hua", uaKind());
     // hlg: the landing language the sign-up started on; hvia=mail: this URL rides

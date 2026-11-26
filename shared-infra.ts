@@ -1,3 +1,4 @@
+import { mirrorUsage } from "./analytics";
 import { powerFromActivity } from "./game-power";
 import { sb } from "./supabase-client";
 import { anonId, trafficSource, uaKind, deviceInfo, deviceWidth, setSkipOnboard, consumeSkipOnboard, GUEST_PROFILE_KEY, readLandingOrigin, clearLandingOrigin } from "./local-identity";
@@ -105,6 +106,7 @@ export async function unsubscribePush() {
    nullable; the row just was not being written. */
 export function logUsage(kind, itemId, durationMs = null) {
   if (!itemId) return;
+  mirrorUsage(kind, String(itemId));   // GA4 / pixels (analytics.ts): the few ids the conversion plan names
   const row = {
     kind, item_id: String(itemId),
     anon_id: anonId(), src: trafficSource(), ua: uaKind(),

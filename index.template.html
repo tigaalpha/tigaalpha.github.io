@@ -45,7 +45,7 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="TIGA ALPHA" />
     <title>TIGA ALPHA — แอปสอนเปียโน AI เรียนเปียโนออนไลน์ 10 ภาษา | AI Piano Teaching App</title>
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self' https://www.googletagmanager.com 'unsafe-inline' 'unsafe-eval' data: blob: https://*.supabase.co https://fonts.googleapis.com https://fonts.gstatic.com https://cdn.jsdelivr.net https://storage.googleapis.com; img-src 'self' data: blob: https:; media-src 'self' data: blob: https://*.supabase.co; connect-src 'self' https://www.googletagmanager.com https://*.google-analytics.com https://*.analytics.google.com https://*.supabase.co wss://*.supabase.co https://api.stripe.com https://cdn.jsdelivr.net https://storage.googleapis.com; worker-src 'self' blob:; frame-src https://js.stripe.com https://hooks.stripe.com https://drive.google.com https://www.youtube-nocookie.com;" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self' https://www.googletagmanager.com https://connect.facebook.net https://analytics.tiktok.com 'unsafe-inline' 'unsafe-eval' data: blob: https://*.supabase.co https://fonts.googleapis.com https://fonts.gstatic.com https://cdn.jsdelivr.net https://storage.googleapis.com; img-src 'self' data: blob: https:; media-src 'self' data: blob: https://*.supabase.co; connect-src 'self' https://www.googletagmanager.com https://www.facebook.com https://connect.facebook.net https://analytics.tiktok.com https://*.tiktok.com https://*.google-analytics.com https://*.analytics.google.com https://*.supabase.co wss://*.supabase.co https://api.stripe.com https://cdn.jsdelivr.net https://storage.googleapis.com; worker-src 'self' blob:; frame-src https://js.stripe.com https://hooks.stripe.com https://drive.google.com https://www.youtube-nocookie.com;" />
     <style>
       html, body, #root { height: 100%; margin: 0; background: #faf9f5; }
 
@@ -97,15 +97,16 @@
         #boot .bar i { background: #f5f0ed; }
       }
     </style>
-      <!-- Google tag (gtag.js) — Consent Mode: storage denied until the visitor accepts the banner (public/ga.js); measured only on the real domain -->
+      <!-- Google tag (gtag.js) — Consent Mode v2: analytics and ad storage denied until the visitor chooses in the banner (public/ga.js); measured only on the real domain -->
     <!-- verification: google-site-verification, msvalidate.01, baidu-site-verification — add the real code when it exists; do not invent one -->
     <script defer src="https://www.googletagmanager.com/gtag/js?id=G-5JW3ZGS88V"></script>
     <script>
       window.dataLayer = window.dataLayer || [];
       function gtag(){dataLayer.push(arguments);}
       var __h = location.hostname.toLowerCase(), __ok = (__h === "www.tigaalpha.com" || __h === "tigaalpha.com"), __c = "";
-      try { __c = localStorage.getItem("tg_ga") || ""; } catch (e) {}
-      gtag('consent', 'default', { analytics_storage: __c === "0" ? "denied" : "granted", ad_storage: "denied", ad_user_data: "denied", ad_personalization: "denied", wait_for_update: 500 });
+      var __a = false, __m = false;   // ANALYTICS_DEFAULT_GRANTED lives in analytics.ts (false = wait for the choice); public/ga.js shows the banner
+      try { var __j = JSON.parse(localStorage.getItem("tg_consent") || "null"); if (__j && typeof __j === "object") { __a = __j.a === 1; __m = __j.m === 1; } else { __c = localStorage.getItem("tg_ga") || ""; __a = __c === "1"; } } catch (e) {}
+      gtag('consent', 'default', { analytics_storage: __a ? "granted" : "denied", ad_storage: __m ? "granted" : "denied", ad_user_data: __m ? "granted" : "denied", ad_personalization: __m ? "granted" : "denied", wait_for_update: 500 });
       gtag('js', new Date());
       if (__ok) gtag('config', 'G-5JW3ZGS88V', { anonymize_ip: true, allow_google_signals: false });
     </script>

@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useCallback, Fragment } from "react";
 import { Piano, startPianoNote, releasePianoNote } from "../music-engine";
 import { logLand } from "./land-log";
+import { track as trackEvent } from "./landing-analytics";
 import { GUEST_PROFILE_KEY, setSkipOnboard, stampLandingOrigin, attributionEvent, handoffUrl, landingVariant } from "../local-identity";
 import { inAppBrowser, inAppKind, openInRealBrowser, waitForPageLeave, escapeUrl, PDPA_VERSION, friendlyAuthError } from "./landing-utils";
 import { LESSONS } from "./landing-lessons";
@@ -297,7 +298,7 @@ export default function LandingPage1() {
     if (!viewLogged) {
       viewLogged = true;
       land("view");
-      land("page:" + PRESET);   // which of the three URLs the ad pointed at
+      land("page:" + PRESET);   // which of the three URLs the ad pointed at (mirrored to GA4 as page_view_landing by analytics.mirrorUsage)
       /* Which campaign / ad set / creative / variant / time zone — one row, once
          per device (local-identity.attributionEvent). Without it the funnel can
          say how many came from "fb" but never which ad. */
@@ -550,6 +551,7 @@ export default function LandingPage1() {
 
   function openSignup(q, from) {
     land(from);
+    trackEvent("signup_open", { source: String(from || "").slice(0, 20), lang: PRESET });
     /* Inside a webview, the ask and the escape are THE SAME PROBLEM: Google
        will not load there, and email-only converts a fraction of the people
        Google would have. So the moment of asking is also the moment the

@@ -84,6 +84,7 @@ async function visitor({ lang = "", uses = null, w = 390, h = 844, seed = {}, ua
       if (!localStorage.getItem("__seeded")) {
         localStorage.setItem("__seeded", "1");
         localStorage.setItem("tg_pa_intro", "1");   // the first-song intro is offered once per device: not what is tested here
+        localStorage.setItem("tg_consent", JSON.stringify({ v: "2026-11-26", a: 0, m: 0, t: 1 }));   // a visitor who has already answered the cookie bar (public/ga.js); the bar itself is checked by verify-analytics-consent.mjs
         if (lang) localStorage.setItem("tg_guest_profile", JSON.stringify({ lang }));
         if (uses != null) localStorage.setItem("tg_guest_uses", String(uses));
         for (const k of Object.keys(seed)) localStorage.setItem(k, seed[k]);

@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
-import { isPremium, getPlan, effectivePlan, setPlanLS, setPremiumLS, currencyOf, planPriceByCur, yearPriceByCur, yearPrice, PLAN_PRICE } from "./payment";
+import { track as trackEvent } from "./analytics";
+import { isTrialPlan, isPremium, getPlan, effectivePlan, setPlanLS, setPremiumLS, currencyOf, planPriceByCur, yearPriceByCur, yearPrice, PLAN_PRICE } from "./payment";
 import { getAC, playUi } from "./music-engine";
 import { sb, SUPABASE_URL } from "./supabase-client";
 import { apiHeaders } from "./ai-backend";
@@ -53,8 +54,20 @@ export function usePayment({ profile, session, setProfile, lang, mascot, require
     window.history.replaceState({}, "", url.pathname + (url.search || ""));
     setStripeReturn("pending");
     playUi("levelup");
+    /* GA4 / pixels purchase (Step 2.3): only when the profile read AFTER the server-side check really shows a paid plan, once per Stripe session id (a reload of the return URL cannot repeat it).
+       transaction_id is Stripe's own session id (no person in it); value / currency come from what begin_checkout saw in this tab. */
+    const trackPaid = (prof) => {
+      try {
+        if (!sid || !prof || !prof.plan || isTrialPlan(prof.plan) || prof.plan === "free") return;
+        const k = "tg_stitched_purchase_" + sid;
+        if (localStorage.getItem(k)) return;
+        localStorage.setItem(k, "1");
+        let last: any = {}; try { last = JSON.parse(sessionStorage.getItem("tg_last_checkout") || "{}") || {}; } catch (e) {}
+        trackEvent("purchase", { transaction_id: String(sid).slice(0, 80), value: Number(last.value) || 0, currency: last.currency || "THB", plan: String(prof.plan).slice(0, 20) });
+      } catch (e) {}
+    };
     const refresh = () => sb.from("profiles").select("*").eq("id", session.user.id).maybeSingle()
-      .then(({ data }) => { if (data) setProfile(data); setStripeReturn("done"); setTimeout(() => setStripeReturn(null), 4000); });
+      .then(({ data }) => { if (data) { setProfile(data); trackPaid(data); } setStripeReturn("done"); setTimeout(() => setStripeReturn(null), 4000); });
     if (!sid) { const t = setTimeout(refresh, 4000); return () => clearTimeout(t); }
     fetch(SUPABASE_URL + "/functions/v1/verify-stripe-payment", {
       method: "POST", headers: { ...apiHeaders(), "Content-Type": "application/json" },

@@ -147,7 +147,7 @@ const LOCAL_WHY: Record<string, string> = {
   tg_orient_hint_seen: "per-device hint", tg_freeze_month: "Max freezes live in the excluded tg_streak",
   tg_gamelog_id_fix: "one-time repair of THIS device's log", tg_tts_aff: "this device's read-aloud habit", tg_tts_pf_day: "this device's prefetch cap",
   tg_attr: "attribution of this device", tg_attr_sig: "attribution of this device", tg_src: "attribution", tg_variant: "attribution",
-  tg_origin_ua: "attribution", tg_landing_origin: "attribution", tg_dev: "device id", tg_visits: "analytics of this device",
+  tg_origin_ua: "attribution", tg_login_tracked: "sessionStorage of this tab: the login event was sent", tg_last_checkout: "sessionStorage of this tab: what the checkout card showed, for the purchase event", tg_utm: "attribution: first / last touch of this device, 90 days", tg_consent: "this device's cookie choice (analytics / marketing); a choice about a browser, not an account", tg_ga: "this device's analytics choice (older key, kept in step with tg_consent)", tg_landing_origin: "attribution", tg_dev: "device id", tg_visits: "analytics of this device",
   tg_visit_counted: "analytics of this device", tg_skip_onboard: "per-device", tg_pa_metro: "dead key",
   tg_pa_cal_mic: "this device's microphone calibration", tg_pa_cal_midi: "this device's MIDI latency", tg_pa_cal_tap: "this device's tap latency",
   tg_piano_tune_v1: "this piano and room", tg_charGender: "legacy key", tg_pa_cal_: "this device's input latency (prefix)",

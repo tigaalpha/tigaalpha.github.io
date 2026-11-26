@@ -15,6 +15,7 @@
    nothing in this file may import from the app's supabase client. ── */
 
 import { anonId, trafficSource, uaKind, deviceInfo, deviceWidth } from "../local-identity";
+import { mirrorUsage } from "../analytics";
 export { anonId, trafficSource, uaKind, deviceInfo, deviceWidth };
 
 /* VERBATIM values from supabase-client.ts — both are PUBLIC by design; the
@@ -28,6 +29,7 @@ const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
    the leave/dwell row survives the tab closing under it. */
 export function logLand(kind, itemId, durationMs = null) {
   if (!itemId) return;
+  mirrorUsage(kind, String(itemId));   // GA4 / pixels: see analytics.ts
   try {
     const row = {
       kind, item_id: String(itemId),

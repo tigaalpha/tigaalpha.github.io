@@ -1,3 +1,4 @@
+import { track as trackEvent, signupUtm } from "./analytics";
 import { rankTopics } from "./learn-plan";
 import { tempoFactorOf } from "./plan-store";
 import { takeBlogReturn } from "./blog-return";
@@ -11039,6 +11040,26 @@ export default function App() {
           try { localStorage.setItem(stitchKey, "1"); } catch (e) {}
         }
       }
+      /* ── Step 2.3: conversion events for GA4 / the ad pixels (analytics.ts). sign_up once per account per device (a fresh account only), trial_start with it when the new account is on the trial
+         plan, login once per tab for everybody else. The campaign tags (last touch, else first; local-identity tg_utm) ride on sign_up and as ONE extra row "signed_up_utm:<source>|<medium>|<campaign>"
+         beside the unchanged "signed_up_landing:<lang>" row (that item_id is parsed by campaign-funnel.ts, so it keeps its exact shape). No name or e-mail is ever sent. */
+      if (data) {
+        try {
+          let method = "email";
+          try { const { data: sd2 } = await sb.auth.getSession(); const p2 = sd2 && sd2.session && sd2.session.user && sd2.session.user.app_metadata && sd2.session.user.app_metadata.provider; if (p2) method = String(p2).replace(/^custom:/, "").slice(0, 20); } catch (e) {}
+          const suKey = "tg_stitched_su_" + uid;
+          if (freshAccount && !localStorage.getItem(suKey)) {
+            localStorage.setItem(suKey, "1");
+            const ut = signupUtm();
+            trackEvent("sign_up", { method, ...ut });
+            if (ut.utm_source || ut.utm_medium || ut.utm_campaign) logUsage("land", "signed_up_utm:" + [ut.utm_source, ut.utm_medium, ut.utm_campaign].join("|").slice(0, 150));
+            if (isTrialPlan(finalData && finalData.plan)) trackEvent("trial_start", { method, ...ut });
+          } else if (!sessionStorage.getItem("tg_login_tracked")) {
+            sessionStorage.setItem("tg_login_tracked", "1");
+            trackEvent("login", { method });
+          }
+        } catch (e) {}
+      }
       /* cloud-sync: everything that belongs to the player (progress, games, cosmetics, saved songs, settings) follows the account to
          any device. It starts BEFORE the app is painted: a different account on this browser has the previous account's data
          removed first, and the first pull gets up to 2.5 s to land so the first paint already shows this player's own state (a slower
@@ -11845,6 +11866,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
     if (kind === "practice" && practiceCreditRef.current) { practiceCreditRef.current = false; return true; }
     if (guestUsesLeft() <= 0) { lastGuestStartRef.current = { kind: "", t: 0 }; markGuestRefusal(); raiseGate("trial"); return false; }
     addGuestUse();
+    trackEvent("guest_activity_start", { activity: String(kind).slice(0, 20), left: guestUsesLeft() });   // GA4: a counted free use (left = free uses still unspent)
     practiceCreditRef.current = kind === "lesson";   // only a lesson has a drill of its own; a chapter (reading) pays for nothing after it
     return true;
   }

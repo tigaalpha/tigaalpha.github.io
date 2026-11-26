@@ -1,3 +1,4 @@
+import { track as trackEvent } from "./analytics";
 import { useState, useRef, useEffect, useMemo } from "react";
 import qrcode from "qrcode-generator";
 import { sb, SUPABASE_URL } from "./supabase-client";
@@ -283,6 +284,15 @@ export function CheckoutModal({ lang, checkout, payCfg, session, isAdmin, onClos
   const [stripeLoading, setStripeLoading] = useState(false);
   const [payMode, setPayMode] = useState("");   // "" | live | test | unknown
   useEffect(() => { stripeMode().then(setPayMode); }, []);
+  /* GA4 / pixels begin_checkout (Step 2.3): once per opening of this card. value + currency of what is shown; remembered for this tab so the purchase event after the Stripe return can say the same. */
+  useEffect(() => {
+    try {
+      const cc = (checkout.cur || currencyOf(lang) || "thb").toUpperCase();
+      const val = Number(checkout.disp != null ? checkout.disp : checkout.amount) || 0;
+      trackEvent("begin_checkout", { value: val, currency: cc, plan: String(checkout.plan || "").slice(0, 20) });
+      sessionStorage.setItem("tg_last_checkout", JSON.stringify({ value: val, currency: cc, plan: String(checkout.plan || "").slice(0, 20) }));
+    } catch (e) {}
+  }, []);
   const fileRef = useRef(null);
   // guards against a fast double-click/double-tap firing openStripe/onFile twice before
   // React re-renders with the disabled button — state (stripeLoading/st) alone isn't

@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useLayoutEffect, useMemo, memo, useCallback, Fragment } from "react";
 import { isPianoLike } from "./piano-guard";
+import { track as trackEvent } from "./analytics";
 import { SONGS, SONG_TIMESIG } from "./songs-data";
 import { buildBusImpulse, busRnd, BUS_SEED, LIMIT_CURVE, BUS_WET } from "./bus-master";
 
@@ -1121,10 +1122,12 @@ function _buildPianoVoices(handle, f, velocity) {
   } catch (e) {}
 }
 
+let _firstKeyTracked = false;   // piano_key_press (GA4): the FIRST key of this page load only, never every press
 export function startPianoNote(note, velocity = 1) {
   try {
     if (_sfxMuted) return null;
     const f = NF[note]; if (!f) return null;
+    if (!_firstKeyTracked) { _firstKeyTracked = true; trackEvent("piano_key_press", {}); }
     // Hold duration isn't known yet, so suppress mic self-echo for a generous
     // window; releasePianoNote() re-suppresses for the release tail below.
     _accMarkSuppress(f, 50, Date.now() + 6000);
