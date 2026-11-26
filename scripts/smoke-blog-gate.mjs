@@ -140,17 +140,17 @@ for (const l of LANGS) {
 console.log("what each kind of reader sees (every language)");
 // the words of the card, per language: the claim that it is free, the claim that no credit card is needed, the 7-day trial, the three buttons
 const WORDS = {
-  th: ["คุณอ่านบทความนี้ไปแล้ว", "ล็อกอินฟรีเพื่ออ่านต่ออีก", "ใช้ฟรี", "ไม่ต้องใช้บัตรเครดิต", "ฟรี 7 วัน", "ล็อกอินด้วย Google", "สมัครสมาชิกฟรี", "เข้าสู่ระบบ"],
-  en: ["You've read", "Log in for free to read the remaining", "Free to use", "No credit card needed", "free for 7 days", "Continue with Google", "Sign up free", "Log in"],
-  zh: ["你已阅读本文", "免费登录，继续阅读剩余", "免费使用", "无需信用卡", "免费试学 7 天钢琴课", "使用 Google 继续", "免费注册", "登录"],
-  ja: ["この記事の", "無料ログインで、残りの", "無料で使えます", "クレジットカードは不要", "7日間無料", "Googleで続ける", "無料で会員登録", "ログイン"],
-  ko: ["이 글을", "로그인하고 나머지", "무료 이용", "신용카드 필요 없음", "7일 동안 무료", "Google로 계속하기", "무료로 가입하기", "로그인"],
-  ru: ["Вы прочитали", "Войдите бесплатно, чтобы прочитать остальные", "Бесплатно", "Банковская карта не нужна", "7 дней бесплатно", "Продолжить через Google", "Зарегистрироваться бесплатно", "Войти"],
-  hi: ["आप इस लेख का", "पढ़ने के लिए मुफ़्त में लॉग इन करें", "इस्तेमाल करना मुफ़्त", "क्रेडिट कार्ड की ज़रूरत नहीं", "7 दिन तक पियानो के पाठ मुफ़्त", "Google से जारी रखें", "मुफ़्त में साइन अप करें", "लॉग इन करें"],
-  es: ["Has leído el", "Inicia sesión gratis para leer el", "Gratis", "Sin tarjeta de crédito", "gratis durante 7 días", "Continuar con Google", "Regístrate gratis", "Inicia sesión"],
-  fr: ["Vous avez lu", "Connectez-vous gratuitement pour lire les", "Gratuit", "Sans carte bancaire", "gratuitement les cours de piano pendant 7 jours", "Continuer avec Google", "S'inscrire gratuitement", "Se connecter"],
-  ar: ["لقد قرأت", "سجّل الدخول مجانًا لقراءة بقية المقال", "مجاني", "دون بطاقة ائتمان", "مجانًا لمدة 7 أيام", "المتابعة باستخدام Google", "إنشاء حساب مجاني", "تسجيل الدخول"],
-  de: ["Du hast", "Melde dich kostenlos an, um die restlichen", "Kostenlos nutzbar", "Keine Kreditkarte nötig", "7 Tage kostenlos", "Weiter mit Google", "Kostenlos registrieren", "Anmelden"],
+  th: ["คุณอ่านบทความนี้ไปแล้ว", "ล็อกอินฟรีเพื่ออ่านต่ออีก", "ใช้ฟรี", "ไม่ต้องใช้บัตรเครดิต", "ทดลอง Premium ฟรี 7 วันในแอป TIGA ALPHA", "ล็อกอินด้วย Google", "สมัครสมาชิกฟรี", "เข้าสู่ระบบ"],
+  en: ["You've read", "Log in for free to read the remaining", "Free to use", "No credit card needed", "Premium free for 7 days in the TIGA ALPHA app", "Continue with Google", "Sign up free", "Log in"],
+  zh: ["你已阅读本文", "免费登录，继续阅读剩余", "免费使用", "无需信用卡", "免费试用 Premium 7 天", "使用 Google 继续", "免费注册", "登录"],
+  ja: ["この記事の", "無料ログインで、残りの", "無料で使えます", "クレジットカードは不要", "Premiumを7日間無料", "Googleで続ける", "無料で会員登録", "ログイン"],
+  ko: ["이 글을", "로그인하고 나머지", "무료 이용", "신용카드 필요 없음", "Premium을 7일 동안 무료", "Google로 계속하기", "무료로 가입하기", "로그인"],
+  ru: ["Вы прочитали", "Войдите бесплатно, чтобы прочитать остальные", "Бесплатно", "Банковская карта не нужна", "Premium в приложении TIGA ALPHA", "Продолжить через Google", "Зарегистрироваться бесплатно", "Войти"],
+  hi: ["आप इस लेख का", "पढ़ने के लिए मुफ़्त में लॉग इन करें", "इस्तेमाल करना मुफ़्त", "क्रेडिट कार्ड की ज़रूरत नहीं", "7 दिन तक Premium मुफ़्त में आज़माएँ", "Google से जारी रखें", "मुफ़्त में साइन अप करें", "लॉग इन करें"],
+  es: ["Has leído el", "Inicia sesión gratis para leer el", "Gratis", "Sin tarjeta de crédito", "Premium gratis durante 7 días", "Continuar con Google", "Regístrate gratis", "Inicia sesión"],
+  fr: ["Vous avez lu", "Connectez-vous gratuitement pour lire les", "Gratuit", "Sans carte bancaire", "Premium gratuitement pendant 7 jours", "Continuer avec Google", "S'inscrire gratuitement", "Se connecter"],
+  ar: ["لقد قرأت", "سجّل الدخول مجانًا لقراءة بقية المقال", "مجاني", "دون بطاقة ائتمان", "Premium مجانًا لمدة 7 أيام", "المتابعة باستخدام Google", "إنشاء حساب مجاني", "تسجيل الدخول"],
+  de: ["Du hast", "Melde dich kostenlos an, um die restlichen", "Kostenlos nutzbar", "Keine Kreditkarte nötig", "Premium 7 Tage kostenlos", "Weiter mit Google", "Kostenlos registrieren", "Anmelden"],
 };
 for (const lang of LANGS) {
   console.log(lang);
@@ -160,7 +160,7 @@ for (const lang of LANGS) {
   ok(GUEST(s), "a guest sees the preview and the card, and the locked part is hidden (" + JSON.stringify(s) + ")");
   const txt = (await g.page.evaluate(() => document.getElementById("tg-unlock").innerText)).replace(/\xa0/g, " ");
   ok(WORDS[lang].every(x => txt.includes(x)), "the card speaks " + lang + ": free, no credit card, the 7-day trial, three buttons (" + WORDS[lang].slice(0, 2).join(" / ") + ")");
-  ok(/(^|\D)\d{2}(\D|$)/.test(txt) && txt.includes("TIGA") && txt.includes("AI"), "it names the share read and the TIGA AI app");
+  ok(/(^|\D)\d{2}(\D|$)/.test(txt) && txt.includes("TIGA ALPHA") && txt.includes("Premium") && !/TIGA AI/.test(txt), "it names the share read and the TIGA ALPHA app (never \"TIGA AI\"), with Premium");
   const cs = await g.page.evaluate(() => ({ dir: getComputedStyle(document.documentElement).direction, ta: getComputedStyle(document.getElementById("tg-unlock")).textAlign, fade: getComputedStyle(document.querySelector(".tg-fade")).display, prevText: document.querySelector("article h1").textContent.length > 0 }));
   ok(cs.dir === (lang === "ar" ? "rtl" : "ltr") && cs.ta === "center" && cs.fade === "block", "text direction " + (lang === "ar" ? "rtl" : "ltr") + ", the card's text is centred, the fade is drawn");
   const hrefs = await g.page.$$eval("#tg-unlock a[data-gate]", as => as.map(a => [a.dataset.gate, a.getAttribute("href")]));

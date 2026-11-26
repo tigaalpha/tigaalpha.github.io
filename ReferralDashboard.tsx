@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { shareUrl } from "./share-links";
 
 import { by } from "./lang-extra";
 /* ── ReferralDashboard.tsx ──
@@ -136,14 +137,15 @@ export function ReferralDashboard({ lang = "th" }: { lang?: string }) {
   function shareMessage(platform: string) {
     if (!stats) return;
     const msg = c.shareMsg.replace("{code}", stats.code);
-    const url = "https://tigaalpha.github.io";
+    const medium = platform === "line" ? "line" : platform === "facebook" ? "facebook" : "copy";
+    const url = shareUrl(medium);   // the landing page of the real domain, the channel in utm_medium
     
     if (platform === "line") {
       window.open(`https://social-plugins.line.me/lineit/share?url=${encodeURIComponent(url)}&text=${encodeURIComponent(msg)}`, "_blank");
     } else if (platform === "facebook") {
       window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}&quote=${encodeURIComponent(msg)}`, "_blank");
     } else {
-      navigator.clipboard.writeText(msg).catch(() => {});
+      navigator.clipboard.writeText(msg + " " + url).catch(() => {});
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     }

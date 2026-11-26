@@ -50797,16 +50797,6 @@
   "ar": "⚔ ادخل ساحة PvP — أجب عن أسئلة موسيقية ضد خصم، وتتقاتل مركباتكما",
   "de": "⚔ Betritt die PvP-Arena – beantworte Musikfragen gegen einen Gegner, und eure Chassis kämpfen es aus"
  },
- "⚔️ Family Battle on TIGA ALPHA! P1: {0}% vs P2: {1}% — {2} tigaalpha.github.io": {
-  "ja": "⚔️ TIGA ALPHAでファミリーバトル！ P1: {0}% vs P2: {1}% — {2} tigaalpha.github.io",
-  "ko": "⚔️ TIGA ALPHA에서 패밀리 배틀! P1: {0}% vs P2: {1}% — {2} tigaalpha.github.io",
-  "ru": "⚔️ Семейная битва в TIGA ALPHA! P1: {0}% против P2: {1}% — {2} tigaalpha.github.io",
-  "es": "⚔️ ¡Batalla familiar en TIGA ALPHA! J1: {0}% vs J2: {1}% — {2} tigaalpha.github.io",
-  "fr": "⚔️ Bataille en famille sur TIGA ALPHA ! J1 : {0} % vs J2 : {1} % — {2} tigaalpha.github.io",
-  "hi": "⚔️ TIGA ALPHA पर फ़ैमिली बैटल! P1: {0}% बनाम P2: {1}% — {2} tigaalpha.github.io",
-  "ar": "⚔️ معركة العائلة على TIGA ALPHA! اللاعب 1: {0}% مقابل اللاعب 2: {1}% — {2} tigaalpha.github.io",
-  "de": "⚔️ Familienduell auf TIGA ALPHA! S1: {0}% gegen S2: {1}% – {2} tigaalpha.github.io"
- },
  "⚙ Settings (difficulty · graphics)": {
   "ja": "⚙ 設定（難易度・グラフィック）",
   "ko": "⚙ 설정 (난이도 · 그래픽)",
@@ -53689,5 +53679,15 @@
   "fr": "Essaie Premium gratuitement pendant {0} jours",
   "ar": "جرّب Premium مجانًا لمدة {0} أيام",
   "de": "Teste Premium {0} Tage kostenlos"
+ },
+ "⚔️ Family Battle on TIGA ALPHA! P1: {0}% vs P2: {1}% — {2} {3}": {
+  "ja": "⚔️ TIGA ALPHAでファミリーバトル！ P1: {0}% vs P2: {1}% — {2} {3}",
+  "ko": "⚔️ TIGA ALPHA에서 패밀리 배틀! P1: {0}% vs P2: {1}% — {2} {3}",
+  "ru": "⚔️ Семейная битва в TIGA ALPHA! P1: {0}% против P2: {1}% — {2} {3}",
+  "es": "⚔️ ¡Batalla familiar en TIGA ALPHA! J1: {0}% vs J2: {1}% — {2} {3}",
+  "fr": "⚔️ Bataille en famille sur TIGA ALPHA ! J1 : {0} % vs J2 : {1} % — {2} {3}",
+  "hi": "⚔️ TIGA ALPHA पर फ़ैमिली बैटल! P1: {0}% बनाम P2: {1}% — {2} {3}",
+  "ar": "⚔️ معركة العائلة على TIGA ALPHA! اللاعب 1: {0}% مقابل اللاعب 2: {1}% — {2} {3}",
+  "de": "⚔️ Familienduell auf TIGA ALPHA! S1: {0}% gegen S2: {1}% – {2} {3}"
  }
 }

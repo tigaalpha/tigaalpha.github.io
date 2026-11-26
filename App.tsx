@@ -148,6 +148,7 @@ import {
 import { startCloudSync, stopCloudSync, wipeAfterSignOut, cloudSyncReady, onCloudPulled } from "./cloud-sync";
 import { Splash, BannedScreen, GuestGateScreen, TrialInviteModal, ProfileForm, LangPickerScreen, CountUp, LoginModal, SafeZone, inAppBrowser } from "./app-shell";
 import { GuestHeroStrips } from "./guest-strips";
+import { shareUrl, SHARE_HOST } from "./share-links";
 import { PricingOverlay } from "./PricingOverlay";
 import { PracticeOverlay } from "./PracticeOverlay";
 import { SongPlayOverlay } from "./SongPlayOverlay";
@@ -3358,7 +3359,7 @@ const StudioPage = memo(function StudioPage({ lang, onVoice, onSongs, onSight, o
                 <button className="lvup-share" onClick={() => { setBattleData(null); setBattlePickOpen(true); }}>↻ {T("เล่นใหม่", "Play Again", "再玩")}</button>
                 {/* LINE share HIDDEN (not deleted) per feature audit — shareLine() untouched. */}
                 {false && <button className="lvup-share" style={{ background: "#06c755", color: "#fff" }}
-                  onClick={() => { const s = battleData.scores; shareLine(T(`⚔️ Family Battle บน TIGA ALPHA! P1: ${s[0].acc}% vs P2: ${s[1].acc}% — ${s[0].acc > s[1].acc ? "P1 ชนะ!" : s[1].acc > s[0].acc ? "P2 ชนะ!" : "เสมอ!"} tigaalpha.github.io`, `⚔️ Family Battle on TIGA ALPHA! P1: ${s[0].acc}% vs P2: ${s[1].acc}% — ${s[0].acc > s[1].acc ? "P1 wins!" : s[1].acc > s[0].acc ? "P2 wins!" : "Draw!"} tigaalpha.github.io`, `⚔️ TIGA ALPHA家庭对战! P1: ${s[0].acc}% vs P2: ${s[1].acc}% — ${s[0].acc > s[1].acc ? "P1胜!" : s[1].acc > s[0].acc ? "P2胜!" : "平局!"} tigaalpha.github.io`)); }}>🟢 LINE</button>}
+                  onClick={() => { const s = battleData.scores; shareLine(T(`⚔️ Family Battle บน TIGA ALPHA! P1: ${s[0].acc}% vs P2: ${s[1].acc}% — ${s[0].acc > s[1].acc ? "P1 ชนะ!" : s[1].acc > s[0].acc ? "P2 ชนะ!" : "เสมอ!"} ${shareUrl("line")}`, `⚔️ Family Battle on TIGA ALPHA! P1: ${s[0].acc}% vs P2: ${s[1].acc}% — ${s[0].acc > s[1].acc ? "P1 wins!" : s[1].acc > s[0].acc ? "P2 wins!" : "Draw!"} ${shareUrl("line")}`, `⚔️ TIGA ALPHA家庭对战! P1: ${s[0].acc}% vs P2: ${s[1].acc}% — ${s[0].acc > s[1].acc ? "P1胜!" : s[1].acc > s[0].acc ? "P2胜!" : "平局!"} ${shareUrl("line")}`)); }}>🟢 LINE</button>}
                 <button className="lvup-share" onClick={() => { setBattleData(null); }}>✕</button>
               </div>
             </>
@@ -3647,13 +3648,13 @@ function shareVideo(s, lang) {
   else if (s.folderId) url = `https://drive.google.com/embeddedfolderview?id=${s.folderId}#grid`;
   else if (s.fileId) url = `https://drive.google.com/file/d/${s.fileId}/view`;
   const tag = lang === "th" ? "เรียนเปียโนกับ TIGA ALPHA" : lang === "zh" ? "跟 TIGA ALPHA 学钢琴" : xl(lang, "Learn piano with TIGA ALPHA");
-  const text = `${s.title} — ${tag} tigaalpha.github.io`;
+  const text = (medium: "native" | "line") => `${s.title} — ${tag} ${shareUrl(medium)}`;   // the link a friend taps is the landing page with the channel in utm_medium
   if (url && navigator.share) {
-    navigator.share({ title: s.title, text, url }).catch(() => {});
+    navigator.share({ title: s.title, text: text("native"), url }).catch(() => {});
   } else if (url) {
-    shareLine(text + " " + url);
+    shareLine(text("line") + " " + url);
   } else {
-    shareLine(text);
+    shareLine(text("line"));
   }
 }
 function VideoSlide({ s, active, lang, onAsk, likeN, likedByMe, onToggleLike }) {
@@ -6522,7 +6523,7 @@ const ALL_STICKERS = [...SHOP_STICKERS, ...GEM_RELICS];
 function shareLine(text: string) {
   const url = "https://line.me/R/share?text=" + encodeURIComponent(text);
   if (!window.open(url, "_blank", "noopener")) {
-    try { navigator.clipboard.writeText(text); } catch (_) {}
+    try { navigator.clipboard.writeText(text.split("utm_medium=line").join("utm_medium=copy")); } catch (_) {}   // the LINE window was blocked: what lands on the clipboard says "copy"
   }
 }
 // D1: Backing chord helpers
@@ -6541,11 +6542,11 @@ export async function shareCard({ title, big, sub, lines = [] }) {
     if (sub) { x.fillStyle = "#d97757"; x.font = "bold 56px Arial"; x.fillText(sub, W / 2, 490); }
     x.fillStyle = "#c9c6bd"; x.font = "30px Arial";
     lines.forEach((ln, i) => x.fillText(ln, W / 2, 570 + i * 50));
-    x.fillStyle = "#8f8b82"; x.font = "24px Arial"; x.fillText("tigaalpha.github.io", W / 2, H - 56);
+    x.fillStyle = "#8f8b82"; x.font = "24px Arial"; x.fillText(SHARE_HOST, W / 2, H - 56);
     const blob = await new Promise(res => c.toBlob(res, "image/png"));
     const file = new File([blob], "tiga-score.png", { type: "image/png" });
     if (navigator.canShare && navigator.canShare({ files: [file] })) {
-      await navigator.share({ files: [file], title: "TIGA ALPHA" });
+      await navigator.share({ files: [file], title: "TIGA ALPHA", text: shareUrl("native") });
     } else {
       const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "tiga-score.png"; a.click();
       setTimeout(() => URL.revokeObjectURL(a.href), 3000);
@@ -6627,7 +6628,7 @@ function downloadCertificate(lang, name, gainExp, earnCoins) {
     // Signature line
     x.fillStyle = "#8f8b82"; x.fillRect(W / 2 - 100, 590, 200, 1);
     x.fillStyle = "#d97757"; x.font = "bold 18px Arial"; x.fillText("TIGA ALPHA", W / 2, 610);
-    x.fillStyle = "#8f8b82"; x.font = "16px Arial"; x.fillText("tigaalpha.github.io", W / 2, 640);
+    x.fillStyle = "#8f8b82"; x.font = "16px Arial"; x.fillText(SHARE_HOST, W / 2, 640);
     // Download
     c.toBlob(blob => {
       const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "tiga-certificate.png"; a.click();
@@ -14211,7 +14212,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
                 <div style={{ display: "flex", gap: 8, marginTop: 14 }}>
                   <button className="songbtn ghost" style={{ flex: 1 }} onClick={() => shareCard({ title: nm, big: (st.count || 0) + "🔥", sub: lc.profLevelWord + " " + li.level, lines: [`${sess} ${lc.pdSessions} · ${wkAcc}% ${lc.pdAcc}`] })}>📤 {lc.shareBtn}</button>
                   {/* LINE share HIDDEN (not deleted) per feature audit — shareLine() untouched. */}
-                  {false && <button className="songbtn ghost" style={{ flex: 1, borderColor: "#06c755", color: "#06c755" }} onClick={() => shareLine(`🎹 ${nm} ${lc.profLevelWord} ${li.level} · ${(st.count || 0)}🔥 streak — TIGA ALPHA tigaalpha.github.io`)}>🟢 LINE</button>}
+                  {false && <button className="songbtn ghost" style={{ flex: 1, borderColor: "#06c755", color: "#06c755" }} onClick={() => shareLine(`🎹 ${nm} ${lc.profLevelWord} ${li.level} · ${(st.count || 0)}🔥 streak — TIGA ALPHA ${shareUrl("line")}`)}>🟢 LINE</button>}
                 </div>
               </div>
             </div>
@@ -14680,7 +14681,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
           <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
             <button className="lvup-share" onClick={(e) => { e.stopPropagation(); clearTimeout(lvUpTimer.current); shareCard({ title: levelUp.prestige ? lc.prestigeUpWord : lc.levelUpWord, big: levelUp.prestige ? `⭐ ${levelUp.prestige}` : lc.profLevelWord + " " + levelUp.level, sub: levelUp.prestige ? lc.prestigeWord : tr(levelUp.tier, lang), lines: ["TIGA ALPHA"] }); }}>📤 {lc.shareBtn}</button>
             {/* LINE share HIDDEN (not deleted) per feature audit — shareLine() untouched. */}
-            {false && <button className="lvup-share" style={{ background: "#06c755", color: "#fff" }} onClick={(e) => { e.stopPropagation(); clearTimeout(lvUpTimer.current); shareLine(levelUp.prestige ? `🎹 ${lc.prestigeUpWord} ${lc.prestigeWord} ${levelUp.prestige} — TIGA ALPHA tigaalpha.github.io` : `🎹 ${lc.levelUpWord}! ${lc.profLevelWord} ${levelUp.level} — TIGA ALPHA tigaalpha.github.io`); }}>🟢 LINE</button>}
+            {false && <button className="lvup-share" style={{ background: "#06c755", color: "#fff" }} onClick={(e) => { e.stopPropagation(); clearTimeout(lvUpTimer.current); shareLine(levelUp.prestige ? `🎹 ${lc.prestigeUpWord} ${lc.prestigeWord} ${levelUp.prestige} — TIGA ALPHA ${shareUrl("line")}` : `🎹 ${lc.levelUpWord}! ${lc.profLevelWord} ${levelUp.level} — TIGA ALPHA ${shareUrl("line")}`); }}>🟢 LINE</button>}
           </div>
         </div>
       )}
@@ -14694,7 +14695,7 @@ function PianoApp({ session, profile, setProfile, onSignOut }) {
           <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
             <button className="lvup-share" onClick={(e) => { e.stopPropagation(); clearTimeout(badgeTimer.current); shareCard({ title: lc.badgeUnlocked, big: badgeUp.icon, sub: tr(badgeUp, lang), lines: ["TIGA ALPHA"] }); }}>📤 {lc.shareBtn}</button>
             {/* LINE share HIDDEN (not deleted) per feature audit — shareLine() untouched. */}
-            {false && <button className="lvup-share" style={{ background: "#06c755", color: "#fff" }} onClick={(e) => { e.stopPropagation(); clearTimeout(badgeTimer.current); shareLine(`🎹 ${lc.badgeUnlocked} ${badgeUp.icon} "${tr(badgeUp, lang)}" — TIGA ALPHA tigaalpha.github.io`); }}>🟢 LINE</button>}
+            {false && <button className="lvup-share" style={{ background: "#06c755", color: "#fff" }} onClick={(e) => { e.stopPropagation(); clearTimeout(badgeTimer.current); shareLine(`🎹 ${lc.badgeUnlocked} ${badgeUp.icon} "${tr(badgeUp, lang)}" — TIGA ALPHA ${shareUrl("line")}`); }}>🟢 LINE</button>}
           </div>
         </div>
       )}

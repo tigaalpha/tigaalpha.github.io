@@ -5098,7 +5098,7 @@ const cat: Record<string, string> = {
   "♾️ AI tutor 10 questions/day + play critique + unlimited AI song creation": "♾️ Tutor IA con 10 preguntas al día + crítica de tu interpretación + creación ilimitada de canciones con IA",
   "♾️ AI tutor, 10 questions/day\n👑 Every exclusive piece\n🎵 AI song creation\n🎮 Every music game\n📊 Daily Mentor + weekly AI report": "♾️ Tutor IA, 10 preguntas al día\n👑 Todas las piezas exclusivas\n🎵 Creación de canciones con IA\n🎮 Todos los juegos musicales\n📊 Mentor diario + informe semanal con IA",
   "⚔ Enter the PvP Arena — answer music questions against an opponent, and your chassis fight it out": "⚔ Entra en la Arena PvP — responde preguntas de música contra un rival y tu chasis se bate en el combate",
-  "⚔️ Family Battle on TIGA ALPHA! P1: {0}% vs P2: {1}% — {2} tigaalpha.github.io": "⚔️ ¡Batalla familiar en TIGA ALPHA! J1: {0}% vs J2: {1}% — {2} tigaalpha.github.io",
+  "⚔️ Family Battle on TIGA ALPHA! P1: {0}% vs P2: {1}% — {2} {3}": "⚔️ ¡Batalla familiar en TIGA ALPHA! J1: {0}% vs J2: {1}% — {2} {3}",
   "⚙ Settings (difficulty · graphics)": "⚙ Ajustes (dificultad · gráficos)",
   "⚠️ Record metadata is implausible (amount/package mismatch) — verify manually; vision AI not run": "⚠️ Los metadatos del registro no son verosímiles (monto y paquete no coinciden) — verifica manualmente; no se ejecutó la IA de visión",
   "⚠️ amount mismatch (expected ฿": "⚠️ el monto no coincide (esperado ฿",
