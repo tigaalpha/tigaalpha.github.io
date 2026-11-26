@@ -205,24 +205,40 @@ for (const lang of ALL) {
     if (text.includes(banned)) { tierSeen = true; no(`${lang}: must not show "${banned}"`); }
   }
   if (!tierSeen) ok(`${lang}: no plan tier named`);
+  /* Step 1.2 (2026-11-26): the offer lines say "try Pro free for 7 days, then <price>/month, no card", the price being the one payment.tsx sells in that language (th 799 THB, zh 176 CNY, the rest US$24.99), and carry no scarcity line */
+  {
+    const offer = [COPYC[lang].sticky, COPYC[lang].trialLine], price = lang === "th" ? "799" : lang === "zh" ? "176" : "24.99";
+    if (offer.every((x) => /Pro/.test(x) && /7/.test(x) && x.includes(price)) && offer.every((x) => !/10,000|10\.000|first 100|100 คนแรก/i.test(x))) ok(`${lang}: sticky + trial line: Pro, 7 days, ${price}, no scarcity`);
+    else no(`${lang}: offer lines`, offer.join(" | "));
+  }
   if (!/10,000\s*(คน|users|people|first|人|명|человек|первых|लोग|usuarios|personas|utilisateurs|مستخدم)/.test(text)) ok(`${lang}: the 10,000-user cap is not advertised`);
 
   /* the ten-pill language nav: one pill per language, the current one pressed,
      each labelled with its short name, and the page itself in the right
      <html lang> with the right title (what a visitor and a screen reader get) */
+  /* Step 1.2 (2026-11-26): the 11 languages are ONE button (.lp-langbtn) that opens the list; the pills exist only while it is open */
+  const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+  const langBtn = doc.querySelector(".lp-langbtn");
+  if (langBtn && langBtn.getAttribute("aria-label") === FLAGN_C[lang] && langBtn.getAttribute("aria-expanded") === "false" && !doc.querySelector(".lp-langmenu") && !doc.querySelector(".lp-lang")) ok(`${lang}: the languages are one button named "${FLAGN_C[lang]}", the list is closed on arrival`);
+  else no(`${lang}: one language button`, langBtn ? langBtn.getAttribute("aria-label") + "/" + langBtn.getAttribute("aria-expanded") : "none");
+  const openMenu = async () => { if (!doc.querySelector(".lp-langmenu")) { const b = doc.querySelector(".lp-langbtn"); if (b) b.click(); await wait(150); } };
+  await openMenu();
   const pills = [...doc.querySelectorAll(".lp-lang")];
   if (pills.length === ALL.length && pills.map((b) => b.getAttribute("lang")).join() === ALL.join()) ok(`${lang}: ${ALL.length} language pills in order ${ALL.join(" ")}`);
   else no(`${lang}: ${ALL.length} language pills`, pills.map((b) => b.getAttribute("lang")).join());
   const on = pills.filter((b) => b.getAttribute("aria-pressed") === "true").map((b) => b.getAttribute("lang"));
   if (on.length === 1 && on[0] === lang) ok(`${lang}: the ${lang} pill is the pressed one`);
   else no(`${lang}: pressed pill`, on.join());
-  const shortOf = Object.fromEntries(pills.map((b) => [b.getAttribute("lang"), (b.querySelector(".lp-langcode") || {}).textContent]));
-  if (shortOf.ja === "日本語" && shortOf.ko === "한국어" && shortOf.ru === "РУС" && shortOf.en === "EN") ok(`${lang}: pill labels 日本語 / 한국어 / РУС fit the pill`);
-  else no(`${lang}: pill labels`, JSON.stringify(shortOf));
-  if (shortOf.hi === "हिन्दी" && shortOf.es === "ES" && shortOf.fr === "FR" && shortOf.ar === "عربي") ok(`${lang}: pill labels हिन्दी / ES / FR / عربي fit the pill`);
-  else no(`${lang}: new pill labels`, JSON.stringify(shortOf));
-  if (shortOf.de === "DE") ok(`${lang}: pill label DE fits the pill`);
-  else no(`${lang}: pill label DE`, JSON.stringify(shortOf));
+  const shortOf = Object.fromEntries(pills.map((b) => [b.getAttribute("lang"), (b.querySelector(".lp-langname") || {}).textContent]));
+  if (shortOf.ja === "日本語" && shortOf.ko === "한국어" && shortOf.ru === "Русский" && shortOf.en === "English") ok(`${lang}: list entries 日本語 / 한국어 / Русский carry the native names`);
+  else no(`${lang}: list entries`, JSON.stringify(shortOf));
+  if (shortOf.hi === "हिन्दी" && shortOf.es === "Español" && shortOf.fr === "Français" && shortOf.ar === "العربية") ok(`${lang}: list entries हिन्दी / Español / Français / العربية carry the native names`);
+  else no(`${lang}: new list entries`, JSON.stringify(shortOf));
+  if (shortOf.de === "Deutsch") ok(`${lang}: list entry Deutsch`);
+  else no(`${lang}: list entry Deutsch`, JSON.stringify(shortOf));
+  const btnCode = (doc.querySelector(".lp-langbtn .lp-langcode") || {}).textContent;
+  if (btnCode === SHORT_C[lang]) ok(`${lang}: the button shows the current language's short code ${btnCode}`);
+  else no(`${lang}: button code`, btnCode);
   if (doc.documentElement.lang === lang) ok(`${lang}: <html lang> is "${lang}" after mount`);
   else no(`${lang}: html lang`, doc.documentElement.lang);
   /* direction: right to left for Arabic and for nobody else, set on <html> by the page itself */
@@ -231,7 +247,7 @@ for (const lang of ALL) {
   else no(`${lang}: html dir`, doc.documentElement.dir);
   /* tapping a flag switches language AND direction at once, and tapping back restores both: Thai -> Arabic -> this page's own language */
   {
-    const tap = async (code) => { const el = pills.find((b) => b.getAttribute("lang") === code); if (el) el.click(); await new Promise((r) => setTimeout(r, 250)); };   // a bundle without that flag (an old build) is a FAIL below, not a crash
+    const tap = async (code) => { await openMenu(); const el = [...doc.querySelectorAll(".lp-lang")].find((b) => b.getAttribute("lang") === code); if (el) el.click(); await wait(250); };   // the list closes after a pick: open it again for the next one   // a bundle without that flag (an old build) is a FAIL below, not a crash
     const other = lang === "ar" ? "en" : "ar";
     await tap(other);
     const flipped = doc.documentElement.lang === other && doc.documentElement.dir === (other === "ar" ? "rtl" : "ltr");
@@ -500,16 +516,16 @@ else no("pickLang");
 const FONTCSS = readFileSync("landing/landing.css", "utf8");
 if (/"Hiragino Sans"/.test(FONTCSS) && /"Malgun Gothic"/.test(FONTCSS) && /"Noto Sans KR"/.test(FONTCSS) && /"Noto Sans JP"/.test(FONTCSS) && /"Apple SD Gothic Neo"/.test(FONTCSS) && /"Yu Gothic"/.test(FONTCSS)) ok("CSS font stack carries the ja / ko faces");
 else no("CSS font stack");
-if (/\.lp-langs\s*\{[^}]*flex:\s*1 0 100%/.test(FONTCSS) && /max-width:420px\)\{\s*\.lp-lang\s*\{[^}]*flex-direction:\s*column/.test(FONTCSS.replace(/\s+/g, " ").replace(/\{ /g, "{").replace(/ \}/g, "}")))
-  ok("CSS: the language nav takes its own row and stacks flag over name under 420 px");
+if (/\.lp-langs\s*\{[^}]*order:\s*2;[^}]*margin-inline-start:\s*auto/.test(FONTCSS) && /\.lp-langmenu\s*\{[^}]*inset-inline-end:\s*0[^}]*width:\s*min\(280px, calc\(100vw - 32px\)\)/.test(FONTCSS))
+  ok("CSS: the language button sits on the brand's row (end side) and its list opens toward the page with logical properties, at most 280 px and never wider than the screen");
 else no("CSS language nav layout");
 {
   const css = FONTCSS.replace(/\s+/g, " ");
   /* ten pills: two rows of five (ten in one row leave 28 px a segment at 320 px), each pill still a 44 px target on a phone */
   const compact = css.replace(/\{ /g, "{").replace(/ \}/g, "}");
-  if (/\.lp-langs \{[^}]*display: grid; grid-template-columns: repeat\(5, minmax\(0, 1fr\)\)/.test(css) && /max-width:420px\)\{\s*\.lp-lang\s*\{[^}]*min-height:\s*44px/.test(compact))
-    ok("CSS: ten language pills in a five-column grid (two rows), 44 px tall under 420 px");
-  else no("CSS ten-pill grid");
+  if (/\.lp-langmenu \{[^}]*grid-template-columns: repeat\(2, minmax\(0, 1fr\)\)/.test(css) && /\.lp-langmenu \.lp-lang \{[^}]*min-height: 44px/.test(css))
+    ok("CSS: the 11 languages open in a two-column list, each entry a 44 px target");
+  else no("CSS language list grid");
   /* Arabic and Devanagari type: their own stacks on the --font variable, a 1.7 line, tracking zeroed */
   if (/:lang\(ar\) \{ --font: "Noto Naskh Arabic", "Noto Sans Arabic", "Segoe UI", Tahoma, system-ui, sans-serif; \}/.test(css)
     && /:lang\(hi\) \{ --font: "Noto Sans Devanagari", "Nirmala UI", Mangal, system-ui, sans-serif; \}/.test(css)

@@ -550,7 +550,7 @@ export default function LandingPage1() {
        copied, so "paste it in Chrome" is two taps, not a tutorial. A real
        browser skips straight to the card; it has no such problem. */
     if (inAppBrowser()) { land("gate:inapp"); setEscapeFull(true); }
-    setSignup({ q: q || "", quota: from === "quota" });
+    setSignup({ q: q || "", quota: from === "quota", focus: from === "hero" || from === "nudge" || from === "cta" });
     requestAnimationFrame(() => signupRef.current?.scrollIntoView({ behavior: "smooth", block: "center" }));
   }
 
@@ -682,22 +682,8 @@ export default function LandingPage1() {
       <header className="lp-top">
         <span className="lp-mark">TIGA ALPHA</span>
         <span className="lp-kicker">{t.kicker}</span>
-        {/* The same ten flags as the app's settings panel, so somebody who
-            already knows the product recognises the control instantly. Two rows
-            of five (landing.css): ten in one row do not fit a 320 px phone. */}
-        <nav className="lp-langs" aria-label={FLAG_NAMES[lang]}>
-          {LANGS.map(lg => (
-            <button key={lg}
-              className={`lp-lang${lg === lang ? " on" : ""}`}
-              onClick={() => chooseLang(lg)}
-              aria-pressed={lg === lang}
-              title={FLAG_NAMES[lg]}
-              lang={lg}>
-              <span aria-hidden="true">{FLAGS[lg]}</span>
-              <span className="lp-langcode">{LANG_SHORT[lg]}</span>
-            </button>
-          ))}
-        </nav>
+        {/* One button: the current flag + code + a caret; the 11 languages open as a list under it (chooseLang is unchanged, so the language, the stored choice and the URL behave as before). The eleven pills used to stand in two rows and ate the first screen of a phone. */}
+        <LangPicker lang={lang} onPick={chooseLang} />
         {/* ── the way out of an in-app browser ──
             Most of the paid traffic arrives inside Facebook's, LINE's or
             TikTok's built-in browser, where Google refuses to sign anybody in.
@@ -803,13 +789,13 @@ export default function LandingPage1() {
 
       <div className="lp-chat">
         <div className="lp-row">
-          <div className="lp-av">TIGA<br />AI</div>
+          <div className="lp-av">TIGA<br />ALPHA</div>
           <div className="lp-bub">{t.greet}</div>
         </div>
 
         {msgs.map((m, i) => (
           <div className={`lp-row${m.who === "me" ? " me" : ""}`} key={i}>
-            {m.who === "tiga" && <div className="lp-av">TIGA<br />AI</div>}
+            {m.who === "tiga" && <div className="lp-av">TIGA<br />ALPHA</div>}
             {/* What the visitor typed and what the live AI wrote can be in any language, so those two bubbles take their direction
                 from their own first letter (dir="auto"): an English question on the Arabic page keeps its question mark at the
                 end of the sentence. The four canned lessons are written in the page's language and follow the page. */}
@@ -822,7 +808,7 @@ export default function LandingPage1() {
 
         {typing && (
           <div className="lp-row">
-            <div className="lp-av">TIGA<br />AI</div>
+            <div className="lp-av">TIGA<br />ALPHA</div>
             <div className="lp-bub lp-dots"><i /><i /><i /></div>
           </div>
         )}
@@ -832,7 +818,7 @@ export default function LandingPage1() {
             shown twice, and it stays out of the way of the chips below. */}
         {nudged && !signup && !returningUser && (
           <div className="lp-row">
-            <div className="lp-av">TIGA<br />AI</div>
+            <div className="lp-av">TIGA<br />ALPHA</div>
             <div className="lp-bub lp-nudge">
               <span>{t.nudgeLine}</span>
               <button className="lp-btn primary" onClick={() => openSignup("", "nudge")}>{t.nudgeBtn}</button>
@@ -881,7 +867,7 @@ export default function LandingPage1() {
       </div>
 
       {signup
-        ? <div ref={signupRef}><SignupCard q={signup.q} quota={signup.quota} timeUp={signup.timeUp} t={t} lang={lang} /></div>
+        ? <div ref={signupRef}><SignupCard q={signup.q} quota={signup.quota} timeUp={signup.timeUp} focus={!!signup.focus && !escapeFull} t={t} lang={lang} /></div>
         : (
           <div className="lp-proof" role="list">
             <div><b>{t.proofSongs}</b><span>{t.proof1}</span></div>
@@ -937,7 +923,7 @@ export default function LandingPage1() {
               <GoogleG /> {inApp ? t.googleInApp : t.gateGoogle}
             </button>
             <div className="lp-or">{t.or}</div>
-            <button className="lp-btn primary" onClick={() => { land("gate:cta"); setSignup({ q: "", quota: false }); requestAnimationFrame(() => signupRef.current?.scrollIntoView({ behavior: "smooth", block: "center" })); }}>
+            <button className="lp-btn primary" onClick={() => { land("gate:cta"); setSignup({ q: "", quota: false, focus: true }); requestAnimationFrame(() => signupRef.current?.scrollIntoView({ behavior: "smooth", block: "center" })); }}>
               {t.gateBtn}
             </button>
             <button className="lp-gateskip" onClick={() => { gateSkipped.current = true; land("gate:skip"); setGate(false); }}>{t.gateSkip}</button>
@@ -954,7 +940,42 @@ export default function LandingPage1() {
    they were just given and what the account adds. The auth calls themselves
    are the app's, unchanged — same PDPA consent record, same metadata, same
    friendly errors — because there must be exactly one way an account is made. */
-function SignupCard({ q, quota, timeUp, t, lang }) {
+/* The language switcher: ONE button (flag, short code, caret) that opens the list of the 11 languages. A plain button + a list of buttons: no library, keyboard and screen-reader friendly
+   (aria-expanded, Escape closes and hands the focus back, each option carries its own lang), and logical CSS (inset-inline-end) so the list opens toward the page and not off it in Arabic. */
+function LangPicker({ lang, onPick }) {
+  const [open, setOpen] = useState(false);
+  const wrapRef = useRef(null);
+  useEffect(() => {
+    if (!open) return;
+    const away = (e) => { if (wrapRef.current && !wrapRef.current.contains(e.target)) setOpen(false); };
+    const esc = (e) => { if (e.key === "Escape") { setOpen(false); const b = wrapRef.current && wrapRef.current.querySelector(".lp-langbtn"); if (b) b.focus(); } };
+    document.addEventListener("pointerdown", away, true);
+    document.addEventListener("keydown", esc);
+    return () => { document.removeEventListener("pointerdown", away, true); document.removeEventListener("keydown", esc); };
+  }, [open]);
+  return (
+    <div className="lp-langs" ref={wrapRef}>
+      <button type="button" className="lp-langbtn" aria-haspopup="true" aria-expanded={open} aria-label={FLAG_NAMES[lang]} title={FLAG_NAMES[lang]} onClick={() => setOpen(o => !o)}>
+        <span aria-hidden="true">{FLAGS[lang]}</span>
+        <span className="lp-langcode" aria-hidden="true">{LANG_SHORT[lang]}</span>
+        <span className="lp-langcaret" aria-hidden="true">▼</span>
+      </button>
+      {open && (
+        <div className="lp-langmenu" role="group" aria-label={FLAG_NAMES[lang]}>
+          {LANGS.map(lg => (
+            <button key={lg} type="button" className={`lp-lang${lg === lang ? " on" : ""}`} aria-pressed={lg === lang} title={FLAG_NAMES[lg]} lang={lg}
+              onClick={() => { onPick(lg); setOpen(false); const b = wrapRef.current && wrapRef.current.querySelector(".lp-langbtn"); if (b) b.focus(); }}>
+              <span aria-hidden="true">{FLAGS[lg]}</span>
+              <span className="lp-langname">{FLAG_NAMES[lg]}</span>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function SignupCard({ q, quota, timeUp, t, lang, focus = false }) {
   const [inApp] = useState(() => inAppBrowser());
   /* "pick" = Google + the ONE-field e-mail link, "email" = the full name/e-mail/
      password/consent form. In-app visitors used to start on the full form — the
@@ -969,6 +990,10 @@ function SignupCard({ q, quota, timeUp, t, lang }) {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
   const [done, setDone] = useState("");
+  /* A visitor who TAPPED a call-to-action (hero, nudge, sticky, the gate) lands on the card with the cursor already in the one e-mail field and the keyboard up: React 18 flushes the effect of a
+     click inside that click's task, which is what iOS needs to raise the keyboard. A card raised by a timer or by the free-question quota does not steal the focus. preventScroll: openSignup scrolls the card into view itself. */
+  const otpRef = useRef(null);
+  useEffect(() => { if (focus && otpRef.current) { try { otpRef.current.focus({ preventScroll: true }); } catch (e) {} } }, [focus]);   // [focus]: inside an in-app browser the full-screen escape pitch covers the card first, so the focus arrives when its "stay" button is tapped
 
   async function google() {
     if (busy) return;
@@ -1129,7 +1154,7 @@ function SignupCard({ q, quota, timeUp, t, lang }) {
               away, in the ghost link under it. */}
           <form onSubmit={signupOtp} className="lp-otp">
             <label className="lp-field">
-              <input value={email} onChange={e => setEmail(e.target.value)}
+              <input ref={otpRef} value={email} onChange={e => setEmail(e.target.value)}
                 type="email" placeholder={t.emailPh} autoComplete="email"
                 inputMode="email" enterKeyHint="go" />
             </label>

@@ -159,7 +159,8 @@ for (const [lg, dir] of [["hi", "ltr"], ["es", "ltr"], ["fr", "ltr"], ["ar", "rt
     const st = await p.evaluate(() => ({ lang: document.documentElement.lang, dir: document.documentElement.dir, h1: (document.querySelector(".lp-h1") || {}).textContent || "" }));
     ok(st.lang === lg && st.dir === dir, `${lg}: <html lang="${lg}" dir="${dir}"> once the page is up`, JSON.stringify(st));
     ok(st.h1.length > 10 && !/[฀-๿]/.test(st.h1), `${lg}: the headline is in ${lg}, not Thai`, st.h1);
-    ok((await p.$$(".lp-lang")).length === 11, `${lg}: eleven language pills`);
+    await p.click(".lp-langbtn"); await p.waitForTimeout(150);
+    ok((await p.$$(".lp-langmenu .lp-lang")).length === 11, `${lg}: one language button that opens a list of eleven`);
     ok(errs.length === 0, `${lg}: no page errors`, errs.join("|"));
     await ctx.close();
   }
@@ -181,6 +182,59 @@ for (const [lg, dir] of [["hi", "ltr"], ["es", "ltr"], ["fr", "ltr"], ["ar", "rt
     ok(errs.length === 0, `${lg}: no page errors on the sign-up card`, errs.join("|"));
     await ctx.close();
   }
+}
+
+/* Step 1.2 (owner 2026-11-26): the landing on a phone. One language button instead of eleven pills, the brand's own name on the avatar, and every sign-up button lands the cursor in the one e-mail field. */
+for (const [lg, path0, w, h] of [["th", "/landing/", 390, 844], ["en", "/landing-en/", 360, 740], ["ar", "/landing-ar/", 390, 844]]) {
+  const { ctx, p, errs } = await newPage(CHROME_UA);
+  await p.setViewportSize({ width: w, height: h });
+  await p.goto(BASE + path0, { waitUntil: "load" });
+  await p.waitForTimeout(1800);
+  const top = await p.evaluate(() => {
+    const r = (s) => { const e = document.querySelector(s); if (!e) return null; const b = e.getBoundingClientRect(); return { top: Math.round(b.top), bottom: Math.round(b.bottom), left: Math.round(b.left), right: Math.round(b.right) }; };
+    return { btn: r(".lp-langbtn"), mark: r(".lp-mark"), h1: r(".lp-h1"), piano: r(".lp-pianowrap"), pills: document.querySelectorAll(".lp-lang").length, vh: innerHeight, vw: innerWidth, over: document.documentElement.scrollWidth - document.documentElement.clientWidth };
+  });
+  ok(!!top.btn && top.pills === 0 && Math.abs(top.btn.top - top.mark.top) < 24, `${lg} ${w}px: the languages are ONE button on the brand's row (${JSON.stringify(top.btn)} / brand ${JSON.stringify(top.mark)}), the 11 entries are not on the page until it opens`);
+  ok(!!top.h1 && top.h1.top < 140 && !!top.piano && top.piano.bottom <= top.vh, `${lg} ${w}px: the first screen holds the headline and the piano (headline top ${top.h1 && top.h1.top}, piano bottom ${top.piano && top.piano.bottom} of ${top.vh})`);
+  ok(top.over <= 1, `${lg} ${w}px: no sideways scroll (${top.over})`);
+  await p.click(".lp-langbtn"); await p.waitForTimeout(200);
+  const menu = await p.evaluate(() => { const m = document.querySelector(".lp-langmenu"); if (!m) return null; const b = m.getBoundingClientRect(); return { left: Math.round(b.left), right: Math.round(b.right), top: Math.round(b.top), bottom: Math.round(b.bottom), n: m.querySelectorAll(".lp-lang").length, langs: [...m.querySelectorAll(".lp-lang")].map((e) => e.getAttribute("lang")).join(","), vw: innerWidth, vh: innerHeight, exp: document.querySelector(".lp-langbtn").getAttribute("aria-expanded") }; });
+  ok(!!menu && menu.n === 11 && menu.langs === "th,en,zh,ja,ko,ru,hi,es,fr,ar,de" && menu.exp === "true", `${lg} ${w}px: the button opens the 11 languages in order with their own lang attributes`, menu && menu.langs);
+  ok(!!menu && menu.left >= 0 && menu.right <= menu.vw && menu.bottom <= menu.vh, `${lg} ${w}px: the list stays inside the screen (${menu && menu.left}..${menu && menu.right} of ${menu && menu.vw}, bottom ${menu && menu.bottom} of ${menu && menu.vh})`);
+  await p.keyboard.press("Escape"); await p.waitForTimeout(150);
+  ok(!(await p.$(".lp-langmenu")) && (await p.evaluate(() => document.activeElement && document.activeElement.classList.contains("lp-langbtn"))), `${lg} ${w}px: Escape closes the list and hands the focus back to the button`);
+  const other = lg === "en" ? "ja" : "en";
+  await p.click(".lp-langbtn"); await p.waitForTimeout(150); await p.click(`.lp-langmenu .lp-lang[lang=${other}]`); await p.waitForTimeout(400);
+  ok((await p.evaluate(() => document.documentElement.lang)) === other && !(await p.$(".lp-langmenu")), `${lg} ${w}px: picking ${other} switches the page language through chooseLang and closes the list`);
+  const av = await p.evaluate(() => [...document.querySelectorAll(".lp-av")].map((e) => ({ t: e.textContent, over: e.scrollWidth - e.clientWidth })));
+  ok(av.length >= 1 && av.every((a) => a.t === "TIGAALPHA" && a.over <= 0), `${lg} ${w}px: the avatar reads TIGA / ALPHA and fits its box`, JSON.stringify(av));
+  ok(errs.length === 0, `${lg} ${w}px: no page errors`, errs.join("|"));
+  await ctx.close();
+}
+{
+  const { ctx, p, errs } = await newPage(CHROME_UA);
+  await p.goto(BASE + "/landing/", { waitUntil: "load" });
+  await p.waitForTimeout(16000);   // the sticky bar comes after 15 seconds
+  await p.click(".lp-sticky .lp-btn.primary"); await p.waitForTimeout(500);
+  const f = await p.evaluate(() => { const a = document.activeElement; const email = document.querySelector(".lp-otp input[type=email]"); const g = document.querySelector(".lp-signup .lp-btn.google"); return { onEmail: a === email, google: !!g, emailFirst: !!(email && g && (email.compareDocumentPosition(g) & Node.DOCUMENT_POSITION_FOLLOWING) === 0), offer: (document.querySelector(".lp-trialline") || {}).textContent || "" }; });
+  ok(f.onEmail, "the sticky button opens the card and the cursor is in the one e-mail field");
+  ok(f.offer.includes("ทดลอง Pro ฟรี 7 วัน") && f.offer.includes("799 บาท/เดือน") && f.offer.includes("ไม่ต้องผูกบัตร") && !/[0-9,]+\s*(คนแรก|first)/.test(f.offer), "the offer line says: try Pro free for 7 days, then 799 baht a month, no card, and no scarcity line", f.offer);
+  ok(errs.length === 0, "sticky path: no page errors", errs.join("|"));
+  await ctx.close();
+}
+{
+  const { ctx, p, errs } = await newPage(FB_UA);
+  await p.goto(BASE + "/landing/?utm_source=fb", { waitUntil: "load" });
+  await p.waitForTimeout(1200);
+  await p.click(".lp-herocta .lp-btn.primary"); await p.waitForTimeout(400);
+  const before = await p.evaluate(() => { const a = document.activeElement; return !!(a && a.matches && a.matches(".lp-otp input")); });
+  await p.click(".lp-escfull .lp-btn.ghost"); await p.waitForTimeout(500);
+  const f = await p.evaluate(() => { const a = document.activeElement, email = document.querySelector(".lp-otp input[type=email]"), g = document.querySelector(".lp-signup .lp-btn.google"); return { onEmail: a === email, googleAfterEmail: !!(email && g && (email.compareDocumentPosition(g) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0), offer: (document.querySelector(".lp-trialline") || {}).textContent || "" }; });
+  ok(!before, "in a webview the full-screen escape pitch comes first and the keyboard does not pop up behind it");
+  ok(f.onEmail, "in a webview, after the pitch's 'stay here' button the cursor is in the one e-mail field");
+  ok(f.googleAfterEmail, "in a webview the e-mail field stands ABOVE the Google (open-in-browser) button");
+  ok(errs.length === 0, "webview path: no page errors", errs.join("|"));
+  await ctx.close();
 }
 
 await b.close(); server.close();
