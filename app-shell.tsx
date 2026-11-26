@@ -1,7 +1,7 @@
 import { isChunkLoadError, reloadForNewBuild } from "./chunk-reload";
 import { useState, useEffect, useRef, Component } from "react";
 import { sb } from "./supabase-client";
-import { saveGuestProfile, setSkipOnboard, logUsage } from "./shared-infra";
+import { saveGuestProfile, setSkipOnboard, logUsage, LINE_LOGIN_ENABLED, LINE_PROVIDER_ID } from "./shared-infra";
 import { handoffUrl } from "./local-identity";
 import { by, ALL_LANGS, LANG_META, isRtl, isExtraLang, xl as xlBase, hasCatalog, loadCatalog } from "./lang-extra";
 import { zhEarly } from "./early-zh";
@@ -361,6 +361,21 @@ function PolicyLine({ lg, text, style }: { lg: string; text: string; style?: Rea
   return m ? <>{m[1]}{link(m[2])}{m[3]}</> : <>{text} {link(xl(lg, "Privacy Notice"))}</>;
 }
 
+/* LINE Login: the same door as Google (guest progress saved, the Pathway after the log-in), through Supabase's CUSTOM provider (LINE_PROVIDER_ID, "custom:line" by default). Only drawn when the build has VITE_LINE_LOGIN_ENABLED=1, never in the native shell
+   (the native OAuth path has no LINE). `try:line` goes to the usage stream next to the landing's own. */
+const lineLoginOn = () => LINE_LOGIN_ENABLED && !isNativeShell();
+async function startLineLogin(profile: any) {
+  try { saveGuestProfile(profile); } catch (e) {}
+  try { sessionStorage.setItem("tiga_page", "pathway"); } catch (e) {}
+  try { logUsage("land", "try:line"); } catch (e) {}
+  await sb.auth.signInWithOAuth({ provider: LINE_PROVIDER_ID as any, options: { redirectTo: window.location.origin + window.location.pathname } });
+}
+function LineMark() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path fill="#fff" d="M24 10.3c0-5.2-5.4-9.4-12-9.4S0 5.1 0 10.3c0 4.7 4.1 8.6 9.7 9.3.4.1.9.2 1 .5.1.3.1.8 0 1.1l-.2 1c0 .3-.2 1.1 1 .6 1.2-.5 6.3-3.7 8.6-6.3h-.1c1.6-1.7 3-3.7 3-6.2zM8.1 13.6H5.2c-.4 0-.8-.3-.8-.8V8.1c0-.4.3-.8.8-.8s.8.3.8.8v3.9h2.1c.4 0 .8.3.8.8s-.4.8-.8.8zm2.7-.8c0 .4-.3.8-.8.8s-.8-.3-.8-.8V8.1c0-.4.3-.8.8-.8s.8.3.8.8v4.7zm6.4 0c0 .3-.2.6-.5.7-.1 0-.2.1-.3.1-.2 0-.5-.1-.6-.3l-2.4-3.3v2.8c0 .4-.3.8-.8.8s-.8-.3-.8-.8V8.1c0-.3.2-.6.5-.7.1 0 .2-.1.3-.1.2 0 .5.1.6.3l2.4 3.3V8.1c0-.4.3-.8.8-.8s.8.3.8.8v4.7zm3.9-3c.4 0 .8.3.8.8s-.3.8-.8.8h-2.1v.8h2.1c.4 0 .8.3.8.8s-.3.8-.8.8h-2.9c-.4 0-.8-.3-.8-.8V8.1c0-.4.3-.8.8-.8h2.9c.4 0 .8.3.8.8s-.3.8-.8.8h-2.1v.9h2.1z"/></svg>
+  );
+}
+
 function GoogleMark() {
   return (
     <svg className="au-gico" viewBox="0 0 48 48" aria-hidden="true">
@@ -404,6 +419,9 @@ function LoginOptions({ profile, onGoogleLogin, lg, noHead = false, onMode = nul
   const edit = (set: (v: string) => void) => (e: any) => { set(e.target.value); if (err) setErrState(""); };   // typing again retires the message that was about the old input
 
   const signup = mode === "signup";
+  const lineTop = lineLoginOn() && (inAppKind() === "line" || inApp);   // inside LINE (and any webview) Google cannot work: LINE goes on top
+  async function lineLogin() { if (busy) return; setBusy(true); setErr(""); try { await startLineLogin(profile); } catch (e) { setErr(friendlyAuthError(e && e.message, lg)); setBusy(false); } }
+  const lineBtn = <button type="button" className="au-line" data-line-login onClick={lineLogin} disabled={busy}><LineMark /> {solo(lg, "สมัคร / เข้าสู่ระบบด้วย LINE", xl(lg, "Sign up / log in with LINE"))}</button>;
 
   async function submit() {
     if (busy) return;
@@ -500,6 +518,7 @@ function LoginOptions({ profile, onGoogleLogin, lg, noHead = false, onMode = nul
           onClick={() => { setMode("login"); setErr(""); setMsg(""); }}>{solo(lg, "เข้าสู่ระบบ", xl(lg, "Log in"))}</button>
       </div>
 
+      {lineTop && <>{lineBtn}<div className="au-or">{pair(lg, "หรือ", xl(lg, "or"))}</div></>}
       {inApp ? (
         <>
           <div className="au-warn">
@@ -527,6 +546,7 @@ function LoginOptions({ profile, onGoogleLogin, lg, noHead = false, onMode = nul
           <button className="au-g" onClick={onGoogleLogin}>
             <GoogleMark /> {signup ? solo(lg, "สมัครด้วย Google", xl(lg, "Sign up with Google")) : solo(lg, "เข้าสู่ระบบด้วย Google", xl(lg, "Log in with Google"))}
           </button>
+          {lineLoginOn() && !lineTop && lineBtn}
           <div className="au-or">{pair(lg, "หรือ", xl(lg, "or"))}</div>
         </>
       )}
@@ -847,6 +867,11 @@ function LoginWall({ profile, onGoogleLogin, onClose = null }) {
   const [agree, setAgree] = useState(false), [show, setShow] = useState(false), [busy, setBusy] = useState(false), [err, setErr] = useState(""), [ok, setOk] = useState("");
   const [usePw, setUsePw] = useState(false);   // the e-mail link (one field) first; the password fields open from the small link under it (owner 2026-11-26)
   const signup = mode === "signup";
+  const wallLineTop = lineLoginOn() && (inApp || inAppKind() === "line");   // inside LINE (and any webview) Google cannot work: LINE goes on top
+  const wallLineBtn = <button type="button" data-line-login disabled={busy} onClick={async () => { if (busy) return; setBusy(true); setErr(""); try { await startLineLogin(profile); } catch (e) { setErr(friendlyAuthError(e && e.message, lg)); setBusy(false); } }}
+    style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 10, padding: "13px 14px", borderRadius: 10, border: "none", background: "#06c755", color: "#fff", fontSize: 16, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
+    <LineMark /> {solo(lg, "สมัคร / เข้าสู่ระบบด้วย LINE", xl(lg, "Sign up / log in with LINE"))}
+  </button>;
   async function submit() {
     if (busy) return; setErr(""); setOk("");
     if (signup && !name.trim()) { setErr(t.needName); return; }
@@ -885,6 +910,7 @@ function LoginWall({ profile, onGoogleLogin, onClose = null }) {
               style={{ flex: 1, padding: "10px 0", border: "none", borderRadius: 9, cursor: "pointer", fontSize: 15, fontWeight: 700, fontFamily: "inherit", background: mode === m ? "#fff" : "transparent", color: mode === m ? clay : "#7a6a5e", boxShadow: mode === m ? "0 1px 4px rgba(0,0,0,.12)" : "none" }}>{m === "login" ? t.login : t.signup}</button>
           ))}
         </div>
+        {wallLineTop && <>{wallLineBtn}<div style={{ height: 10 }} /></>}
         {inApp ? (
           <div style={{ background: "#fff4e5", border: "1px solid #f3d2a3", borderRadius: 10, padding: "10px 12px", fontSize: 13, marginBottom: 12 }}>
             {wallGuide && <EscapeGuide lg={lg} onClose={() => setWallGuide(false)} />}
@@ -896,6 +922,7 @@ function LoginWall({ profile, onGoogleLogin, onClose = null }) {
             <GoogleMark /> {t.google}
           </button>
         )}
+        {lineLoginOn() && !inApp && !wallLineTop && <div style={{ marginTop: 10 }}>{wallLineBtn}</div>}
         <div style={{ display: "flex", alignItems: "center", gap: 10, margin: "16px 0", color: "#a39486", fontSize: 13 }}><span style={{ flex: 1, height: 1, background: "#eadfd4" }} />{t.or}<span style={{ flex: 1, height: 1, background: "#eadfd4" }} /></div>
         {!usePw ? (
           <div style={{ display: "flex", flexDirection: "column", gap: 10, alignItems: "center" }}>

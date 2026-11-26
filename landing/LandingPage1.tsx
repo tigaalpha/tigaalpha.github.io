@@ -2,11 +2,16 @@ import { useState, useRef, useEffect, useCallback, Fragment } from "react";
 import { Piano, startPianoNote, releasePianoNote } from "../music-engine";
 import { logLand } from "./land-log";
 import { GUEST_PROFILE_KEY, setSkipOnboard, stampLandingOrigin, attributionEvent, handoffUrl, landingVariant } from "../local-identity";
-import { inAppBrowser, openInRealBrowser, waitForPageLeave, escapeUrl, PDPA_VERSION, friendlyAuthError } from "./landing-utils";
+import { inAppBrowser, inAppKind, openInRealBrowser, waitForPageLeave, escapeUrl, PDPA_VERSION, friendlyAuthError } from "./landing-utils";
 import { LESSONS } from "./landing-lessons";
 import { C, LANGS, FLAGS, FLAG_NAMES, LANG_SHORT, pickLang, dirOf } from "./landing-copy";
 import { askLandingAI } from "./landing-ai";
 import "./landing.css";
+
+/* LINE Login (Step 2.2): read straight from the build env, NOT from shared-infra.ts (importing that file would pull the whole supabase chunk into this bundle). Off unless the build has VITE_LINE_LOGIN_ENABLED=1;
+   the provider id is the CUSTOM provider the owner creates in Supabase (default custom:line). */
+const LINE_LOGIN_ENABLED = import.meta.env.VITE_LINE_LOGIN_ENABLED === "1";
+const LINE_PROVIDER_ID = import.meta.env.VITE_LINE_PROVIDER_ID || "custom:line";
 
 /* ── marketing landing page 1 ──
    A page of its own, at /landing/, with its own bundle and its own stylesheet.
@@ -69,7 +74,8 @@ let viewLogged = false;
    Both the sign-up card and the Model B gate offer Google, so the OAuth
    handoff lives here at module level where both can call it — two doors,
    one code path, exactly one way an account is made. */
-async function startGoogleAuth() {
+async function startGoogleAuth() { return startOAuth("google"); }
+async function startOAuth(provider: string) {
   setSkipOnboard();
   /* Owner request (2026-09-21): the admin console must see WHICH landing page
      (th/en/zh) each account came from. The account is born inside this OAuth
@@ -93,7 +99,7 @@ async function startGoogleAuth() {
   storeLang(pgLang.slice(0, 2).toLowerCase());
   const sb = await getSb();
   await sb.auth.signInWithOAuth({
-    provider: "google",
+    provider: provider as any,
     options: { redirectTo: window.location.origin + "/" },
   });
 }
@@ -1040,13 +1046,8 @@ function SignupCard({ q, quota, timeUp, t, lang, focus = false, onGuide = undefi
     if (busy) return;
     land("try:line");
     setBusy(true); setErr("");
-    setSkipOnboard();
     try {
-      const sb = await getSb();
-      await sb.auth.signInWithOAuth({
-        provider: "line",
-        options: { redirectTo: window.location.origin + "/" },
-      });
+      await startOAuth(LINE_PROVIDER_ID);   // the same door as Google: setSkipOnboard, the landing-origin stamp, the page language, redirectTo the app
     } catch (e) {
       setErr(friendlyAuthError(e && e.message, lang));
       setBusy(false);
@@ -1156,6 +1157,13 @@ function SignupCard({ q, quota, timeUp, t, lang, focus = false, onGuide = undefi
               what the account was FOR, which is one reason 21 people saw this
               card and 1 tapped it. */}
           <div className="lp-trialline">{t.trialLine}</div>
+          {/* LINE sits on top inside LINE's own browser (Google cannot work there) and in any other webview; elsewhere it follows the Google button. Drawn only when the build turns it on. */}
+          {LINE_LOGIN_ENABLED && (inApp || inAppKind() === "line") && (
+            <>
+              <button className="lp-btn line" type="button" data-line-login onClick={lineLogin} disabled={busy}><LineMark /> {t.lineBtn}</button>
+              <div className="lp-or">{t.or}</div>
+            </>
+          )}
           {/* Google only, for now. LINE was offered here while its provider
               was still unconfigured in Supabase, so the button's promise was
               an error screen — worse than no button. The lineLogin code is
@@ -1166,6 +1174,7 @@ function SignupCard({ q, quota, timeUp, t, lang, focus = false, onGuide = undefi
               <button className="lp-btn google" onClick={google} disabled={busy}>
                 <GoogleG /> {t.google}
               </button>
+              {LINE_LOGIN_ENABLED && <button className="lp-btn line" type="button" data-line-login onClick={lineLogin} disabled={busy}><LineMark /> {t.lineBtn}</button>}
               <div className="lp-or">{t.or}</div>
             </>
           )}

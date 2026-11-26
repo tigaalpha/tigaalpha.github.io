@@ -3589,6 +3589,7 @@ const cat: Record<string, string> = {
   "Sight-reading": "Чтение с листа",
   "Sign out": "Выйти",
   "Sign up": "Регистрация",
+  "Sign up / log in with LINE": "Регистрация / вход через LINE",
   "Sign up free": "Зарегистрироваться бесплатно",
   "Sign up free to keep playing for 30 more days": "Зарегистрируйтесь бесплатно и играйте ещё 30 дней",
   "Sign up with Google": "Регистрация через Google",

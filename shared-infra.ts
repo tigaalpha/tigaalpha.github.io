@@ -46,7 +46,12 @@ export function ymd(d) {
    (2 of 70 had push on), but the channel does not exist yet — creating it is the owner's step
    (LINE Developers console). While this is empty no LINE button is drawn anywhere; paste the link
    here and the "add us on LINE" row appears under the result of a song. */
-export const LINE_OA_URL = "";
+export const LINE_OA_URL: string = import.meta.env.VITE_LINE_OA_URL || "";   // one LINE OA link for the whole app (Vercel env VITE_LINE_OA_URL, see .env.example): PianoLevelQuiz and the song result read it; empty hides the button
+
+/* LINE Login (Step 2.2, owner 2026-11-26). Supabase has no ready-made LINE provider: it is a CUSTOM OAuth provider whose identifier starts with "custom:" (default "custom:line"; set VITE_LINE_PROVIDER_ID when the
+   Supabase Dashboard identifier is another). The button is drawn ONLY when VITE_LINE_LOGIN_ENABLED is "1" in the build, i.e. after the owner has created the provider in Supabase and the channel in LINE Developers. */
+export const LINE_LOGIN_ENABLED: boolean = import.meta.env.VITE_LINE_LOGIN_ENABLED === "1";
+export const LINE_PROVIDER_ID: string = import.meta.env.VITE_LINE_PROVIDER_ID || "custom:line";
 
 /* ── Web Push (re-engagement notifications) ──
    This public key is safe to ship in client code — VAPID public keys are

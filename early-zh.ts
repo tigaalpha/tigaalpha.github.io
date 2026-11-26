@@ -4,6 +4,7 @@
    on a literal that has no line here); a gap shows the English, never Thai. Wording follows the web sign-in card (WALL_T.zh): 登录 注册 邮箱 密码 隐私政策. [[ ]] marks the words that become the
    privacy-policy link, {0} is the policy version date. */
 const EARLY_ZH: Record<string, string> = {
+  "Sign up / log in with LINE": "用 LINE 注册 / 登录",
   "Open this page in your browser": "在浏览器中打开此页面",
   "Tap the ⋯ (three dots) menu of this app — often at the top right or at the bottom.": "点击此应用的 ⋯（三个点）菜单，通常在右上角或底部。",
   "Choose “Open in browser” or “Open in Safari”.": "选择“在浏览器中打开”或“在 Safari 中打开”。",

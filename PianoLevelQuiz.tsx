@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { LINE_OA_URL } from "./shared-infra";   // one LINE OA link for the whole app (VITE_LINE_OA_URL); empty hides the button
 
 import { xl, by } from "./lang-extra";
 /* ── PianoLevelQuiz.tsx ──
@@ -468,8 +469,9 @@ export function PianoLevelQuiz({ lang = "th" }: { lang?: string }) {
           </div>
 
           <div style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap" }}>
+            {LINE_OA_URL && (
             <button
-              onClick={() => window.open("https://line.me/R/ti/p/@tigastudio", "_blank")}
+              onClick={() => window.open(LINE_OA_URL, "_blank")}
               style={{
                 padding: "14px 28px", borderRadius: 12, border: "none",
                 background: "#06C755", color: "#fff", fontSize: 16, fontWeight: 600,
@@ -478,6 +480,7 @@ export function PianoLevelQuiz({ lang = "th" }: { lang?: string }) {
             >
               💬 {c.lineBtn}
             </button>
+            )}
             <button
               onClick={() => { setStep("quiz"); setCurrentQ(0); setAnswers([]); setResult(null); }}
               style={{

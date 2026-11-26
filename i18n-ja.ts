@@ -3589,6 +3589,7 @@ const cat: Record<string, string> = {
   "Sight-reading": "初見演奏",
   "Sign out": "ログアウト",
   "Sign up": "新規登録",
+  "Sign up / log in with LINE": "LINEで登録 / ログイン",
   "Sign up free": "無料で登録",
   "Sign up free to keep playing for 30 more days": "無料登録でさらに30日間続けて遊べます",
   "Sign up with Google": "Google で登録",

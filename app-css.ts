@@ -3904,6 +3904,8 @@ html[data-theme="dark"] .au,.setcard .au{
 .au-segb{flex:1;padding:10px 8px;border:none;border-radius:9px;background:none;color:var(--auM);font-family:var(--f-app);font-size:14.5px;font-weight:600;cursor:pointer;transition:.18s}
 .au-segb.on{background:#d97757;color:#fff}
 .au-g{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;height:50px;border-radius:12px;border:1px solid rgba(0,0,0,.12);background:#fff;color:#1f1f1f;font-family:var(--f-app);font-size:15px;font-weight:600;cursor:pointer;transition:.18s}
+.au-line{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;height:50px;border-radius:12px;border:none;background:#06c755;color:#fff;font-family:var(--f-app);font-size:15px;font-weight:700;cursor:pointer}
+.au-line:disabled{opacity:.6;cursor:default}
 .au-g:hover{transform:translateY(-1px);box-shadow:0 6px 18px -8px #000}
 .au-g:active{transform:none}
 .au-gico{width:20px;height:20px;flex:none}

@@ -53729,5 +53729,15 @@
   "fr": "Le lien est déjà copié : vous pouvez aussi ouvrir votre navigateur et le coller.",
   "ar": "تم نسخ الرابط بالفعل — ويمكنك أيضًا فتح المتصفح ولصقه.",
   "de": "Der Link ist schon kopiert — du kannst auch den Browser öffnen und ihn einfügen."
+ },
+ "Sign up / log in with LINE": {
+  "ja": "LINEで登録 / ログイン",
+  "ko": "LINE으로 가입 / 로그인",
+  "ru": "Регистрация / вход через LINE",
+  "hi": "LINE से साइन अप / लॉग इन",
+  "es": "Continuar con LINE",
+  "fr": "S'inscrire / se connecter avec LINE",
+  "ar": "إنشاء حساب / دخول عبر LINE",
+  "de": "Mit LINE registrieren / anmelden"
  }
 }

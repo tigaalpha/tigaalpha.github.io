@@ -11021,7 +11021,7 @@ export default function App() {
         try {
           const { data: sd } = await sb.auth.getSession();
           const p = sd && sd.session && sd.session.user && sd.session.user.app_metadata && sd.session.user.app_metadata.provider;
-          if (p && p !== "google") prov = p === "email" ? "email-link" : String(p).slice(0, 20);
+          if (p && p !== "google") prov = p === "email" ? "email-link" : String(p).replace(/^custom:/, "").slice(0, 20);   // "custom:line" -> "line" (the funnel counts signup:line)
         } catch (e) {}
         logUsage("land", "signup:" + prov);
       }

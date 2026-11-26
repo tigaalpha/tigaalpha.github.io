@@ -3580,6 +3580,7 @@ const cat: Record<string, string> = {
   "Sight-reading": "Vom-Blatt-Spiel",
   "Sign out": "Abmelden",
   "Sign up": "Registrieren",
+  "Sign up / log in with LINE": "Mit LINE registrieren / anmelden",
   "Sign up free": "Kostenlos registrieren",
   "Sign up free to keep playing for 30 more days": "Registriere dich kostenlos und spiele 30 weitere Tage",
   "Sign up with Google": "Mit Google registrieren",

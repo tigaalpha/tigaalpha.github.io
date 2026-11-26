@@ -3589,6 +3589,7 @@ const cat: Record<string, string> = {
   "Sight-reading": "القراءة الفورية للنوتة",
   "Sign out": "تسجيل الخروج",
   "Sign up": "إنشاء حساب",
+  "Sign up / log in with LINE": "إنشاء حساب / دخول عبر LINE",
   "Sign up free": "إنشاء حساب مجاني",
   "Sign up free to keep playing for 30 more days": "أنشئ حسابًا مجانيًا لمواصلة اللعب 30 يومًا إضافيًا",
   "Sign up with Google": "إنشاء حساب بواسطة Google",
