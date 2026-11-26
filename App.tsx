@@ -477,7 +477,7 @@ function questToday(p) {
 
 // Shown in the ☰ drawer so you can instantly verify which build is live
 // after a manual upload. Keep in sync with package.json on every release.
-const APP_VER = "13.7.1125";
+const APP_VER = "13.7.1126";
 
 /* (2026-11-21: the members-only wall of the owner's domain is gone; every sign-in gate is now the TrialInviteModal of app-shell.tsx, raised by guestStart() / requireLogin(), and the standard card only for ?wall=signup | login) */
 /* test door: tg_test_pricing = "1" shows a guest the Pathway's "Upgrade Premium" pill and the drawer's plan item (a guest has neither: they speak of a plan the visitor does not have). Only the entry
