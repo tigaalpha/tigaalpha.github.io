@@ -32,6 +32,18 @@ export type Visitor = {
 
 export const isWebviewUa = (ua: string) => /webview/.test(String(ua || ""));
 
+/* ── what is not a person (Step 3.3) ──
+   ONE regex for "this user agent is a program". It exists in four places that must change together: here, local-identity.ts (uaKind() writes "bot" for a match, so new usage_events rows say it outright),
+   public.is_bot_ua() in supabase-admin-anon-clean-visitors-migration.sql, and the older inline filter of supabase-landing-funnel-v3.sql (this list is a superset of that one). scripts/verify-campaign-funnel.mjs pins
+   the TS pair to the same source text. NOTE for readers of the numbers: usage_events.ua holds the coarse browser KIND ("desktop", "facebook-webview", ...), not the raw user agent, so rows written BEFORE this change cannot
+   be told apart from a person by the ua column; only "bot" rows (new) and the kinds below are cut. A Googlebot that ran the landing page last month still sits in the old numbers as "desktop". */
+export const BOT_UA_SRC = "bot|crawl|spider|headless|preview|slurp|curl|wget|python|okhttp|monitor|uptime|facebookexternalhit|facebot|lighthouse|pingdom|gtmetrix|axios|node-fetch|go-http";
+export const isBotUa = (ua: string) => new RegExp(BOT_UA_SRC, "i").test(String(ua || ""));
+
+/* A bounce: opened the landing page and did nothing else at all (no hero seen, no key, no question, no gate, no try, no sign-up). The rows carry no reliable clock for a "stayed under 10 seconds" rule,
+   so the measurable definition is "one page view and no other event". */
+export const isBounce = (v: Visitor) => !!v.viewed && !v.seen && !v.played && !v.heard && !v.asked && !v.gate && !v.tried && !v.submitted && !v.signed && !v.escTap;
+
 /* "first;s=fb;c=a b;tz=Asia/Bangkok" → { s: "fb", c: "a b", tz: "Asia/Bangkok" } */
 export function parseTags(item: string): Record<string, string> {
   const out: Record<string, string> = {};
@@ -124,10 +136,19 @@ export function keyOf(v: Visitor, dim: Dim): string {
 
 export type Row = { key: string; n: number; seen: number; played: number; gate: number; tried: number; submitted: number; signed: number; escTap: number; arrived: number };
 
-export function groupVisitors(vis: Iterable<Visitor>, dim: Dim): Row[] {
+export type FunnelOpts = { excludeBots?: boolean; excludeBounce?: boolean };
+/* how many landing visitors each switch would cut (bots first; a bot is never also counted as a bounce) */
+export function cutCounts(vis: Iterable<Visitor>): { bots: number; bounces: number; kept: number } {
+  let bots = 0, bounces = 0, kept = 0;
+  for (const v of vis) { if (!v.viewed) continue; if (isBotUa(v.ua)) bots++; else if (isBounce(v)) bounces++; else kept++; }
+  return { bots, bounces, kept };
+}
+export function groupVisitors(vis: Iterable<Visitor>, dim: Dim, opts: FunnelOpts = {}): Row[] {
   const m = new Map<string, Row>();
   for (const v of vis) {
     if (!v.viewed) continue; // landing funnel: someone who actually opened the page
+    if (opts.excludeBots && isBotUa(v.ua)) continue;
+    if (opts.excludeBounce && isBounce(v)) continue;
     const key = keyOf(v, dim);
     let r = m.get(key);
     if (!r) { r = { key, n: 0, seen: 0, played: 0, gate: 0, tried: 0, submitted: 0, signed: 0, escTap: 0, arrived: 0 }; m.set(key, r); }

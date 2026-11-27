@@ -9557,10 +9557,12 @@ function AdminPayments({ lang }) {
   const [aiBusy, setAiBusy] = useState(false);
   const [aiText, setAiText] = useState("");
   const [busy, setBusy] = useState(false);
+  const [adminIds, setAdminIds] = useState<string[]>([]);   // Step 3.3: owner / co-owner accounts, so their own test payments are not counted as customers
   const load = useCallback(() => {
     setRows(null);
     sb.from("payments").select("*").order("created_at", { ascending: false })
       .then(({ data, error }) => setRows(error ? [] : (data || [])), () => setRows([]));
+    sb.rpc("admin_account_ids").then(({ data, error }) => { if (!error && Array.isArray(data)) setAdminIds(data.map((x: any) => (typeof x === "string" ? x : (x && (x.admin_account_ids || x.id)) || ""))); }, () => {});   // missing RPC: nobody is marked, the page works as before
   }, []);
   useEffect(() => {
     load();
@@ -9676,6 +9678,12 @@ function AdminPayments({ lang }) {
 
   const list = rows || [];
   const pending = list.filter(p => p.status === "pending");
+  /* Step 3.3: what is NOT a customer payment: the admin's own rows, rows marked is_test (supabase-payments-is-test-migration.sql, when applied) and a zero amount. Shown, never hidden: they only leave the total. */
+  const payKind = (p) => (p.is_test === true || Number(p.amount) === 0) ? "test" : (p.user_id && adminIds.includes(p.user_id)) ? "admin" : "real";
+  const real = list.filter(p => payKind(p) === "real");
+  const paidStatus = (p) => p.status === "approved" || p.status === "paid" || p.status === "confirmed";
+  const realPaid = real.filter(paidStatus);
+  const cutRows = list.length - real.length;
   return (
     <div className="adminpay">
       <div className="adminpay-cfg">
@@ -9708,13 +9716,18 @@ function AdminPayments({ lang }) {
         <button className="songbtn go" style={{ width: "100%", marginTop: 12 }} onClick={saveCfg}>{cfgSaved ? "✓ " + T("บันทึกแล้ว", "Saved", "已保存") : T("บันทึกการตั้งค่า", "Save settings", "保存设置")}</button>
       </div>
       <div className="admstu-count">{pending.length} {T("รอตรวจ", "pending", "待处理")} · {list.length} {T("ทั้งหมด", "total", "全部")}</div>
+      <div className="admstu-row-sub" style={{ margin: "2px 0 8px" }} data-pay-summary>
+        {T(`ลูกค้าจริงที่ชำระแล้ว ${realPaid.length} รายการ · ยอดรวม ฿${realPaid.reduce((s, p) => s + (Number(p.amount) || 0), 0).toLocaleString()} (ยอดบาทตามที่บันทึก) — ไม่รวมรายการของแอดมิน/ทดสอบ/ยอด 0 จำนวน ${cutRows} รายการ ซึ่งยังแสดงในรายการด้านล่างพร้อมป้ายกำกับ`,
+          `Real customers who paid: ${realPaid.length} · total ฿${realPaid.reduce((s, p) => s + (Number(p.amount) || 0), 0).toLocaleString()} (THB as recorded) — leaves out ${cutRows} admin / test / zero-amount rows, still listed below with a label.`,
+          `已付款真实客户 ${realPaid.length} 笔 · 合计 ฿${realPaid.reduce((s, p) => s + (Number(p.amount) || 0), 0).toLocaleString()} — 不含管理员/测试/零金额 ${cutRows} 笔（下方仍列出并标注）。`)}
+      </div>
       {rows === null ? <div className="admstu-msg">⏳</div> : !list.length ? <div className="admstu-empty">{T("ยังไม่มีรายการชำระเงิน", "No payments yet", "暂无付款")}</div> : (
         <div className="admstu-list">
           {list.map(p => (
             <button key={p.id} className={`adminpay-row ${p.status}`} onClick={() => openSel(p)}>
               <div className="admstu-av sm">{(p.full_name || p.email || "?").trim().charAt(0).toUpperCase()}</div>
               <div className="admstu-row-body">
-                <div className="admstu-row-nm">{p.full_name || p.email || "—"} <span className={`adminpay-badge ${p.status}`}>{p.status}</span></div>
+                <div className="admstu-row-nm">{p.full_name || p.email || "—"} <span className={`adminpay-badge ${p.status}`}>{p.status}</span>{payKind(p) !== "real" && <span className="adminpay-badge pending" style={{ marginLeft: 4 }}>{payKind(p) === "admin" ? T("แอดมิน", "admin", "管理员") : T("ทดสอบ", "test", "测试")}</span>}</div>
                 <div className="admstu-row-meta">{p.kind === "currency" ? currencyLabel(p) : (PLAN_LABEL[p.plan] || p.plan)} · ฿{(p.amount || 0).toLocaleString()} · {(p.created_at || "").slice(0, 10)}</div>
               </div>
               <span className="admstu-row-go">›</span>

@@ -49,9 +49,12 @@ export function trafficSource() {
   } catch (e) { return "direct"; }
 }
 
+/* the same list as campaign-funnel.ts BOT_UA_SRC (and public.is_bot_ua): a program is written down as "bot", so the admin numbers can leave it out */
+const BOT_UA_RE = /bot|crawl|spider|headless|preview|slurp|curl|wget|python|okhttp|monitor|uptime|facebookexternalhit|facebot|lighthouse|pingdom|gtmetrix|axios|node-fetch|go-http/i;
 export function uaKind() {
   try {
     const ua = navigator.userAgent || "";
+    if (BOT_UA_RE.test(ua)) return "bot";
     if (/FBAN|FBAV|FB_IAB|FBIOS/i.test(ua)) return "facebook-webview";
     if (/Instagram/i.test(ua)) return "instagram-webview";
     if (/Messenger/i.test(ua)) return "messenger-webview";

@@ -137,6 +137,29 @@ function netLabel(net, T) {
   return T("ไม่ทราบ", "Unknown", "未知");
 }
 
+/* ── Step 3.3: the bot-filtered landing funnel (admin_landing_funnel_v3) ──
+   One line per landing language ("all" doors): clean people, the raw count beside it so the size of the filter is visible, then the steps. Hidden while the RPC has not been applied; then it says so. */
+function LandingFunnelV3Card({ rows, missing, T }) {
+  if (missing) return <div className="admstu-row-sub" style={{ margin: "4px 0 10px" }}>{T("ใช้ข้อมูลแบบเดิม (ยังไม่ได้รัน supabase-landing-funnel-v3.sql) — ตัวเลขการ์ดด้านบนยังรวมบอท", "Using the old funnel (supabase-landing-funnel-v3.sql is not applied) — the card above still includes bots.", "使用旧漏斗（尚未执行 supabase-landing-funnel-v3.sql）——上方卡片仍含机器人。")}</div>;
+  const list = (rows || []).filter((r) => !r.door || r.door === "all");
+  if (!list.length) return null;
+  const n = (x) => Number(x) || 0;
+  return (
+    <div className="admstu-card" style={{ marginBottom: 10 }}>
+      <div className="admstu-h">{T("กรวยหน้า Landing แบบตัดบอท (v3)", "Landing funnel, bots removed (v3)", "落地页漏斗（已排除机器人，v3）")}</div>
+      <div className="admstu-row-sub">{T("นับคนไม่ซ้ำ ตัดบอทออกแล้ว; ตัวเลขในวงเล็บคือก่อนตัดบอท", "Distinct people with bots removed; the number in brackets is before the filter.", "按不重复人数统计，已排除机器人；括号内为过滤前。")}</div>
+      <div style={{ overflowX: "auto" }}>
+        <table style={{ width: "100%", fontSize: 12, borderCollapse: "collapse", fontVariantNumeric: "tabular-nums" }}>
+          <thead><tr style={{ opacity: 0.6, textAlign: "right" }}><th style={{ textAlign: "left" }}>{T("ภาษา", "Lang", "语言")}</th><th>{T("เปิดหน้า", "Visitors", "访客")}</th><th>{T("กดคีย์", "Played", "弹琴键")}</th><th>{T("AI ตอบ", "AI answered", "AI 作答")}</th><th>{T("เห็นสมัคร", "Saw sign-up", "看到注册")}</th><th>{T("กดสมัคร", "Tapped", "点击")}</th><th>{T("สมัครแล้ว", "Signed up", "已注册")}</th></tr></thead>
+          <tbody>{list.map((r) => (
+            <tr key={r.lang} style={{ textAlign: "right" }}><td style={{ textAlign: "left" }}>{r.lang}</td><td>{n(r.visitors)} <span style={{ opacity: 0.5 }}>({n(r.visitors_raw)})</span></td><td>{n(r.touched)}</td><td>{n(r.ai_answered)}</td><td>{n(r.saw_signup)}</td><td>{n(r.tried)}</td><td>{n(r.signed_up)}</td></tr>
+          ))}</tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
 /* ── marketing landing page 1 funnel ──
    Reads kind='land' rows, which every other panel on this page excludes on
    purpose: the landing page and the app are two different front doors and
@@ -398,6 +421,10 @@ export function AdminAnonVisitors({ lang }) {
   // Same owner-requested exclusion as AdminActivity (see the note there):
   // tier-3 admin rows leave every tile + the per-visitor list when ON (default).
   const [noAdmins, setNoAdmins] = useState(true);
+  // Step 3.3: programs are not visitors (default on); a bounce = one event and never signed in (default off)
+  const [filtersLive, setFiltersLive] = useState(true);   // false while the migration is not applied: the switches then do nothing and the screen says so
+  const [noBots, setNoBots] = useState(true);
+  const [noBounce, setNoBounce] = useState(false);
 
   const since = useCallback(() => {
     if (range === "all") return null;
@@ -409,8 +436,8 @@ export function AdminAnonVisitors({ lang }) {
     try {
       const p_since = since();
       const [a, b, c] = await Promise.all([
-        sb.rpc("admin_anon_overview", { p_since, p_gate_ms: GUEST_TRIAL_MS, p_exclude_admins: noAdmins }),
-        sb.rpc("admin_anon_visitors", { p_since, p_limit: 200, p_exclude_admins: noAdmins }),
+        sb.rpc("admin_anon_overview", { p_since, p_gate_ms: GUEST_TRIAL_MS, p_exclude_admins: noAdmins, p_exclude_bots: noBots, p_exclude_bounce: noBounce }),
+        sb.rpc("admin_anon_visitors", { p_since, p_limit: 200, p_exclude_admins: noAdmins, p_exclude_bots: noBots, p_exclude_bounce: noBounce }),
         sb.rpc("admin_signup_methods", { p_since, p_exclude_admins: noAdmins }),
       ]);
       // Legacy-RPC fallback: PostgREST rejects named args a function doesn't
@@ -419,9 +446,13 @@ export function AdminAnonVisitors({ lang }) {
       const legacy = (r, fn, base) =>
         r.error && /structure|signature|schema cache|Could not find/i.test(r.error.message || "")
           ? sb.rpc(fn, base) : Promise.resolve(r);
+      // two steps back: first without the Step 3.3 bot / bounce flags (supabase-admin-anon-clean-visitors-migration.sql not applied yet), then without the admin flag either
+      const step2 = (r, fn, base) => legacy(r, fn, { ...base, p_exclude_admins: noAdmins });
+      const [a1, b1] = await Promise.all([step2(a, "admin_anon_overview", { p_since, p_gate_ms: GUEST_TRIAL_MS }), step2(b, "admin_anon_visitors", { p_since, p_limit: 200 })]);
+      setFiltersLive(!(a.error));
       const [a2, b2, c2] = await Promise.all([
-        legacy(a, "admin_anon_overview", { p_since, p_gate_ms: GUEST_TRIAL_MS }),
-        legacy(b, "admin_anon_visitors", { p_since, p_limit: 200 }),
+        legacy(a1, "admin_anon_overview", { p_since, p_gate_ms: GUEST_TRIAL_MS }),
+        legacy(b1, "admin_anon_visitors", { p_since, p_limit: 200 }),
         legacy(c, "admin_signup_methods", { p_since }),
       ]);
       if (a2.error) throw a2.error;
@@ -434,7 +465,7 @@ export function AdminAnonVisitors({ lang }) {
     } catch (e) {
       setErr((e && e.message) || "load failed");
     } finally { setBusy(false); }
-  }, [since, noAdmins]);
+  }, [since, noAdmins, noBots, noBounce]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -473,6 +504,21 @@ export function AdminAnonVisitors({ lang }) {
           <input type="checkbox" checked={noAdmins} onChange={(e) => setNoAdmins(e.target.checked)} />
           {T("ไม่รวมบัญชีแอดมิน", "Exclude admins", "不含管理员")}
         </label>
+        <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "var(--tg-sub, #888)", whiteSpace: "nowrap", cursor: "pointer" }}>
+          <input type="checkbox" checked={noBots} onChange={(e) => setNoBots(e.target.checked)} />
+          {T("ไม่นับบอท", "Exclude bots", "不含机器人")}{filtersLive && ov && ov.excluded_bots != null ? " (" + ov.excluded_bots + ")" : ""}
+        </label>
+        <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "var(--tg-sub, #888)", whiteSpace: "nowrap", cursor: "pointer" }}>
+          <input type="checkbox" checked={noBounce} onChange={(e) => setNoBounce(e.target.checked)} />
+          {T("ไม่นับคนที่เด้งออก", "Exclude bounces", "不含跳出")}{filtersLive && ov && ov.excluded_bounce != null ? " (" + ov.excluded_bounce + ")" : ""}
+        </label>
+      </div>
+      <div className="admstu-row-sub" style={{ margin: "0 0 6px" }}>
+        {filtersLive && ov && ov.excluded_bots != null
+          ? T(`ตัดบอท ${ov.excluded_bots} ราย${ov.filters && ov.filters.bounce ? ` · ตัดคนที่เด้งออก ${ov.excluded_bounce} ราย` : ""} — เด้งออก = มีเหตุการณ์เดียวและไม่เคยล็อกอิน; บอทตรวจจากชนิดเบราว์เซอร์ที่บันทึกไว้ (แถวเก่าของครอว์เลอร์ที่บันทึกเป็น desktop ยังปนอยู่)`,
+              `Bots cut: ${ov.excluded_bots}${ov.filters && ov.filters.bounce ? ` · bounces cut: ${ov.excluded_bounce}` : ""} — a bounce is one event and never signed in; bots are detected from the stored browser kind (older crawler rows saved as "desktop" remain).`,
+              `已排除机器人 ${ov.excluded_bots}${ov.filters && ov.filters.bounce ? ` · 跳出 ${ov.excluded_bounce}` : ""}`)
+          : T("ใช้ข้อมูลแบบเดิม — ยังไม่ได้รัน supabase-admin-anon-clean-visitors-migration.sql สวิตช์บอท/เด้งออกจึงยังไม่มีผล", "Using the old numbers — supabase-admin-anon-clean-visitors-migration.sql has not been applied, so the bot / bounce switches do nothing yet.", "使用旧数据 — 尚未执行 supabase-admin-anon-clean-visitors-migration.sql，机器人/跳出开关暂无效。")}
       </div>
 
       {err && <div className="lockerr" style={{ margin: "8px 0" }}>{err}</div>}
@@ -818,6 +864,8 @@ function ActivityBody({ lang, onOpenAnon }) {
   // Preset 1d: the owner reads this page every day and only ever asks about
   // today, so the first thing on screen must be today. 1d/7d/30d/All still work.
   const [range, setRange] = useState("1");
+  const [landingV3, setLandingV3] = useState<any[] | null>(null);   // Step 3.3: admin_landing_funnel_v3 rows (bot-filtered)
+  const [landingV3Err, setLandingV3Err] = useState(false);
   const [anon, setAnon] = useState(null);   // headline count of signed-out visitors
   const [signup, setSignup] = useState(null); // Google vs email sign-up split
   const [landing, setLanding] = useState(null);   // marketing landing page 1 funnel
@@ -896,6 +944,9 @@ function ActivityBody({ lang, onOpenAnon }) {
        plainly. */
     sb.rpc("admin_landing_funnel", { p_since: since })
       .then(({ data }) => setLanding(data || null), () => setLanding(null));
+    /* Step 3.3: the bot-filtered v3 funnel (supabase-landing-funnel-v3.sql). When it is not applied yet the call errors and the card says so; the old card above stays as it was. */
+    sb.rpc("admin_landing_funnel_v3", { p_days: range === "all" ? 3650 : Number(range) || 30 })
+      .then(({ data, error }) => { if (error) { setLandingV3(null); setLandingV3Err(true); } else { setLandingV3(data || []); setLandingV3Err(false); } }, () => { setLandingV3(null); setLandingV3Err(true); });
     /* Device mix (phone/tablet/desktop, signed-in vs signed-out) + screen-width
        buckets — the measured answer to "what does the audience actually own",
        so piano-key layout decisions stop being made from anecdotes. Same
@@ -989,6 +1040,7 @@ function ActivityBody({ lang, onOpenAnon }) {
           numbers rather than inside them — landing rows are kind='land', which
           every panel above now excludes. */}
       <LandingFunnelCard f={landing} T={T} />
+      <LandingFunnelV3Card rows={landingV3} missing={landingV3Err} T={T} />
 
       {/* blog readers: views, 30-second readers, log-in pop-ups shown and tapped (owner 2026-11-07), on the same range as this page */}
       <BlogStatsCard lang={lang} range={range} />

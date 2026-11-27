@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { sb } from "./supabase-client";
-import { buildVisitors, groupVisitors, DIMS, isWebviewUa, type Dim } from "./campaign-funnel";
+import { buildVisitors, groupVisitors, cutCounts, DIMS, isWebviewUa, type Dim } from "./campaign-funnel";
 
 /* ── admin: the landing funnel by campaign, ad set, creative, browser, variant,
    language, region and in-app-browser escape ──
@@ -72,7 +72,10 @@ export function CampaignFunnelCard({ range, T }) {
     }
   };
 
-  const rows = vis ? groupVisitors(vis.values(), dim) : [];
+  const [noBots, setNoBots] = useState(true);       // Step 3.3: programs are not visitors
+  const [noBounce, setNoBounce] = useState(false);   // a page view and nothing else
+  const cut = vis ? cutCounts(vis.values()) : { bots: 0, bounces: 0, kept: 0 };
+  const rows = vis ? groupVisitors(vis.values(), dim, { excludeBots: noBots, excludeBounce: noBounce }) : [];
   const total = rows.reduce((n, r) => n + r.n, 0);
   const head = { fontSize: 10.5, opacity: 0.55, textAlign: "right" as const };
   const cell = { fontSize: 12, textAlign: "right" as const, fontVariantNumeric: "tabular-nums" as const };
@@ -99,6 +102,15 @@ export function CampaignFunnelCard({ range, T }) {
 
       {vis && (
         <>
+          <div style={{ display: "flex", gap: 12, flexWrap: "wrap", fontSize: 12, margin: "2px 0 8px" }}>
+            <label style={{ display: "flex", gap: 5, alignItems: "center", cursor: "pointer" }}><input type="checkbox" checked={noBots} onChange={e => setNoBots(e.target.checked)} />{T("ไม่นับบอท", "Exclude bots", "不含机器人")} ({cut.bots})</label>
+            <label style={{ display: "flex", gap: 5, alignItems: "center", cursor: "pointer" }}><input type="checkbox" checked={noBounce} onChange={e => setNoBounce(e.target.checked)} />{T("ไม่นับคนที่เด้งออก", "Exclude bounces", "不含跳出")} ({cut.bounces})</label>
+          </div>
+          <div className="admstu-row-sub" style={{ marginBottom: 6 }}>
+            {T(`ตัดบอท ${cut.bots} ราย · เด้งออก (เปิดหน้าแล้วไม่ทำอะไรต่อ) ${cut.bounces} ราย · ที่เหลือ ${cut.kept} ราย. บอทตรวจจากชนิดเบราว์เซอร์ที่บันทึกไว้ — แถวเก่าที่เป็นครอว์เลอร์แต่บันทึกว่า desktop จะยังปนอยู่; คอลัมน์ "สมัคร" เชื่อมกับการเริ่มทดลอง/จ่ายเงินไม่ได้จากข้อมูลหน้า Landing`,
+              `Bots cut: ${cut.bots} · bounces (opened the page, did nothing else): ${cut.bounces} · kept: ${cut.kept}. Bots are detected from the stored browser kind, so older crawler rows saved as "desktop" still remain; "signed" cannot be joined to trial start / payment from landing rows alone.`,
+              `已排除机器人 ${cut.bots} · 跳出 ${cut.bounces} · 保留 ${cut.kept}。机器人按已记录的浏览器类型识别，旧的爬虫行(记为 desktop)仍会混入；“注册”无法仅凭落地页数据关联到试用/付款。`)}
+          </div>
           <div className="billtoggle" style={{ flexWrap: "wrap", marginBottom: 8 }}>
             {DIMS.map(d => (
               <button key={d} className={`billtog${dim === d ? " on" : ""}`} onClick={() => setDim(d)}>

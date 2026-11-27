@@ -123,5 +123,34 @@ store.clear();
 makeBrowser("https://x.test/?hid=<script>&hat=" + Math.floor(Date.now() / 60000), CH);
 const arr5 = L.adoptHandoff();
 ok(arr5 && !arr5.adopted, "a malformed id is not adopted");
+/* ── 4. Step 3.3: bots and bounces ── */
+{
+  const UAS = [
+    ["Googlebot", "Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)", true],
+    ["bingbot", "Mozilla/5.0 (compatible; bingbot/2.0; +http://www.bing.com/bingbot.htm)", true],
+    ["facebookexternalhit", "facebookexternalhit/1.1 (+http://www.facebook.com/externalhit_uatext.php)", true],
+    ["HeadlessChrome", "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/120.0.0.0 Safari/537.36", true],
+    ["Chrome on Android", "Mozilla/5.0 (Linux; Android 13; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36", false],
+    ["Safari on iPhone", "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1", false],
+    ["LINE in-app", "Mozilla/5.0 (Linux; Android 13; Pixel 7 Build/TQ3A; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/120.0 Mobile Safari/537.36 Line/13.9.0/IAB", false],
+    ["Facebook in-app", "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 [FBAN/FBIOS;FBAV/430.0]", false],
+  ];
+  for (const [n, ua, want] of UAS) ok(F.isBotUa(ua) === want, "isBotUa: " + n + " -> " + want);
+  ok(F.isBotUa("bot") && !F.isBotUa("desktop") && !F.isBotUa("android-chrome") && !F.isBotUa("line-webview") && !F.isBotUa("facebook-webview"), "isBotUa: the stored kinds: bot yes, the people kinds no");
+  // the two copies of the regex are the same text (campaign-funnel.ts, local-identity.ts) and the SQL function carries it too
+  const src = F.BOT_UA_SRC, li = fs.readFileSync(path.join(ROOT, "local-identity.ts"), "utf8"), sql = fs.readFileSync(path.join(ROOT, "supabase-admin-anon-clean-visitors-migration.sql"), "utf8");
+  ok(li.includes("/" + src + "/i"), "local-identity.ts carries the same bot regex");
+  ok(sql.includes("~ '" + src + "'"), "is_bot_ua() in the migration carries the same regex");
+  const R = []; let n = 0; const ad = (a, kind, item, ua = "android-chrome") => R.push({ id: ++n, anon_id: a, kind, item_id: item, ua, src: "fb" });
+  ad("p1", "land", "page:th"); ad("p1", "land", "piano"); ad("p1", "land", "signup:google");        // a person who signed up
+  ad("p2", "land", "page:th");                                                                    // a bounce
+  ad("b1", "land", "page:th", "bot"); ad("b1", "land", "piano", "bot");                           // a program that even pressed a key
+  const V = F.buildVisitors(R);
+  ok(F.isBounce(V.get("p2")) && !F.isBounce(V.get("p1")) && F.isBounce(V.get("b1")) === false, "isBounce: one page view and nothing else; a key press or sign-up is not a bounce");
+  const c = F.cutCounts(V.values());
+  ok(c.bots === 1 && c.bounces === 1 && c.kept === 1, "cutCounts: 1 bot, 1 bounce, 1 kept (" + JSON.stringify(c) + ")");
+  const all = F.groupVisitors(V.values(), "source"), clean = F.groupVisitors(V.values(), "source", { excludeBots: true }), cleaner = F.groupVisitors(V.values(), "source", { excludeBots: true, excludeBounce: true });
+  ok(all[0].n === 3 && clean[0].n === 2 && cleaner[0].n === 1, "groupVisitors: 3 -> 2 without bots -> 1 without bounces too; with no options the old numbers are unchanged");
+}
 console.log(fail ? `\n${fail} FAILED` : "\nall passed");
 process.exit(fail ? 1 : 0);
