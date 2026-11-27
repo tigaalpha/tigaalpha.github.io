@@ -1,0 +1,7 @@
+{
+  "_note": "Verbatim copy of public.blog_translation_cta (read once on 2026-11-27, 1 row). Every inserted translation carries this promo block exactly (blog_check_staged demands it). Add one key per language before translating that language. The Thai paragraph still says 10 languages while the app has 11: that is the stored text, changing it is a database edit for the owner.",
+  "th": {
+    "paragraph": "TIGA ALPHA คือแอปสอนเปียโนด้วย AI ที่พัฒนาโดยทีมงานในประเทศไทย แอปมีให้เลือกใช้ถึง 10 ภาษา ได้แก่ ไทย อังกฤษ จีน อาหรับ ญี่ปุ่น รัสเซีย สเปน ฝรั่งเศส ฮินดี และเกาหลี ครูอั้ม CEO ของ TIGA ALPHA มีประสบการณ์สอนเปียโนมา 20 ปี และประสบการณ์การสอนนี้เองที่กำหนดแนวทางของทุกบทเรียน เมื่อคุณเล่น แอปจะฟังแล้วบอกว่าควรฝึกโน้ตตัวไหนหรือจังหวะไหนต่อไป คำแนะนำจึงเฉพาะเจาะจง ไม่ใช่คำแนะนำทั่ว ๆ ไป จะใช้เป็นแอปสอนเปียโนออนไลน์สำหรับฝึกรอบสั้น ๆ ทุกวัน ใช้เรียนเป็นคอร์สเรียนเปียโนออนไลน์แบบครบถ้วน หรือใช้ควบคู่กับการเรียนกับครูก็ได้ ไม่ว่าคุณจะเริ่มจากศูนย์ กลับมาเล่นอีกครั้งหลังห่างหายไปนาน เรียนดนตรีไปพร้อมกับลูก ๆ หรือแค่เล่นเพื่อความสนุก ก้าวถัดไปของคุณก็ยังคงชัดเจน ผู้ใช้ใหม่ทดลองใช้แพ็กเกจพรีเมียมฟรี 7 วัน หลังจากนั้น 799 บาทต่อเดือน",
+    "bullets": "- ดาวน์โหลดและเริ่มใช้งาน: [TIGA ALPHA](https://www.tigaalpha.com/landing/)\n- เรียนแบบพบหน้าในประเทศไทย: [TIGA Studio](https://www.tigastudio.net/)\n- เกี่ยวกับบริษัท: [tigaalpha.com](https://www.tigaalpha.com)"
+  }
+}

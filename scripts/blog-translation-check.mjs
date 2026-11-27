@@ -9,10 +9,12 @@
    Exit 1 when any file has a problem. It checks form, not style: a human or the SQL checker (blog_check_staged) still sees the staged row later. */
 import fs from "node:fs"; import path from "node:path"; import { fileURLToPath } from "node:url";
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), ".."), D = path.join(ROOT, "data/blog-translation");
-const lang = process.argv[2], only = process.argv[3];
+const lang = process.argv[2], only = process.argv[3] && !process.argv[3].startsWith("--") ? process.argv[3] : "";
 const GL = JSON.parse(fs.readFileSync(path.join(D, "glossary.json"), "utf8"));
 if (!lang || !GL[lang] || lang === "brand" || lang === "forbidden" || lang === "_note") { console.error("usage: blog-translation-check.mjs <lang> [slug]"); process.exit(2); }
 const SRC = JSON.parse(fs.readFileSync(path.join(ROOT, "data/blog-snapshot/en-bodies.json"), "utf8"));
+const CTA = (() => { try { return JSON.parse(fs.readFileSync(path.join(D, "cta.json"), "utf8"))[lang]; } catch (e) { return null; } })();
+const LIST_OK = process.argv.includes("--ok");   // print only the slugs that pass (used by the insert script)
 const dir = path.join(D, lang); const files = fs.existsSync(dir) ? fs.readdirSync(dir).filter((f) => f.endsWith(".json") && (!only || f === only + ".json")) : [];
 // same bands and shares as blog_check_staged (English is the source here, so the length bands are relative to English; zh/ja/ko are shorter, de/ru/es/fr longer)
 const SHARE = { ja: [/[^ぁ-んァ-ヶー一-龯]/g, 0.75], ko: [/[^가-힣]/g, 0.7], ru: [/[^а-яА-ЯёЁ]/g, 0.85], hi: [/[^ऀ-ॿ]/g, 0.8], ar: [/[^؀-ۿݐ-ݿ]/g, 0.8], th: [/[^฀-๿]/g, 0.78], zh: [/[^㐀-鿿]/g, 0.7] };
@@ -62,8 +64,9 @@ for (const f of files) {
     if (hasPrice && lang !== "th" && !/US\$\s?24\.99/.test(t.body)) P.push("price_missing");
   }
   if (lang !== "th" && /THB|฿|บาท|¥|元|RMB/.test(t.body)) P.push("wrong_price_text");
-  console.log((P.length ? "✗ " : "✓ ") + f + (P.length ? "  " + P.join(", ") : ""));
+  if (CTA && (!t.body.includes(CTA.paragraph) || !t.body.includes(CTA.bullets))) P.push("stored_promo_block_missing");   // blog_check_staged: cta_paragraph_missing / cta_links_missing
+  if (LIST_OK) { if (!P.length) console.log(f.replace(/\.json$/, "")); } else console.log((P.length ? "✗ " : "✓ ") + f + (P.length ? "  " + P.join(", ") : ""));
   if (P.length) bad++;
 }
-console.log(`\n${files.length} file(s), ${bad} with problems`);
+if (!LIST_OK) console.log(`\n${files.length} file(s), ${bad} with problems`);
 process.exit(bad ? 1 : 0);

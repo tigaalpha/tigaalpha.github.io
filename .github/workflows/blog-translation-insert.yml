@@ -1,0 +1,37 @@
+# Insert checked translations (data/blog-translation/<lang>/*.json) into public.blog_posts, <= 25 per run (owner 2026-11-27: small batches only, Supabase free plan).
+# NEEDS the repository secret SUPABASE_SERVICE_ROLE_KEY (Supabase dashboard -> Project settings -> API -> service_role). It is never written to the repo or the logs.
+# Run by hand: Actions -> blog-translation-insert -> Run workflow (lang, limit). Only files that pass scripts/blog-translation-check.mjs are sent; existing (lang, slug) rows are never overwritten.
+name: blog-translation-insert
+on:
+  workflow_dispatch:
+    inputs:
+      lang:
+        description: "language folder under data/blog-translation (th ...)"
+        required: true
+        default: "th"
+      limit:
+        description: "rows this run (max 25)"
+        required: true
+        default: "25"
+permissions:
+  contents: write
+concurrency:
+  group: blog-translation-insert
+  cancel-in-progress: false
+jobs:
+  insert:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: node scripts/blog-translation-insert.mjs "${{ inputs.lang }}" "${{ inputs.limit }}"
+        env:
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      - name: Commit the list of inserted slugs
+        run: |
+          git config user.name "blog-translation"
+          git config user.email "blog-translation@users.noreply.github.com"
+          git add data/blog-translation/inserted-*.json
+          git diff --cached --quiet || (git commit -m "Blog translations inserted ($(date -u +%F))" && git pull --rebase origin main && git push origin HEAD:main)
