@@ -34,120 +34,99 @@
 -- ── 1. funnel v3 ────────────────────────────────────────────────────────────
 create or replace function public.admin_landing_funnel_v3(p_days int default 30)
 returns table (
-  lang            text,        -- th | en | zh (from item_id "page:<lang>")
-  door            text,        -- google | email-otp | email | null (aggregate rows have door = "all")
-  visitors        bigint,      -- clean distinct people (bot-filtered)
-  visitors_raw    bigint,      -- unfiltered, so the filter's size is visible
+  lang            text,        -- the landing language of the visit (from the visitor's own "page:<lang>" row)
+  door            text,        -- google | email-otp | email, or 'all' for the aggregate row of a language
+  visitors        bigint,      -- clean distinct people (bots removed)
+  visitors_raw    bigint,      -- the same before the bot filter, so the size of the filter is visible
   touched         bigint,      -- played at least one key themselves
-  aha_heard       bigint,      -- sounded their first note (B4)
-  aha_watched     bigint,      -- watched a full AI answer play out (B4)
+  aha_heard       bigint,      -- sounded their first note
+  aha_watched     bigint,      -- watched a full AI answer play out
   asked           bigint,      -- spent a question
   ai_answered     bigint,      -- received a real AI answer
   saw_signup      bigint,      -- reached the signup card / gate
   tried           bigint,      -- tapped any signup door
-  signed_up       bigint,      -- completed signup (email events + signup:google)
+  signed_up       bigint,      -- completed signup
   signed_up_landing bigint,    -- accounts carrying profiles.signup_landing (cross-check)
-  returning_share numeric,    -- returning_user people / visitors (0..1)
+  returning_share numeric,     -- returning_user people / visitors (0..1)
   dwell_med       bigint,      -- median on-page seconds (clean)
-  se_visitors     numeric      -- sqrt(p(1-p)/n) on the touched step, for the
-                               -- "not yet conclusive" display (plan §3 rule 2)
+  se_visitors     numeric      -- sqrt(p(1-p)/n) on the touched step
 )
 language sql stable security definer set search_path = public as $$
-  with span as (select now() - make_interval(days => greatest(coalesce(p_days, 30), 1)) as since where public.is_app_admin()),   -- 2026-11-27 hardening: a non-admin gets no rows
+  -- 2026-11-27 rewrite: the first version filtered out every "page:*" row and then needed them to know the language, so it returned nothing.
+  -- A visitor belongs to the language of their OWN first page:<xx> row in the window; every other landing event of that visitor counts under it.
+  with span as (select now() - make_interval(days => greatest(coalesce(p_days, 30), 1)) as since where public.is_app_admin()),
   ev as (
-    select
-      e.*,
-      case
-        when e.item_id = 'page:th' then 'th'
-        when e.item_id = 'page:en' then 'en'
-        when e.item_id = 'page:zh' then 'zh'
-        else null
-      end as page_lang,
-      case
-        when e.item_id like 'try:google%' or e.item_id = 'signup:google' then 'google'
-        when e.item_id like 'try:email-otp%' or e.item_id = 'signup:email-otp' then 'email-otp'
-        when e.item_id like 'try:email%'  or e.item_id = 'signup:email'  then 'email'
-        else null
-      end as door_guess
+    select e.anon_id, e.item_id, e.ua, e.src, e.duration_ms, e.created_at
     from public.usage_events e, span s
-    where e.kind = 'land'
-      and e.created_at >= s.since
-      and e.item_id not like 'page:%'          -- page:xx is a label, not a step
+    where e.kind = 'land' and e.anon_id is not null and e.created_at >= s.since and e.simulated = false
   ),
-  bots as (  -- ua strings that are not people (kept in ONE place, plan §S2)
-    select anon_id from ev
-    where lower(coalesce(ua, '')) ~ 'bot|crawl|spider|headless|preview|slurp|curl|wget|python|okhttp|monitor|uptime'
-    group by 1
+  lang_of as (   -- one language per visitor: the first page:xx row
+    select distinct on (anon_id) anon_id, substring(item_id from '^page:([a-z]{2})') as lang
+    from ev where item_id ~ '^page:[a-z]{2}' order by anon_id, created_at
   ),
-  people as (  -- clean population: distinct (lang, anon_id) with a bot filter
-    select distinct
-      coalesce(e.page_lang, 'th') as lang,
-      e.anon_id,
-      (e.anon_id in (select anon_id from bots)) as is_bot
-    from ev e
-    where e.page_lang is not null
+  bots as (select distinct anon_id from ev where public.is_bot_ua(ua)),
+  people as (select l.anon_id, l.lang, (b.anon_id is not null) as is_bot from lang_of l left join bots b using (anon_id)),
+  hits as (   -- distinct (visitor, step) facts
+    select distinct p.lang, p.anon_id, p.is_bot,
+      case
+        when e.item_id = 'piano' then 'touched'
+        when e.item_id = 'aha:heard' then 'aha_heard'
+        when e.item_id = 'aha:watched' then 'aha_watched'
+        when e.item_id in ('ask','q:spend') then 'asked'
+        when e.item_id = 'ai' then 'ai_answered'
+        when e.item_id in ('gate:shown','nudge:shown') then 'saw_signup'
+        when e.item_id like 'try:%' then 'tried'
+        when e.item_id like 'signup:%' or e.item_id like 'signed_up_landing:%' then 'signed_up'
+        when e.item_id = 'returning_user' then 'returning'
+        else null end as step
+    from people p join ev e on e.anon_id = p.anon_id
   ),
   per as (
-    select
-      p.lang,
-      count(*) filter (where true) as visitors_raw,
+    select p.lang,
+      count(*) as visitors_raw,
       count(*) filter (where not p.is_bot) as visitors,
-      count(distinct e.anon_id) filter (where not p.is_bot and e.item_id = 'piano') as touched,
-      count(distinct e.anon_id) filter (where not p.is_bot and e.item_id = 'aha:heard') as aha_heard,
-      count(distinct e.anon_id) filter (where not p.is_bot and e.item_id = 'aha:watched') as aha_watched,
-      count(distinct e.anon_id) filter (where not p.is_bot and e.item_id in ('ask','q:spend')) as asked,
-      count(distinct e.anon_id) filter (where not p.is_bot and e.item_id = 'ai') as ai_answered,
-      count(distinct e.anon_id) filter (where not p.is_bot and e.item_id in ('gate:shown','nudge:shown')) as saw_signup,
-      count(distinct e.anon_id) filter (where not p.is_bot and e.item_id like 'try:%') as tried,
-      count(distinct e.anon_id) filter (where not p.is_bot and (e.item_id like 'signup:%' or e.item_id = 'signed_up_landing:' || 'th' or e.item_id like 'signed_up_landing:%')) as signed_up,
-      count(distinct e.anon_id) filter (where not p.is_bot and e.item_id = 'returning_user') as returning
-    from people p
-    left join ev e on e.anon_id = p.anon_id and coalesce(e.page_lang,'th') = p.lang
-    group by p.lang
+      (select count(*) from hits h where h.lang = p.lang and not h.is_bot and h.step = 'touched') as touched,
+      (select count(*) from hits h where h.lang = p.lang and not h.is_bot and h.step = 'aha_heard') as aha_heard,
+      (select count(*) from hits h where h.lang = p.lang and not h.is_bot and h.step = 'aha_watched') as aha_watched,
+      (select count(*) from hits h where h.lang = p.lang and not h.is_bot and h.step = 'asked') as asked,
+      (select count(*) from hits h where h.lang = p.lang and not h.is_bot and h.step = 'ai_answered') as ai_answered,
+      (select count(*) from hits h where h.lang = p.lang and not h.is_bot and h.step = 'saw_signup') as saw_signup,
+      (select count(*) from hits h where h.lang = p.lang and not h.is_bot and h.step = 'tried') as tried,
+      (select count(*) from hits h where h.lang = p.lang and not h.is_bot and h.step = 'signed_up') as signed_up,
+      (select count(*) from hits h where h.lang = p.lang and not h.is_bot and h.step = 'returning') as returning
+    from people p group by p.lang
   ),
   dwell as (
-    select coalesce(e.page_lang,'th') as lang,
-      percentile_cont(0.5) within group (order by e.duration_ms) filter (where not (e.anon_id in (select anon_id from bots))) as d50
-    from ev e where e.item_id = 'leave' and e.duration_ms is not null
-    group by 1
+    select p.lang, percentile_cont(0.5) within group (order by e.duration_ms) as d50
+    from ev e join people p on p.anon_id = e.anon_id and not p.is_bot
+    where e.item_id = 'leave' and e.duration_ms is not null group by p.lang
   ),
   doors as (
-    select coalesce(e.page_lang,'th') as lang, e.door_guess as door,
+    select p.lang,
+      case when e.item_id like '%google%' then 'google' when e.item_id like '%email-otp%' then 'email-otp' when e.item_id like '%email%' then 'email' else null end as door,
       count(distinct e.anon_id) filter (where e.item_id like 'try:%') as tried,
       count(distinct e.anon_id) filter (where e.item_id like 'signup:%') as signed
-    from ev e
-    where e.door_guess is not null
-    group by 1, 2
-  ),
-  camp as (  -- campaign attribution: src column carries trafficSource()
-    select coalesce(e.page_lang,'th') as lang, coalesce(nullif(trim(e.src), ''), 'direct') as src,
-      count(distinct e.anon_id) as people
-    from ev e, people p2
-    where e.anon_id = p2.anon_id and coalesce(e.page_lang,'th') = p2.lang and not p2.is_bot
+    from ev e join people p on p.anon_id = e.anon_id and not p.is_bot
+    where e.item_id like 'try:%' or e.item_id like 'signup:%'
     group by 1, 2
   )
-  -- one aggregate row per language (door = 'all'), then one row per door
   select
-    f.lang,
-    'all' as door,
+    f.lang, 'all'::text as door,
     f.visitors, f.visitors_raw, f.touched, f.aha_heard, f.aha_watched,
     f.asked, f.ai_answered, f.saw_signup, f.tried, f.signed_up,
-    (select count(*) from public.profiles pr
-       where pr.signup_landing = f.lang
-         and pr.created_at >= (select since from span)) as signed_up_landing,
+    (select count(*) from public.profiles pr where pr.signup_landing = f.lang and pr.created_at >= (select since from span))::bigint as signed_up_landing,
     case when f.visitors > 0 then round(f.returning::numeric / f.visitors, 3) else 0 end as returning_share,
-    (select greatest(0, round(coalesce(d.d50,0)/1000)) from dwell d where d.lang = f.lang) as dwell_med,
+    (select greatest(0, round(coalesce(d.d50, 0) / 1000))::bigint from dwell d where d.lang = f.lang) as dwell_med,
     case when f.visitors > 0
-      then round(sqrt(greatest(f.touched,1)::numeric * (1 - least(f.touched::numeric / f.visitors, 1)) / f.visitors), 4)
+      then round(sqrt(greatest(f.touched, 1)::numeric * (1 - least(f.touched::numeric / f.visitors, 1)) / f.visitors), 4)
       else null end as se_visitors
-  from per f left join dwell d on d.lang = f.lang
+  from per f
   union all
-  select
-    doo.lang, doo.door,
+  select doo.lang, doo.door,
     null::bigint, null::bigint, null::bigint, null::bigint, null::bigint,
     null::bigint, null::bigint, null::bigint, doo.tried, doo.signed,
     null::bigint, null::numeric, null::bigint, null::numeric
-  from doors doo
+  from doors doo where doo.door is not null
   order by 1, 2 nulls last;
 $$;
 
