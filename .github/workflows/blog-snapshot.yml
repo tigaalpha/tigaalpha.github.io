@@ -1,0 +1,29 @@
+# Daily snapshot of the PUBLISHED blog into data/blog-snapshot/ (Step: blog translation, owner 2026-11-27).
+# Why: the Supabase project is on the free plan and nearly over its quota; translation work reads this file, never the database.
+# Cost: one incremental read per day over the public REST API with the public anon key that already ships in the app (no secret, nothing is written to the database).
+# 19:00 UTC = 02:00 Thai time. The commit is made by the workflow itself; nothing is pushed when nothing changed.
+name: blog-snapshot
+on:
+  schedule:
+    - cron: "0 19 * * *"
+  workflow_dispatch: {}
+permissions:
+  contents: write
+concurrency:
+  group: blog-snapshot
+  cancel-in-progress: false
+jobs:
+  snapshot:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: node scripts/blog-snapshot.mjs
+      - name: Commit when the snapshot changed
+        run: |
+          git config user.name "blog-snapshot"
+          git config user.email "blog-snapshot@users.noreply.github.com"
+          git add data/blog-snapshot
+          git diff --cached --quiet || (git commit -m "Blog snapshot $(date -u +%F)" && git pull --rebase origin main && git push origin HEAD:main)
