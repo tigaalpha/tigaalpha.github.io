@@ -1,0 +1,16 @@
+{
+  "_note": "Search keywords per language (what people actually type), NOT word-for-word translations of the English ones. `core` = at least ONE must appear in the title, excerpt or body of a translation; `extra` = natural variants to use where they fit. Brand is always TIGA ALPHA. `forbidden` is only a detection list for scripts/blog-translation-check.mjs: no competitor is ever named in an article. The school course price (27,000 baht) is never mixed into an app article. App price: Thai 799 baht per month, every other language US$24.99 per month, after a free 7-day Premium trial.",
+  "brand": "TIGA ALPHA",
+  "forbidden": ["simply piano", "flowkey", "skoove", "pianote", "yousician", "playground sessions", "piano marvel", "tiga ai", "27,000", "27000", "27.000"],
+  "th": { "core": ["เรียนเปียโน", "สอนเปียโน", "คอร์สเปียโน", "เรียนเปียโนออนไลน์"], "extra": ["เรียนเปียโนด้วยตัวเอง", "เรียนเปียโนสำหรับผู้เริ่มต้น", "แอปเรียนเปียโน", "ครูสอนเปียโน AI", "ฝึกเปียโน", "โน้ตเปียโนเบื้องต้น", "เรียนเปียโนผู้ใหญ่", "เรียนเปียโนเด็ก"] },
+  "zh": { "core": ["学钢琴", "钢琴课程", "在线学钢琴", "钢琴教学"], "extra": ["零基础学钢琴", "成人学钢琴", "钢琴入门", "钢琴练习", "钢琴app", "AI钢琴老师", "儿童学钢琴"] },
+  "es": { "core": ["aprender piano", "clases de piano", "curso de piano", "aprender piano online"], "extra": ["piano para principiantes", "aprender piano desde cero", "app para aprender piano", "profesor de piano con IA", "practicar piano", "piano para adultos", "lecciones de piano"] },
+  "hi": { "core": ["पियानो सीखें", "पियानो सीखना", "पियानो क्लास", "ऑनलाइन पियानो"], "extra": ["शुरुआती के लिए पियानो", "पियानो कोर्स", "पियानो ऐप", "घर पर पियानो सीखें", "पियानो प्रैक्टिस", "एआई पियानो टीचर"] },
+  "de": { "core": ["Klavier lernen", "Klavierunterricht", "Klavierkurs", "Klavier lernen online"], "extra": ["Klavier für Anfänger", "Klavier lernen für Erwachsene", "Klavier-App", "Klavier üben", "KI-Klavierlehrer", "Klavier lernen ohne Vorkenntnisse"] },
+  "ar": { "core": ["تعلم البيانو", "دروس البيانو", "كورس البيانو", "تعلم البيانو اونلاين"], "extra": ["تعلم البيانو للمبتدئين", "تعلم العزف على البيانو", "تطبيق تعلم البيانو", "معلم بيانو بالذكاء الاصطناعي", "تمارين البيانو", "تعلم البيانو من الصفر"] },
+  "fr": { "core": ["apprendre le piano", "cours de piano", "cours de piano en ligne", "apprendre le piano en ligne"], "extra": ["piano pour débutants", "apprendre le piano seul", "application pour apprendre le piano", "professeur de piano IA", "exercices de piano", "piano pour adultes", "leçons de piano"] },
+  "ru": { "core": ["научиться играть на пианино", "уроки фортепиано", "курс фортепиано", "уроки игры на пианино"], "extra": ["обучение игре на пианино онлайн", "пианино для начинающих", "приложение для обучения игре на пианино", "учитель фортепиано с ИИ", "упражнения на пианино", "учиться играть на пианино взрослым"] },
+  "ja": { "core": ["ピアノ レッスン", "ピアノを習う", "ピアノ 独学", "ピアノ オンライン"], "extra": ["ピアノ 初心者", "大人 ピアノ", "ピアノ 練習", "ピアノ アプリ", "AI ピアノ 先生", "ピアノ 基礎"] },
+  "ko": { "core": ["피아노 배우기", "피아노 레슨", "피아노 독학", "온라인 피아노"], "extra": ["피아노 초보", "성인 피아노", "피아노 연습", "피아노 앱", "AI 피아노 선생님", "피아노 기초"] },
+  "en": { "core": ["learn piano", "piano lessons", "piano course", "learn piano online"], "extra": ["piano for beginners", "learn piano at home", "piano app", "AI piano teacher", "piano practice", "adult beginner piano"] }
+}
