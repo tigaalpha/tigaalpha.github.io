@@ -40,6 +40,8 @@ language plpgsql security definer set search_path = public as $$
 begin
   if new.referral_code is null then new.referral_code := public.gen_referral_code(); end if;
   return new;
+exception when others then
+  return new;   -- 2026-11-27: a code problem must NEVER block a sign-up (a profile without a code is filled in later by the backfill update)
 end;
 $$;
 drop trigger if exists trg_referral_set_code on public.profiles;

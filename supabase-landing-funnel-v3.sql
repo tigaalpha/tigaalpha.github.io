@@ -53,7 +53,7 @@ returns table (
                                -- "not yet conclusive" display (plan §3 rule 2)
 )
 language sql stable security definer set search_path = public as $$
-  with span as (select now() - make_interval(days => greatest(coalesce(p_days, 30), 1)) as since),
+  with span as (select now() - make_interval(days => greatest(coalesce(p_days, 30), 1)) as since where public.is_app_admin()),   -- 2026-11-27 hardening: a non-admin gets no rows
   ev as (
     select
       e.*,
@@ -169,7 +169,7 @@ from (
   -- one row per account: the anon_id captured at first login (A4 event)
   select
     e.user_id,
-    substr(e.item_id from length('signed_up_from:') + 1) as anon_id,
+    substring(e.item_id from length('signed_up_from:') + 1) as anon_id,
     coalesce(p.signup_landing, 'unknown') as landing_lang,
     e.created_at as stitched_at
   from public.usage_events e
@@ -199,3 +199,11 @@ $$;
 --         ships (older signups have no stitch event — expected, not a bug)
 --   3) the dashboard reads only v3; admin_landing_funnel stays untouched.
 -- ═══════════════════════════════════════════════════════════════════════════
+
+-- ── 4. 2026-11-27 hardening added before the owner-approved run ─────────────
+-- Supabase gives new public objects to anon / authenticated by default. The view pairs user ids with anon ids and must not be readable through the API; the functions are for signed-in admins only.
+revoke all on public.landing_signup_journeys from public, anon, authenticated;
+revoke execute on function public.admin_landing_funnel_v3(int) from public, anon;
+grant  execute on function public.admin_landing_funnel_v3(int) to authenticated;
+revoke execute on function public.is_landing_analytics_admin() from public, anon;
+grant  execute on function public.is_landing_analytics_admin() to authenticated;

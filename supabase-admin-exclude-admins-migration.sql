@@ -38,8 +38,11 @@
 -- Tier 3 = owner only (same threshold as is_top_admin()).
 -- ═════════════════════════════════════════════════════════════════════════════
 
-create or replace function public.admin_account_ids()
-returns setof uuid
+-- 2026-11-27 fix before the owner-approved run: it returned `setof uuid`, whose column is named admin_account_ids, so `select id from admin_account_ids()` resolved `id` to the OUTER usage_events.id (bigint) and every
+-- call died with "operator does not exist: uuid <> bigint". It now returns table(id uuid).
+drop function if exists public.admin_account_ids();
+create function public.admin_account_ids()
+returns table(id uuid)
 language sql stable security definer set search_path = public as $$
   select p.id from public.profiles p where coalesce(p.admin_tier, 0) >= 3;
 $$;
@@ -614,3 +617,8 @@ grant  execute on function public.admin_usage_stats(text, timestamptz, boolean, 
 --    select public.admin_activity_overview(null, true); -> same as before.
 -- 4. As a NON-admin account every function above must FAIL (admin only).
 -- ═════════════════════════════════════════════════════════════════════════════
+
+-- 2026-11-27: the shorter pre-migration overloads are dropped once the new ones exist (a call by name would otherwise be ambiguous); their definitions were saved in phase3_function_backup_20261127.
+-- drop function public.admin_activity_overview(timestamptz, boolean); drop function public.admin_activity_users(timestamptz, boolean); drop function public.admin_activity_hourly(timestamptz, boolean);
+-- drop function public.admin_anon_overview(timestamptz, integer); drop function public.admin_anon_visitors(timestamptz, integer); drop function public.admin_signup_methods(timestamptz);
+-- drop function public.admin_device_mix(timestamptz); drop function public.admin_device_widths(timestamptz);
