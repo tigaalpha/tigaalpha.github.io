@@ -24,7 +24,7 @@ export type Visitor = {
   ua: string;        // the browser kind of the FIRST row this visitor ever wrote
   src: string;
   lg: string;        // landing language: page:xx, else the attr row's lg
-  c: string; k: string; t: string; m: string; v: string; tz: string; oua: string;
+  c: string; k: string; t: string; m: string; v: string; tz: string; oua: string; r: string;   // r = referral code of the sharing friend
   viewed: boolean; seen: boolean; played: boolean; heard: boolean; asked: boolean;
   gate: boolean; inappGate: boolean; escTap: boolean; arrived: boolean;
   tried: boolean; submitted: boolean; signed: boolean;
@@ -69,7 +69,7 @@ export function regionOfTz(tz: string): string {
 }
 
 const blank = (id: string, ua: string, src: string): Visitor => ({
-  id, ua: ua || "?", src: src || "direct", lg: "", c: "", k: "", t: "", m: "", v: "", tz: "", oua: "",
+  id, ua: ua || "?", src: src || "direct", lg: "", c: "", k: "", t: "", m: "", v: "", tz: "", oua: "", r: "",
   viewed: false, seen: false, played: false, heard: false, asked: false,
   gate: false, inappGate: false, escTap: false, arrived: false,
   tried: false, submitted: false, signed: false,
@@ -92,6 +92,7 @@ export function buildVisitors(rows: Array<{ anon_id?: string | null; kind: strin
       if (g.t && !v.t) v.t = g.t;
       if (g.m && !v.m) v.m = g.m;
       if (g.v && !v.v) v.v = g.v;
+      if (g.r && !v.r) v.r = g.r;
       if (g.tz && !v.tz) v.tz = g.tz;
       if (g.oua && !v.oua) v.oua = g.oua;
       if (g.lg && !v.lg && /^(th|en|zh|ja|ko|ru|hi|es|fr|ar|de)$/.test(g.lg)) v.lg = g.lg;
@@ -116,8 +117,8 @@ export function buildVisitors(rows: Array<{ anon_id?: string | null; kind: strin
   return by;
 }
 
-export type Dim = "browser" | "inapp" | "source" | "campaign" | "adset" | "creative" | "variant" | "lang" | "region" | "escape";
-export const DIMS: Dim[] = ["inapp", "browser", "source", "campaign", "adset", "creative", "variant", "lang", "region", "escape"];
+export type Dim = "browser" | "inapp" | "source" | "campaign" | "adset" | "creative" | "variant" | "ref" | "lang" | "region" | "escape";
+export const DIMS: Dim[] = ["inapp", "browser", "source", "campaign", "adset", "creative", "variant", "ref", "lang", "region", "escape"];
 
 export function keyOf(v: Visitor, dim: Dim): string {
   switch (dim) {
@@ -128,6 +129,7 @@ export function keyOf(v: Visitor, dim: Dim): string {
     case "adset": return v.t || "—";
     case "creative": return v.k || "—";
     case "variant": return v.v || "a";
+    case "ref": return v.r || "—";
     case "lang": return v.lg || "?";
     case "region": return regionOfTz(v.tz);
     case "escape": return v.escTap || v.arrived ? "escaped" : "stayed";

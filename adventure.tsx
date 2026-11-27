@@ -117,7 +117,7 @@ export function shareCard(c: any, P: any, lang: string) {
     x.fillStyle = "#fff"; x.font = "700 30px system-ui,sans-serif"; x.fillText(String(T3(lang, P.th, P.en, P.zh)).slice(0, 38), 36, 130);
     x.font = "600 26px system-ui,sans-serif"; x.fillStyle = "#9fe8ff";
     x.fillText("☠ " + (c.kills || 0) + "    ◆ " + (c.cry || 0) + (c.team ? "    🤝 " + c.team.n : ""), 36, 200);
-    x.fillStyle = "rgba(255,255,255,.6)"; x.font = "500 20px system-ui,sans-serif"; x.fillText("tigaalpha.github.io", 36, 360);
+    x.fillStyle = "rgba(255,255,255,.6)"; x.font = "500 20px system-ui,sans-serif"; x.fillText("www.tigaalpha.com", 36, 360);
     cv.toBlob((b) => { if (!b) return; const f = new File([b], "tiga-adventure.png", { type: "image/png" }); const nav: any = navigator; if (nav.canShare && nav.canShare({ files: [f] })) { nav.share({ files: [f], title: "TIGA Adventure" }).catch(() => {}); } else { const a = document.createElement("a"); a.href = URL.createObjectURL(b); a.download = "tiga-adventure.png"; a.click(); } }, "image/png");
   } catch (e) {}
 }

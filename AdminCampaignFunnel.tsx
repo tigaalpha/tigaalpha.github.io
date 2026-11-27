@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { sb } from "./supabase-client";
 import { buildVisitors, groupVisitors, cutCounts, DIMS, isWebviewUa, type Dim } from "./campaign-funnel";
 
@@ -42,6 +42,7 @@ const DIM_LABEL: Record<Dim, [string, string, string]> = {
   source: ["แหล่งที่มา (src)", "Source", "来源"],
   campaign: ["แคมเปญ (utm_campaign)", "Campaign", "活动"],
   adset: ["ชุดโฆษณา (utm_term)", "Ad set", "广告组"],
+  ref: ["รหัสผู้แนะนำ (ref)", "Referrer code (ref)", "推荐码 (ref)"],
   creative: ["ครีเอทีฟ (utm_content)", "Creative", "创意"],
   variant: ["เวอร์ชันหน้า (?v=)", "Landing variant", "页面版本"],
   lang: ["ภาษาของหน้า", "Landing language", "页面语言"],
@@ -152,6 +153,8 @@ export function CampaignFunnelCard({ range, T }) {
         </>
       )}
 
+      <TopReferrers T={T} />
+
       <details style={{ marginTop: 8 }}>
         <summary className="admstu-row-sub" style={{ cursor: "pointer" }}>
           {T("คู่มือ: ตั้งลิงก์โฆษณาให้ระบบจับแคมเปญได้", "Guide: how to tag the ad links", "指南：如何给广告链接加标签")}
@@ -166,6 +169,26 @@ export function CampaignFunnelCard({ range, T }) {
           {T(" เพื่อทดสอบหน้าเวอร์ชัน B (ไม่ใส่ = เวอร์ชันเดิม) TikTok / YouTube ใช้ตัวแปรของแพลตฟอร์มนั้น หรือพิมพ์ชื่อเองก็ได้ ขอแค่ชื่อไม่ซ้ำกัน", " for landing variant B (none = the original). For TikTok / YouTube use that platform's macros, or type names by hand — just keep them unique.", " 测试 B 版（不加 = 原版）。TikTok / YouTube 用各自的宏，或手动命名。")}
         </div>
       </details>
+    </div>
+  );
+}
+
+/* Step 3.4: the people whose link brought the most sign-ups (admin only). Rows come from admin_top_referrers (supabase-referral-migration.sql); until it is applied the call errors and nothing is drawn.
+   A referrer is shown by code only: no name, no e-mail. */
+function TopReferrers({ T }: { T: (th: string, en: string, zh: string) => string }) {
+  const [rows, setRows] = useState<any[] | null>(null);
+  useEffect(() => { sb.rpc("admin_top_referrers", { p_limit: 10 }).then(({ data, error }) => setRows(error ? null : (data || [])), () => setRows(null)); }, []);
+  if (!rows || !rows.length) return null;
+  return (
+    <div style={{ marginTop: 10 }}>
+      <div className="admstu-h" style={{ fontSize: 13 }}>{T("ผู้แนะนำยอดนิยม", "Top referrers", "热门推荐人")}</div>
+      <div className="admstu-row-sub">{T("นับจากบัญชีที่สมัครผ่านลิงก์แนะนำและ claim สำเร็จ (ตาราง referrals) — แสดงเป็นรหัสเท่านั้น", "Counted from accounts that signed up through a referral link and were claimed (table referrals) — shown by code only.", "统计通过推荐链接注册并成功认领的账号（referrals 表）——仅显示代码。")}</div>
+      {rows.map((r) => (
+        <div key={r.referrer_id} className="anrow" style={{ display: "flex", justifyContent: "space-between", fontSize: 12, padding: "3px 0" }}>
+          <span style={{ fontFamily: "monospace" }}>{r.code}</span>
+          <span>{Number(r.referrals) || 0} {T("คน", "friends", "人")}{Number(r.rewarded) ? ` · ${Number(r.rewarded)} ${T("ได้รางวัล", "rewarded", "已奖励")}` : ""}</span>
+        </div>
+      ))}
     </div>
   );
 }

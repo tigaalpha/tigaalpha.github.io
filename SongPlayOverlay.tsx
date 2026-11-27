@@ -10,6 +10,8 @@ import { nextStarGoal } from "./play-along-judge";
 import { useWeekly } from "./play-along-online";
 
 import { pickT, xl, by } from "./lang-extra";
+import { buildShareUrl } from "./share-links";
+import { track as trackEvent } from "./analytics";
 /** "Song of the week" line for the ready screen: shown only when the chosen song is this week's, with the top of the board. Honour only, pays nothing. */
 function WeeklyLine({ songId, T }: { songId: string; T: (th: string, en: string, zh: string) => string }) {
   const w = useWeekly();
@@ -771,7 +773,8 @@ export function SongPlayOverlay({ gameStore, pvpOnline, openPvpOnline, closePvpO
               )}
               <div className="songready-btns" style={{ marginTop: 10 }}>
                 <button className="songbtn ghost" onClick={() => { logSongShare(String(songMeta && songMeta.id || "song")); shareCard({ title: tr(songMeta, lang), big: songResult.acc + "%", sub: starRow(songResult.stars), lines: [`${lc.songScore}: ${songResult.score}`, `${lc.songCombo} ${songResult.maxCombo}×`] }); }}>📤 {lc.shareBtn}</button>
-                <button className="songbtn ghost pl-line" onClick={() => shareLine(`🎹 ${tr(songMeta, lang)} — ${"★".repeat(songResult.stars)} ${songResult.acc}% 🎵 TIGA ALPHA tigaalpha.github.io`)}>LINE</button>
+                <button className="songbtn ghost pl-line" onClick={() => shareLine(`🎹 ${tr(songMeta, lang)} — ${"★".repeat(songResult.stars)} ${songResult.acc}% 🎵 TIGA ALPHA ${buildShareUrl({ medium: "line", campaign: "song" })}`)}>LINE</button>
+                <button className="songbtn ghost" data-share-friend onClick={() => { const url = buildShareUrl({ medium: "native", campaign: "song" }); const text = `🎹 ${tr(songMeta, lang)} — ${"★".repeat(songResult.stars)} ${songResult.acc}% 🎵 TIGA ALPHA`; logSongShare(String(songMeta && songMeta.id || "song")); trackEvent("share", { method: (navigator as any).share ? "native" : "copy", content_type: "song" }); if ((navigator as any).share) { (navigator as any).share({ title: "TIGA ALPHA", text, url }).catch(() => {}); } else { try { navigator.clipboard.writeText(text + " " + url); } catch (e) {} } }}>🔗 {T("แชร์ให้เพื่อน", xl(lang, "Share with a friend"), "分享给朋友")}</button>
               </div>
               {/* C1: Friend Challenge — share a challenge link */}
               <button className="songbtn ghost" style={{ width: "100%", marginTop: 6, fontSize: 12 }}

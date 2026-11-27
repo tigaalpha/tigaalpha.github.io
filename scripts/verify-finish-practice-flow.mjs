@@ -134,7 +134,7 @@ execSync(
   { stdio: "pipe" }
 );
 execSync(
-  `npx esbuild ${OUT}/use-practice-mode.testable.ts --bundle --outfile=${OUT}/hook/use-practice-mode.js --format=esm --platform=browser --loader:.ts=ts --jsx=automatic --external:react --external:react-dom`,
+  `npx esbuild ${OUT}/use-practice-mode.testable.ts --bundle --outfile=${OUT}/hook/use-practice-mode.js --format=esm --platform=browser --loader:.ts=ts --jsx=automatic --define:import.meta.env={} --external:react --external:react-dom`,
   { stdio: "pipe" }
 );
 {
@@ -155,7 +155,7 @@ execSync(
     .replace('from "./ai-chat-context"', `from "${process.cwd()}/${OUT}/infra-stub.js"`);   // readMemory double (the real module drags shared-infra → supabase into jsdom)
   writeFileSync(`${OUT}/PracticeOverlay.testable.tsx`, ovSrc);
   execSync(
-    `npx esbuild ${OUT}/PracticeOverlay.testable.tsx --bundle --outfile=${OUT}/ovroot/PracticeOverlay.js --format=esm --platform=browser --loader:.tsx=tsx --jsx=automatic --external:react --external:react-dom`,
+    `npx esbuild ${OUT}/PracticeOverlay.testable.tsx --bundle --outfile=${OUT}/ovroot/PracticeOverlay.js --format=esm --platform=browser --loader:.tsx=tsx --jsx=automatic --define:import.meta.env={} --external:react --external:react-dom`,
     { stdio: "pipe" }
   );
 }
@@ -272,7 +272,7 @@ console.log("finishPractice end-to-end (real hook + real teaching loop):");
      can't resolve that, so bundle it (rewriting the import to the ALREADY-
      BUNDLED ovroot/web.js built above) and import the bundle instead. */
   execSync(
-    `npx esbuild use-practice-coach.ts --bundle --outfile=${OUT}/coach/use-practice-coach.js --format=esm --platform=browser --loader:.ts=ts --external:react`,
+    `npx esbuild use-practice-coach.ts --bundle --outfile=${OUT}/coach/use-practice-coach.js --format=esm --platform=browser --loader:.ts=ts --define:import.meta.env={} --external:react`,
     { stdio: "pipe" }
   );
   const { buildPracticeCoachData } = await import(pathToFileURL(`${OUT}/coach/use-practice-coach.js`).href);

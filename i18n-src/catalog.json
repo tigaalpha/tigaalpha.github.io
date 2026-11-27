@@ -53779,5 +53779,15 @@
     "fr": "Plus que {0} jours — continue avec Premium à {1} par mois et apprends sans interruption",
     "ar": "تبقّى {0} أيام — واصل مع Premium بسعر {1} شهريًا وتعلّم دون انقطاع",
     "de": "Noch {0} Tage — mit Premium für {1} pro Monat ohne Unterbrechung weiterlernen"
+  },
+  "Share with a friend": {
+    "ja": "友だちにシェア",
+    "ko": "친구에게 공유",
+    "ru": "Поделиться с другом",
+    "hi": "दोस्त को शेयर करें",
+    "es": "Compartir con un amigo",
+    "fr": "Partager avec un ami",
+    "ar": "شارك مع صديق",
+    "de": "Mit einem Freund teilen"
   }
 }

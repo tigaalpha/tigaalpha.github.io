@@ -12,7 +12,9 @@ let pass = 0; const fails = []; const ok = (c, n) => { if (c) { pass++; console.
 const jsIn = (d) => fs.readdirSync(d).filter((f) => f.endsWith(".js")).map((f) => fs.readFileSync(path.join(d, f), "utf8")).join("\n");
 
 console.log("OFF: the committed build without the variable");
-const appOff = jsIn(path.join(ROOT, "dist/bundle")), landOff = jsIn(path.join(ROOT, "landing/bundle"));
+// only the files the CURRENT page loads: the bundle folders keep the last 8 builds on purpose, and an older build may differ
+const cur = (html, dir) => { const t = fs.readFileSync(path.join(ROOT, html), "utf8"); return [...t.matchAll(/(?:src|href)="\.?\/?(?:\.\/)?bundle\/([^"]+\.js)"/g)].map((m) => fs.readFileSync(path.join(ROOT, dir, m[1]), "utf8")).join("\n"); };
+const appOff = cur("dist/index.html", "dist/bundle"), landOff = cur("landing/index.html", "landing/bundle");
 ok(!/data-line-login/.test(appOff), "the app bundle has no LINE button (VITE_LINE_LOGIN_ENABLED unset)");
 ok(!/data-line-login/.test(landOff), "the landing bundle has no LINE button");
 

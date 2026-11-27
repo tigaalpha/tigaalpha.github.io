@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
-import { shareUrl } from "./share-links";
+import { shareUrl, buildShareUrl } from "./share-links";
+import { sb } from "./supabase-client";
 import { withExternalBrowserFlag } from "./app-shell";
 
 import { by } from "./lang-extra";
@@ -50,15 +51,15 @@ export function ReferralDashboard({ lang = "th" }: { lang?: string }) {
       totalRef: "แนะนำทั้งหมด",
       successRef: "สำเร็จ",
       pendingRef: "รอผล",
-      reward: "รางวัลที่ได้",
+      reward: "วัน Premium ที่ได้รับ",
       baht: "฿",
       howItWorks: "วิธีการ",
       step1: "1️⃣ แชร์รหัสแนะนำให้เพื่อน",
       step1Desc: "ส่งรหัสของคุณให้เพื่อนทาง LINE, Facebook, หรือช่องทางอื่น",
-      step2: "2️⃣ เพื่อนกรอกรหัสตอนสมัคร",
-      step2Desc: "เพื่อนกรอกรหัสแนะนำของคุณตอนสมัครเรียน",
-      step3: "3️⃣ ทั้งคู่รับรางวัล!",
-      step3Desc: "คุณได้ ฿500 และเพื่อนได้ส่วนลด ฿500",
+      step2: "2️⃣ เพื่อนสมัครผ่านลิงก์ของคุณ",
+      step2Desc: "เพื่อนเปิดลิงก์ที่คุณแชร์ (มีรหัสของคุณติดอยู่) แล้วสมัครใช้งาน",
+      step3: "3️⃣ เรานับให้คุณอัตโนมัติ",
+      step3Desc: "เมื่อเปิดระบบรางวัล คุณจะได้วัน Premium เพิ่ม (เป็นวันใช้งาน ไม่ใช่เงิน) — เราจะแจ้งให้ทราบ",
       friends: "เพื่อนที่แนะนำมา",
       noFriends: "ยังไม่มีเพื่อนที่สมัคร — เริ่มแชร์เลย!",
       statusPending: "⏳ รอผล",
@@ -67,7 +68,7 @@ export function ReferralDashboard({ lang = "th" }: { lang?: string }) {
       shareLine: "แชร์ผ่าน LINE",
       shareFB: "แชร์ Facebook",
       shareCopy: "คัดลอกข้อความ",
-      shareMsg: "🎹 มาเรียนเปียโนกัน! ใช้รหัสแนะนำของฉัน \"{code}\" ตอนสมัคร แล้วเราจะได้ส่วนลดทั้งคู่! 🎁",
+      shareMsg: "🎹 มาเรียนเปียโนกับ TIGA ALPHA กัน! ทดลอง Premium ฟรี 7 วัน ไม่ต้องผูกบัตร (รหัสแนะนำ: {code})",
       leaderboard: "🏆 อันดับผู้แนะนำ",
       you: "คุณ",
     },
@@ -82,15 +83,15 @@ export function ReferralDashboard({ lang = "th" }: { lang?: string }) {
       totalRef: "Total Referrals",
       successRef: "Successful",
       pendingRef: "Pending",
-      reward: "Rewards Earned",
+      reward: "Premium days earned",
       baht: "฿",
       howItWorks: "How It Works",
       step1: "1️⃣ Share your code with friends",
       step1Desc: "Send your code via LINE, Facebook, or any channel",
-      step2: "2️⃣ Friend enters code when signing up",
-      step2Desc: "Your friend uses your referral code during registration",
-      step3: "3️⃣ Both of you get rewards!",
-      step3Desc: "You get ฿500, your friend gets ฿500 off",
+      step2: "2️⃣ A friend signs up through your link",
+      step2Desc: "Your friend opens the link you shared (your code is in it) and signs up",
+      step3: "3️⃣ We count it for you",
+      step3Desc: "When rewards are switched on you get extra Premium days (days of use, never money) — we will tell you",
       friends: "Friends You Referred",
       noFriends: "No friends signed up yet — start sharing!",
       statusPending: "⏳ Pending",
@@ -99,7 +100,7 @@ export function ReferralDashboard({ lang = "th" }: { lang?: string }) {
       shareLine: "Share on LINE",
       shareFB: "Share on Facebook",
       shareCopy: "Copy Message",
-      shareMsg: "🎹 Come learn piano with me! Use my referral code \"{code}\" when you sign up and we both get a discount! 🎁",
+      shareMsg: "🎹 Come learn piano with me on TIGA ALPHA! Free 7-day Premium trial, no card needed (referral code: {code})",
       leaderboard: "🏆 Referral Leaderboard",
       you: "You",
     },
@@ -125,6 +126,15 @@ export function ReferralDashboard({ lang = "th" }: { lang?: string }) {
       localStorage.setItem("tiga_referral", JSON.stringify(newStats));
       setStats(newStats);
     }
+    /* Step 3.4: the real numbers live on the server (supabase-referral-migration.sql: my_referral_stats). Until that is applied the call errors and the local placeholder stays. A friend is an initial and a date, never an e-mail or a full name. */
+    sb.rpc("my_referral_stats").then(({ data, error }) => {
+      if (error || !data || !data.code) return;
+      try { localStorage.setItem("tg_my_ref", String(data.code)); } catch (e) {}
+      const days = 7;   // reward_days in app_settings 'referral' (default 7); shown only as a multiple of what was actually rewarded
+      setStats({ code: String(data.code), totalReferrals: Number(data.total) || 0, successfulReferrals: Number(data.rewarded) || 0, pendingReferrals: Math.max(0, (Number(data.total) || 0) - (Number(data.rewarded) || 0)),
+        rewardEarned: (Number(data.rewarded) || 0) * days,
+        friends: (data.friends || []).map((f: any) => ({ name: String(f.initial || "?") + "•••", status: f.rewarded ? "success" : "pending", date: String(f.at || "").slice(0, 10) })) });
+    }, () => {});
   }, []);
 
   function copyCode() {
@@ -139,7 +149,7 @@ export function ReferralDashboard({ lang = "th" }: { lang?: string }) {
     if (!stats) return;
     const msg = c.shareMsg.replace("{code}", stats.code);
     const medium = platform === "line" ? "line" : platform === "facebook" ? "facebook" : "copy";
-    const url = medium === "line" ? withExternalBrowserFlag(shareUrl(medium)) : shareUrl(medium);   // the landing page of the real domain, the channel in utm_medium; a link opened inside LINE leaves for the phone's browser
+    const url = medium === "line" ? withExternalBrowserFlag(buildShareUrl({ medium, campaign: "referral" })) : buildShareUrl({ medium, campaign: "referral" });   // the landing page of the real domain, the channel in utm_medium; a link opened inside LINE leaves for the phone's browser
     
     if (platform === "line") {
       window.open(`https://social-plugins.line.me/lineit/share?url=${encodeURIComponent(url)}&text=${encodeURIComponent(msg)}`, "_blank");
@@ -228,7 +238,7 @@ export function ReferralDashboard({ lang = "th" }: { lang?: string }) {
             { val: stats.totalReferrals, label: c.totalRef, icon: "📨" },
             { val: stats.successfulReferrals, label: c.successRef, icon: "✅" },
             { val: stats.pendingReferrals, label: c.pendingRef, icon: "⏳" },
-            { val: `${c.baht}${stats.rewardEarned.toLocaleString()}`, label: c.reward, icon: "💰" },
+            { val: stats.rewardEarned.toLocaleString(), label: c.reward, icon: "🎁" },
           ].map((s, i) => (
             <div key={i} style={{
               padding: 20, borderRadius: 14,

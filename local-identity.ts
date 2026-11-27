@@ -212,6 +212,7 @@ function urlTags() {
   return {
     m: tidy(q.get("utm_medium")), c: tidy(q.get("utm_campaign")), k: tidy(q.get("utm_content")),
     t: tidy(q.get("utm_term")), id: tidy(q.get("utm_id"), 24), ck: click, v: tidy(q.get("v"), 12),
+    r: tidy(q.get("ref"), 8).toUpperCase(),   // the referral code of the friend whose link this is (Step 3.4); only a code, never a person
   };
 }
 /* Which landing variant this visit is on: ?v=b, ?v=c … ("a" and no tag are the
@@ -245,6 +246,19 @@ function utmRead() {
     return { first: ok(j && j.first) ? j.first : null, last: ok(j && j.last) ? j.last : null };
   } catch (e) { return { first: null, last: null }; }
 }
+/* ── the referral code of the friend whose link brought this visitor (Step 3.4): ?ref=ABC2345 -> tg_ref {c, at}, 30 days, device-only. Claimed once after the first login (App.tsx, rpc claim_referral). ── */
+const REF_KEY = "tg_ref";
+const REF_TTL = 30 * 24 * 3600 * 1000;
+export function captureRef() {
+  try {
+    const c = (new URLSearchParams(window.location.search).get("ref") || "").trim().toUpperCase();
+    if (/^[A-Z0-9]{6,8}$/.test(c)) localStorage.setItem(REF_KEY, JSON.stringify({ c, at: Date.now() }));
+  } catch (e) {}
+}
+export function readRef(): string | null {
+  try { const j = JSON.parse(localStorage.getItem(REF_KEY) || "null"); return j && /^[A-Z0-9]{6,8}$/.test(j.c) && Date.now() - Number(j.at || 0) < REF_TTL ? j.c : null; } catch (e) { return null; }
+}
+export function clearRef() { try { localStorage.removeItem(REF_KEY); } catch (e) {} }
 export function captureUtm() {
   try {
     const cur = utmFromUrl();
@@ -265,8 +279,9 @@ export function utmForSignup() {
 export function attributionEvent(lg = "") {
   try {
     captureUtm();
+    captureRef();
     const cur = urlTags();
-    const has = !!(cur.m || cur.c || cur.k || cur.t || cur.id || cur.ck || cur.v);
+    const has = !!(cur.m || cur.c || cur.k || cur.t || cur.id || cur.ck || cur.v || cur.r);
     const lgp = tidy(lg, 4);
     const raw = localStorage.getItem(ATTR_KEY);
     if (!raw) {
@@ -313,6 +328,7 @@ export function handoffUrl(href, extra = {}) {
       u.searchParams.set("hid", aid);
       u.searchParams.set("hat", String(Math.floor(Date.now() / 60000)));
     }
+    const rf = readRef(); if (rf && !u.searchParams.has("ref")) u.searchParams.set("ref", rf);   // the friend's code too, for a magic link opened in another browser
     const ut = utmForSignup();   // the campaign rides the link too, so a magic link opened in another browser is still counted for it
     if (!u.searchParams.has("utm_source")) { if (ut.utm_source) u.searchParams.set("utm_source", ut.utm_source); if (ut.utm_medium) u.searchParams.set("utm_medium", ut.utm_medium); if (ut.utm_campaign) u.searchParams.set("utm_campaign", ut.utm_campaign); }
     u.searchParams.set("hsrc", trafficSource());

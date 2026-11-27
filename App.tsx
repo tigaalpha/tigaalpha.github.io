@@ -1,4 +1,6 @@
 import { track as trackEvent, signupUtm } from "./analytics";
+import { readRef, clearRef } from "./local-identity";
+import { MY_REF_KEY, buildShareUrl } from "./share-links";
 import { rankTopics } from "./learn-plan";
 import { tempoFactorOf } from "./plan-store";
 import { takeBlogReturn } from "./blog-return";
@@ -484,6 +486,7 @@ const APP_VER = "13.7.1132";
 /* test door: tg_test_pricing = "1" shows a guest the Pathway's "Upgrade Premium" pill and the drawer's plan item (a guest has neither: they speak of a plan the visitor does not have). Only the entry
    is opened, the pricing card itself is the real one: scripts/smoke-lang-jakoru.mjs runs as a guest and reads the prices on that card in every language. */
 const pricingDoor = (): boolean => { try { return localStorage.getItem("tg_test_pricing") === "1"; } catch (e) { return false; } };
+const REF_CLAIM_TRIED = new Set<string>();   // Step 3.4: accounts whose referral claim was already attempted in this page load
 const AUTO_ONBOARDED = new Set<string>();   // accounts already auto-onboarded in this page load (see App())
 async function signInWith(provider) {
   try { sessionStorage.setItem("tiga_page", "pathway"); } catch (e) {}   // after a log-in the learner lands on the Learning Pathway, not on the lesson / song page the guest was on (a refused start leaves nothing to resume)
@@ -11072,6 +11075,24 @@ export default function App() {
           } else if (!sessionStorage.getItem("tg_login_tracked")) {
             sessionStorage.setItem("tg_login_tracked", "1");
             trackEvent("login", { method });
+          }
+        } catch (e) {}
+      }
+      /* ── Step 3.4: referrals. Keep this account's own code for the share buttons, and claim the code of the friend whose link brought this browser, once per page load; a RPC that is not there yet
+         (supabase-referral-migration.sql not applied) or any error is silent and the code stays for the next login. The server refuses an account older than 7 days, your own code and a second claim. ── */
+      if (data) {
+        try {
+          if (data.referral_code) localStorage.setItem(MY_REF_KEY, String(data.referral_code));
+          const rc = readRef();
+          if (rc && !REF_CLAIM_TRIED.has(uid)) {
+            REF_CLAIM_TRIED.add(uid);
+            const ut = signupUtm();
+            sb.rpc("claim_referral", { p_code: rc, p_utm_source: ut.utm_source || null, p_utm_medium: ut.utm_medium || null }).then(({ data: r, error }) => {
+              if (error) return;   // not applied yet / network: try again at the next login
+              const st = r && r.status;
+              if (st === "ok" || st === "already" || st === "self" || st === "too_old" || st === "unknown_code" || st === "bad_code") clearRef();
+              if (st === "ok") logUsage("land", "referral:claimed");
+            }, () => {});
           }
         } catch (e) {}
       }
