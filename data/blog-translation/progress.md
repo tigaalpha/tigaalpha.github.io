@@ -32,3 +32,4 @@ Updated 2026-11-28 (owner order 16:37 of 27 Nov, done).
 - Round 1: 25 translated, 24 pass and wait for insert (`blog-translation-insert` th/25), 1 held (`adult-piano-restart-paths`: English promo is inline links, no bullet block; file in `held/th/`, listed in `skip-th.json`).
 - Totals: translated 45 (20 inserted + 24 waiting + 1 held). Remaining untranslated: 730 (incl. the held one: 729 + 1).
 - Round 2: 25 translated, 25 pass (all waiting for insert, together with round 1: 49 pending in the workflow queue). Translated 70 in total (20 inserted, 49 waiting, 1 held). Remaining untranslated: 705.
+- Round 3: 25 translated, 25 pass. Rounds 1-2 are inserted by the owner (inserted-th.json = 69). Waiting for insert: 25 (round 3). Translated 95 in total (69 inserted, 25 waiting, 1 held). Remaining untranslated: 680.
