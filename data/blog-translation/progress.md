@@ -37,3 +37,4 @@ Updated 2026-11-28 (owner order 16:37 of 27 Nov, done).
 - Round 5: 25 translated, 25 pass. Inserted by the owner so far: 94. Waiting for insert: 50 (rounds 4 and 5). Translated 145 in total (94 inserted, 50 waiting, 1 held). Remaining untranslated: 630.
 - Round 6: 25 translated, 25 pass. Waiting for insert: 75 (rounds 4-6). Translated 170 in total (94 inserted, 75 waiting, 1 held). Remaining untranslated: 605.
 - Round 7: 25 translated, 25 pass. Inserted by the owner so far: 169 (rounds 1-6 of the first batch of insert runs). Waiting for insert: 25 (round 7). Translated 195 in total (169 inserted, 25 waiting, 1 held). Remaining untranslated: 580.
+- Round 8: 25 translated, 25 pass. Waiting for insert: 25 (round 8) on top of 25 from round 7 if not yet run. Translated 220 in total (1 held). Remaining untranslated: 555.
