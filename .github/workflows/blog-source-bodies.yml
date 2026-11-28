@@ -35,6 +35,6 @@ jobs:
           git config user.name "blog-source-bodies"
           git config user.email "blog-source-bodies@users.noreply.github.com"
           git add data/blog-snapshot/src-bodies
-          git diff --cached --quiet || (git commit -m "Blog source bodies for $LANG_IN ($(date -u +%F))" && git pull --rebase origin main && git push origin HEAD:main)
+          git diff --cached --quiet || (git commit -m "Blog source bodies for $LANG_IN ($(date -u +%F))" && git pull --rebase --autostash origin main && git push origin HEAD:main)
         env:
           LANG_IN: ${{ inputs.lang }}

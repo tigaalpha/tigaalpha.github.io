@@ -8,7 +8,7 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), ".."), O
 const target = process.argv[2], limit = Math.max(1, Math.min(1000, Number(process.argv[3]) || 300));
 if (!/^[a-z]{2}$/.test(target || "")) { console.error("usage: blog-source-bodies.mjs <target-lang> [limit]"); process.exit(2); }
 const list = path.join(os.tmpdir(), "topics-full.json");
-execFileSync("node", [path.join(ROOT, "scripts/blog-topic-map.mjs")], { env: { ...process.env, TOPIC_LIST: list }, stdio: "ignore" });
+execFileSync("node", [path.join(ROOT, "scripts/blog-topic-map.mjs")], { env: { ...process.env, TOPIC_LIST: list, TOPIC_NO_SUMMARY: "1" }, stdio: "ignore" });
 const miss = JSON.parse(fs.readFileSync(list, "utf8")).missing[target] || [];
 const skip = path.join(ROOT, "data/blog-translation", `skip-${target}.json`), skipped = new Set(fs.existsSync(skip) ? JSON.parse(fs.readFileSync(skip, "utf8")) : []);
 const src = fs.readFileSync(path.join(ROOT, "supabase-client.ts"), "utf8");

@@ -33,6 +33,6 @@ for (const l of LANGS) out.missing[l].sort((a, b) => String(a.created_at).locale
 // the full lists are big (~9 MB): they go where TOPIC_LIST says (default: not written); the committed file holds the counts only
 if (process.env.TOPIC_LIST) fs.writeFileSync(process.env.TOPIC_LIST, JSON.stringify(out));
 const sum = { taken_at: out.taken_at, topics: out.topics, per_lang: out.per_lang, missing_by_source: Object.fromEntries(LANGS.map((l) => [l, out.missing[l].reduce((a, m) => ((a[m.src_lang] = (a[m.src_lang] || 0) + 1), a), {})])) };
-fs.writeFileSync(path.join(D, "topics-summary.json"), JSON.stringify(sum, null, 1));
+if (!process.env.TOPIC_NO_SUMMARY) fs.writeFileSync(path.join(D, "topics-summary.json"), JSON.stringify(sum, null, 1));
 console.log("topics", out.topics, "merged groups (several stems, one cover)", out.merged_groups, "source lang default", bigLang);
 for (const l of ORDER) console.log(l.padEnd(3), "have", String(out.per_lang[l].have).padStart(5), "missing", String(out.per_lang[l].missing).padStart(5), "(from en:", out.missing[l].filter((m) => m.src_lang === "en").length + ")");
