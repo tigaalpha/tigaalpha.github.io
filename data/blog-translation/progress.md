@@ -38,3 +38,10 @@ Updated 2026-11-28 (owner order 16:37 of 27 Nov, done).
 - Round 6: 25 translated, 25 pass. Waiting for insert: 75 (rounds 4-6). Translated 170 in total (94 inserted, 75 waiting, 1 held). Remaining untranslated: 605.
 - Round 7: 25 translated, 25 pass. Inserted by the owner so far: 169 (rounds 1-6 of the first batch of insert runs). Waiting for insert: 25 (round 7). Translated 195 in total (169 inserted, 25 waiting, 1 held). Remaining untranslated: 580.
 - Round 8: 25 translated, 25 pass. Waiting for insert: 25 (round 8) on top of 25 from round 7 if not yet run. Translated 220 in total (1 held). Remaining untranslated: 555.
+
+## Owner target 2026-11-28 15:56 - every language has every topic
+- `scripts/blog-topic-map.mjs` groups the snapshot into topics (same stem, or same cover_url) and writes `topics-summary.json` (counts; full lists with `TOPIC_LIST=<file>`). Source language: en, else zh, else th. Target slug: stem for th/en, `<stem>-<lang>` otherwise.
+- 3,693 topics. Missing per language: th 2225, en 2281, zh 2302, es 2919, hi 2955, de 3087, ar 3136, fr 3138, ru 3386, ja 3387, ko 3392 = 32,208 translations in all.
+- Thai alone: 606 from an English source (the queue I was already working on: 555 not translated + 50 waiting for insert + 1 held), 1,619 from zh/ja/ko/ru/hi/es/fr/ar sources whose body is NOT in the snapshot (only English bodies are): the snapshot Action needs a body-fetch list for them (one controlled read, not repeated).
+- At 25 articles per round (about 4 minutes), 32,208 articles = about 1,290 rounds: this is a multi-week job at the current pace; order as the owner set: th, en, zh, es, hi, de, ar, fr, ru, ja, ko.
+- The insert script and workflow take any `lang`; `cta.json` only has a Thai entry so far, so other languages need their stored CTA row (public.blog_translation_cta) copied into cta.json before finalize works.
