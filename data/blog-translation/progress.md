@@ -26,3 +26,8 @@ Updated 2026-11-28 (owner order 16:37 of 27 Nov, done).
 - hreflang: `<slug>-<lang>` is now the translation of `<slug>` (`baseSlug` / `groupSlugs` / `sameGroup` in `scripts/blog-paths.mjs`; used by `build-blog-pages.mjs` and the live renderer `blog-live.mjs`). Every alternate points at its own slug, x-default is the English page, no URL changed. The live page still costs one slug query (it now asks for the whole group with `slug=in.(...)`). Checked with a 5-language fixture (fr / th / de pages all list en th fr de zh-Hans + x-default, reciprocal) and the existing blog smokes.
 - Insert workflow: ran once (commit 130cce16): the 20 Thai pilot articles are inserted (`inserted-th.json`). Fixed in this round: non-th languages are stored as `<slug>-<lang>` (the queue rule), a missing English snapshot row is a clear error, the inputs go through env (no shell injection), lang / limit are validated.
 - Remaining Thai: 755. Next: waves of 4 agents x 5 articles, finalize, check, commit, then the Action (lang=th, limit=25).
+
+## Thai rounds (owner 2026-11-28: translate the rest, owner runs the insert workflow)
+- Tooling: `scripts/blog-translation-batch.mjs th 25 <dir>` picks the next articles from the repo snapshot; agents translate (Sonnet, low); then `blog-translation-finalize.mjs th` and `blog-translation-check.mjs th --ok`.
+- Round 1: 25 translated, 24 pass and wait for insert (`blog-translation-insert` th/25), 1 held (`adult-piano-restart-paths`: English promo is inline links, no bullet block; file in `held/th/`, listed in `skip-th.json`).
+- Totals: translated 45 (20 inserted + 24 waiting + 1 held). Remaining untranslated: 730 (incl. the held one: 729 + 1).
