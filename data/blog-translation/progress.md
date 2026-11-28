@@ -47,3 +47,4 @@ Updated 2026-11-28 (owner order 16:37 of 27 Nov, done).
 - The insert script and workflow take any `lang`; `cta.json` only has a Thai entry so far, so other languages need their stored CTA row (public.blog_translation_cta) copied into cta.json before finalize works.
 - Round 9 (first round under the owner rule "translate faithfully, no rewriting"): 25 translated, 25 pass. Inserted so far: 219. Waiting for insert: 25 (round 9). Thai translated from English sources: 245 (219 inserted, 25 waiting, 1 held). Remaining Thai from English sources: 530.
 - Round 10: 25 translated, 25 pass. Inserted so far: 244. Waiting for insert: 25 (round 10). Thai from English sources: 270 (244 inserted, 25 waiting, 1 held). Remaining Thai from English sources: 505.
+- Round 11: 25 translated, 25 pass. Inserted so far: 269. Waiting for insert: 25 (round 11). Thai from English sources: 295 (269 inserted, 25 waiting, 1 held). Remaining Thai from English sources: 480.
