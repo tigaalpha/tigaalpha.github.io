@@ -34,3 +34,4 @@ Updated 2026-11-28 (owner order 16:37 of 27 Nov, done).
 - Round 2: 25 translated, 25 pass (all waiting for insert, together with round 1: 49 pending in the workflow queue). Translated 70 in total (20 inserted, 49 waiting, 1 held). Remaining untranslated: 705.
 - Round 3: 25 translated, 25 pass. Rounds 1-2 are inserted by the owner (inserted-th.json = 69). Waiting for insert: 25 (round 3). Translated 95 in total (69 inserted, 25 waiting, 1 held). Remaining untranslated: 680.
 - Round 4: 25 translated, 25 pass. Inserted by the owner so far: 94 (rounds 1-3). Waiting for insert: 25 (round 4). Translated 120 in total (94 inserted, 25 waiting, 1 held). Remaining untranslated: 655.
+- Round 5: 25 translated, 25 pass. Inserted by the owner so far: 94. Waiting for insert: 50 (rounds 4 and 5). Translated 145 in total (94 inserted, 50 waiting, 1 held). Remaining untranslated: 630.
