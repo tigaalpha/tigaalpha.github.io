@@ -1,0 +1,40 @@
+# Fetch the bodies of NON-English source articles that a target language still lacks (owner approval 2026-11-28 19:09), READ-ONLY, public anon key, <= 300 bodies per run.
+# Run by hand: Actions -> blog-source-bodies -> Run workflow (lang = the language that needs them, th first; limit = rows this run).
+name: blog-source-bodies
+on:
+  workflow_dispatch:
+    inputs:
+      lang:
+        description: "target language that lacks the articles (th ...)"
+        required: true
+        default: "th"
+      limit:
+        description: "bodies this run (max 1000)"
+        required: true
+        default: "300"
+permissions:
+  contents: write
+concurrency:
+  group: blog-source-bodies
+  cancel-in-progress: false
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Fetch source bodies (read-only)
+        run: node scripts/blog-source-bodies.mjs "$LANG_IN" "$LIMIT_IN"
+        env:
+          LANG_IN: ${{ inputs.lang }}
+          LIMIT_IN: ${{ inputs.limit }}
+      - name: Commit the stored bodies
+        run: |
+          git config user.name "blog-source-bodies"
+          git config user.email "blog-source-bodies@users.noreply.github.com"
+          git add data/blog-snapshot/src-bodies
+          git diff --cached --quiet || (git commit -m "Blog source bodies for $LANG_IN ($(date -u +%F))" && git pull --rebase origin main && git push origin HEAD:main)
+        env:
+          LANG_IN: ${{ inputs.lang }}

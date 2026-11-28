@@ -50,3 +50,8 @@ Updated 2026-11-28 (owner order 16:37 of 27 Nov, done).
 - Round 11: 25 translated, 25 pass. Inserted so far: 269. Waiting for insert: 25 (round 11). Thai from English sources: 295 (269 inserted, 25 waiting, 1 held). Remaining Thai from English sources: 480.
 - Round 12: 25 translated, 24 pass, 1 held (`kids-piano-practice-parent-guide`: no promo block the finalize script can recognise; file in `held/th/`, listed in `skip-th.json`). Inserted so far: 294. Waiting for insert: 24 (round 12). Thai from English sources: 320 (294 inserted, 24 waiting, 2 held). Remaining Thai from English sources: 455.
 - Round 13: 25 translated, 25 pass (the agents now always end the body with a promo paragraph + 3-link bullet list, so none was held). Inserted so far: 318. Waiting for insert: 25 (round 13). Thai from English sources: 345 (318 inserted, 25 waiting, 2 held). Remaining Thai from English sources: 430.
+
+## Owner approvals 2026-11-28 19:09
+- (1) Source bodies for non-English sources: `scripts/blog-source-bodies.mjs <lang> [limit]` + workflow `blog-source-bodies` (read-only, public anon key, <=300 bodies per run, never fetches a body twice, writes `data/blog-snapshot/src-bodies/<srclang>.json`). Thai needs 1,619 such bodies.
+- (2) `cta.json` now has all stored languages: ar de en es fr hi ja ko ru th (copied read-only from `public.blog_translation_cta`, links unchanged). NO zh row exists in that table, so zh cannot be finalized until the owner supplies / approves a zh CTA row. de's stored paragraph says "11 Sprachen" (as stored).
+- (3) More parallel translators are allowed, but Claude Max quota comes first: reduce the number of agents if it runs low.

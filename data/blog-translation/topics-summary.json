@@ -3,8 +3,8 @@
  "topics": 3693,
  "per_lang": {
   "th": {
-   "have": 1468,
-   "missing": 2225
+   "have": 1617,
+   "missing": 2076
   },
   "en": {
    "have": 1412,
@@ -49,7 +49,7 @@
  },
  "missing_by_source": {
   "th": {
-   "en": 606,
+   "en": 457,
    "zh": 488,
    "ja": 273,
    "ko": 272,
