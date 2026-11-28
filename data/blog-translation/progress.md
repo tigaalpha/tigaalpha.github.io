@@ -31,3 +31,4 @@ Updated 2026-11-28 (owner order 16:37 of 27 Nov, done).
 - Tooling: `scripts/blog-translation-batch.mjs th 25 <dir>` picks the next articles from the repo snapshot; agents translate (Sonnet, low); then `blog-translation-finalize.mjs th` and `blog-translation-check.mjs th --ok`.
 - Round 1: 25 translated, 24 pass and wait for insert (`blog-translation-insert` th/25), 1 held (`adult-piano-restart-paths`: English promo is inline links, no bullet block; file in `held/th/`, listed in `skip-th.json`).
 - Totals: translated 45 (20 inserted + 24 waiting + 1 held). Remaining untranslated: 730 (incl. the held one: 729 + 1).
+- Round 2: 25 translated, 25 pass (all waiting for insert, together with round 1: 49 pending in the workflow queue). Translated 70 in total (20 inserted, 49 waiting, 1 held). Remaining untranslated: 705.
