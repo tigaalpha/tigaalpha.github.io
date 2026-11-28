@@ -46,3 +46,4 @@ Updated 2026-11-28 (owner order 16:37 of 27 Nov, done).
 - At 25 articles per round (about 4 minutes), 32,208 articles = about 1,290 rounds: this is a multi-week job at the current pace; order as the owner set: th, en, zh, es, hi, de, ar, fr, ru, ja, ko.
 - The insert script and workflow take any `lang`; `cta.json` only has a Thai entry so far, so other languages need their stored CTA row (public.blog_translation_cta) copied into cta.json before finalize works.
 - Round 9 (first round under the owner rule "translate faithfully, no rewriting"): 25 translated, 25 pass. Inserted so far: 219. Waiting for insert: 25 (round 9). Thai translated from English sources: 245 (219 inserted, 25 waiting, 1 held). Remaining Thai from English sources: 530.
+- Round 10: 25 translated, 25 pass. Inserted so far: 244. Waiting for insert: 25 (round 10). Thai from English sources: 270 (244 inserted, 25 waiting, 1 held). Remaining Thai from English sources: 505.
