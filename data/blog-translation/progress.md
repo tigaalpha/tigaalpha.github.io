@@ -63,3 +63,4 @@ Updated 2026-11-28 (owner order 16:37 of 27 Nov, done).
 - Round 18 (English sources): 25 translated, 25 pass. Inserted so far: 443. Waiting for insert: 25 (round 18). Thai from English sources left: 330.
 - Round 19 (English sources): 25 translated, 25 pass. Inserted so far: 468. Waiting for insert: 25 (round 19). Thai from English sources left: 305.
 - Round 20 (English sources): 25 translated, 25 pass. Inserted so far: 493. Waiting for insert: 25 (round 20). Thai from English sources left: 280.
+- Round 21 (English sources): 25 translated, 25 pass. Inserted so far: 518. Waiting for insert: 25 (round 21). Thai from English sources left: 255.
