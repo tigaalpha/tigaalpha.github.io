@@ -61,3 +61,4 @@ Updated 2026-11-28 (owner order 16:37 of 27 Nov, done).
 - Round 16 (English sources): 25 translated, 25 pass. Inserted so far: 393. Waiting for insert: 25 (round 16). Thai from English sources left: 380. zh source bodies fetched: 300 (275 not yet used).
 - Round 17 (English sources): 25 translated, 25 pass. Inserted so far: 418. Waiting for insert: 25 (round 17). Thai from English sources left: 355.
 - Round 18 (English sources): 25 translated, 25 pass. Inserted so far: 443. Waiting for insert: 25 (round 18). Thai from English sources left: 330.
+- Round 19 (English sources): 25 translated, 25 pass. Inserted so far: 468. Waiting for insert: 25 (round 19). Thai from English sources left: 305.
