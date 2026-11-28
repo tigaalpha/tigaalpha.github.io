@@ -13,6 +13,8 @@ const lang = process.argv[2], only = process.argv[3] && !process.argv[3].startsW
 const GL = JSON.parse(fs.readFileSync(path.join(D, "glossary.json"), "utf8"));
 if (!lang || !GL[lang] || lang === "brand" || lang === "forbidden" || lang === "_note") { console.error("usage: blog-translation-check.mjs <lang> [slug]"); process.exit(2); }
 const SRC = JSON.parse(fs.readFileSync(path.join(ROOT, "data/blog-snapshot/en-bodies.json"), "utf8"));
+// a translation whose source is NOT English (owner 2026-11-28: every language gets every topic) carries source_lang; its source text is read from data/blog-snapshot/src-bodies/<srclang>.json (fetched by the blog-source-bodies Action)
+const SRCX = {}; const srcOf = (t) => { if (!t.source_lang || t.source_lang === "en") return SRC[t.source_slug || t.slug]; const f = path.join(ROOT, "data/blog-snapshot/src-bodies", t.source_lang + ".json"); SRCX[t.source_lang] = SRCX[t.source_lang] || (fs.existsSync(f) ? JSON.parse(fs.readFileSync(f, "utf8")) : {}); return SRCX[t.source_lang][t.source_slug]; };
 const CTA = (() => { try { return JSON.parse(fs.readFileSync(path.join(D, "cta.json"), "utf8"))[lang]; } catch (e) { return null; } })();
 const LIST_OK = process.argv.includes("--ok");   // print only the slugs that pass (used by the insert script)
 const dir = path.join(D, lang); const files = fs.existsSync(dir) ? fs.readdirSync(dir).filter((f) => f.endsWith(".json") && (!only || f === only + ".json")) : [];
@@ -28,7 +30,7 @@ const count = (s, re) => (s.match(re) || []).length;
 const fold = (s) => s.toLowerCase().normalize("NFC");
 let bad = 0;
 for (const f of files) {
-  const t = JSON.parse(fs.readFileSync(path.join(dir, f), "utf8")), src = SRC[t.source_slug || t.slug], P = [];
+  const t = JSON.parse(fs.readFileSync(path.join(dir, f), "utf8")), src = srcOf(t), P = [];
   const all = [t.title, t.excerpt, t.body].join("\n"), lowAll = fold(all);
   if (!src) P.push("no_source");
   const sb = src ? src.body : "";
@@ -54,7 +56,7 @@ for (const f of files) {
     if (Math.abs(h(t.body) - h(sb)) > 2) P.push("heading_count");
     if (Math.abs(b(t.body) - b(sb)) > 4) P.push("bullet_count");
     if (Math.abs(q(t.body) - q(sb)) > 3) P.push("faq_count");
-    const r = t.body.length / Math.max(1, sb.length); if (r < BAND[lang][0]) P.push("too_short"); if (r > BAND[lang][1]) P.push("too_long");
+    const r = t.body.length / Math.max(1, sb.length), band = t.source_lang && t.source_lang !== "en" ? [0.6, 8] : BAND[lang]; if (r < band[0]) P.push("too_short"); if (r > band[1]) P.push("too_long");
     // prices: Thai keeps 799 baht, every other language US$24.99; numbers of the source must survive (years, steps, durations), except those that are the price itself
     const strip = (s) => s.replace(/US\$\s?24\.99|24\.99|799|฿\s?799/g, "");
     const sn = nums(strip(sb)), tn = nums(strip(t.body)); const missing = sn.filter((n) => !tn.includes(n));
