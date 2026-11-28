@@ -1,7 +1,7 @@
 // On-demand blog HTML. Reads published rows only. Never writes a post, a slug, or a queue.
 import fs from "node:fs";
 import { articleHtml, feedXml, indexHtml, relatedPosts } from "./build-blog-pages.mjs";
-import { BLOG_LANGS, STATIC_BLOG_LANGS, blogSitemapIndexXml, fromQuery, notFoundHtml, pickPost, sitemapLangBuild, totalFromContentRange } from "./blog-paths.mjs";
+import { BLOG_LANGS, STATIC_BLOG_LANGS, baseSlug, groupSlugs, sameGroup, blogSitemapIndexXml, fromQuery, notFoundHtml, pickPost, sitemapLangBuild, totalFromContentRange } from "./blog-paths.mjs";
 export { totalFromContentRange };
 
 const src = fs.readFileSync(new URL("../supabase-client.ts", import.meta.url), "utf8");
@@ -21,8 +21,9 @@ function result(status, body, headers) {
   return { status, body, headers };
 }
 
-export async function fetchSlug(slug, fetchImpl) {
-  const url = `${BLOG_API_URL}/rest/v1/blog_posts?select=*&published=eq.true&slug=eq.${encodeURIComponent(slug)}`;
+export async function fetchSlug(slug, fetchImpl, lang) {
+  // one query for the whole translation group (<slug>, <slug>-<lang> ...), so the hreflang set is complete without a second request
+  const url = `${BLOG_API_URL}/rest/v1/blog_posts?select=*&published=eq.true&slug=in.(${groupSlugs(slug, lang).map(encodeURIComponent).join(",")})`;
   const r = await fetchImpl(url, { headers: { apikey: BLOG_API_KEY, Authorization: "Bearer " + BLOG_API_KEY, Accept: "application/json" }, signal: AbortSignal.timeout(LIST_TIMEOUT_MS) });
   if (!r.ok) throw new Error("blog read " + r.status);
   const data = await r.json();
@@ -179,9 +180,9 @@ function redirectToFile(lang, slug) {
   });
 }
 function siblingSet(rows, post, catalog) {
-  const set = {};
-  for (const row of rows || []) if (row && row.slug === post.slug && BLOG_LANGS.includes(row.lang) && row.published !== false) set[row.lang] = row;
-  for (const c of catalog || []) if (c && c.slug === post.slug && BLOG_LANGS.includes(c.lang) && !set[c.lang]) set[c.lang] = c;
+  const set = {}, base = baseSlug(post.slug, post.lang);
+  for (const row of rows || []) if (sameGroup(row, base) && BLOG_LANGS.includes(row.lang) && row.published !== false) set[row.lang] = row;
+  for (const c of catalog || []) if (sameGroup(c, base) && BLOG_LANGS.includes(c.lang) && !set[c.lang]) set[c.lang] = c;
   if (!set[post.lang]) set[post.lang] = post;
   return set;
 }
@@ -214,12 +215,12 @@ export async function serveBlog(query, fetchImpl, opts) {
   }
   if (parsed.kind !== "article") return result(404, notFoundHtml(parsed.lang), miss(parsed.lang));
   let rows;
-  try { rows = await fetchSlug(parsed.slug, fetchImpl); }
+  try { rows = await fetchSlug(parsed.slug, fetchImpl, parsed.lang); }
   catch {
     if (!parsed.html && catalogHit(catalog, parsed)) return redirectToFile(parsed.lang, parsed.slug);
     return result(503, notFoundHtml(parsed.lang), miss(parsed.lang));
   }
-  const post = pickPost(rows, parsed.lang, parsed.hint);
+  const post = pickPost(rows.filter(r => r && r.slug === parsed.slug), parsed.lang, parsed.hint);   // exactly the rows the old single-slug query returned; the rest of the group only feeds the hreflang set
   if (!post) {
     // A committed article has no database row yet. Send the extension-less address to the file Vercel already has.
     // The .html address itself is not redirected: that file is served before this function, and a redirect would loop if it were missing.

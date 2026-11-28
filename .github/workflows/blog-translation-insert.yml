@@ -26,8 +26,11 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - run: node scripts/blog-translation-insert.mjs "${{ inputs.lang }}" "${{ inputs.limit }}"
+      - name: Insert one small batch
+        run: node scripts/blog-translation-insert.mjs "$LANG_IN" "$LIMIT_IN"
         env:
+          LANG_IN: ${{ inputs.lang }}
+          LIMIT_IN: ${{ inputs.limit }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
       - name: Commit the list of inserted slugs
         run: |

@@ -50,6 +50,20 @@ export function fromQuery(q) {
   return parsed;
 }
 
+// Translation naming (supabase-blog-translation-ops.sql): th keeps the English slug, every other language is stored as <slug>-<lang>. The group key of a post is the English slug.
+// A slug is only stripped when its own suffix is its own language, so an English article that happens to end in "-fr" keeps its slug.
+export function baseSlug(slug, lang) {
+  const sfx = "-" + lang;
+  return lang && lang !== "en" && lang !== "th" && typeof slug === "string" && slug.length > sfx.length && slug.endsWith(sfx) ? slug.slice(0, -sfx.length) : slug;
+}
+export function groupSlugs(slug, lang) {
+  const base = baseSlug(slug, lang);
+  return [...new Set([slug, base, ...BLOG_LANGS.filter(l => l !== "en" && l !== "th").map(l => base + "-" + l)])];
+}
+export function sameGroup(row, base) {
+  return !!row && (row.slug === base || row.slug === base + "-" + row.lang);
+}
+
 export function pickPost(rows, lang, hint) {
   const list = (rows || []).filter(p => p && p.published !== false && SLUG.test(p.slug || "") && LANGS.has(p.lang));
   if (lang) {

@@ -7,7 +7,7 @@
 // and it is not even downloaded: the build asks the database for the rows that are not flagged (fetchBuildRows).
 // Run by `npm run build` after build-song-pages.mjs (it appends to that script's sitemap.xml). SITE_URL overrides the domain.
 import fs from "node:fs"; import path from "node:path"; import { fileURLToPath } from "node:url";
-import { BLOG_LANGS, STATIC_BLOG_LANGS as STATIC_LANGS, totalFromContentRange } from "./blog-paths.mjs";
+import { BLOG_LANGS, STATIC_BLOG_LANGS as STATIC_LANGS, baseSlug, totalFromContentRange } from "./blog-paths.mjs";
 import { gateTail, patchArticle, BOT_SRC } from "./blog-gate.mjs";
 export { STATIC_LANGS };
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -236,7 +236,7 @@ export function addAlternates(html, slug, set) {
   const m = set && ALT_RUN.exec(html);
   if (!m) return html;
   const have = new Set([...m[0].matchAll(/hreflang="([^"]*)"/g)].map(x => x[1]));
-  const add = Object.keys(LG).filter(l => set[l] && !have.has(LG[l].html)).map(l => `<link rel="alternate" hreflang="${LG[l].html}" href="${SITE}/blog/${l}/${encodeURIComponent(slug)}.html">`).join("");
+  const add = Object.keys(LG).filter(l => set[l] && !have.has(LG[l].html)).map(l => `<link rel="alternate" hreflang="${LG[l].html}" href="${SITE}/blog/${l}/${encodeURIComponent(set[l].slug || slug)}.html">`).join("");
   if (!add) return html;
   const run = m[0].includes('<link rel="alternate" hreflang="x-default"') ? m[0].replace('<link rel="alternate" hreflang="x-default"', () => add + '<link rel="alternate" hreflang="x-default"') : m[0].replace(/\n$/, () => add + "\n");
   return html.slice(0, m.index) + run + html.slice(m.index + m[0].length);
@@ -259,7 +259,8 @@ function relatedHtml(lang, items) {
 }
 export function articleHtml(p, set, related = []) {
   const L = LG[p.lang], canon = `${SITE}/blog/${p.lang}/${encodeURIComponent(p.slug)}.html`;
-  const alts = Object.keys(set).map(l => `<link rel="alternate" hreflang="${LG[l].html}" href="${SITE}/blog/${l}/${encodeURIComponent(p.slug)}.html">`).join("") + `<link rel="alternate" hreflang="x-default" href="${SITE}/blog/${set.en ? "en" : p.lang}/${encodeURIComponent(p.slug)}.html">\n`;
+  const sl = (l) => (set[l] && set[l].slug) || p.slug;   // a translation may live under <slug>-<lang>: each alternate points at its own slug
+  const alts = Object.keys(set).map(l => `<link rel="alternate" hreflang="${LG[l].html}" href="${SITE}/blog/${l}/${encodeURIComponent(sl(l))}.html">`).join("") + `<link rel="alternate" hreflang="x-default" href="${SITE}/blog/${set.en ? "en" : p.lang}/${encodeURIComponent(set.en ? sl("en") : p.slug)}.html">\n`;
   const desc = p.excerpt || plainText(p.body).slice(0, 155);
   const articleBody = plainText(p.body).slice(0, 8000);
   const words = ["zh", "ja", "ko"].includes(p.lang) ? articleBody.replace(/\s/g, "").length : articleBody.split(/\s+/).filter(Boolean).length;   // no spaces between words in Chinese / Japanese, so characters are counted (Korean the same way, by the owner's rule)
@@ -303,13 +304,13 @@ export function feedXml(lang, list) {
 }
 // The sitemap file for the languages that ship as source files. sitemap.xml is an index whose blog entries (the ten sitemap-blog-<lang>.xml, see blogSitemapIndexEntries in blog-paths.mjs) are rendered from the database on request, and the
 // database does not hold these articles until the owner applies the seed SQL, so they get a plain file of their own (with the hreflang sets), listed in the index below. Duplicates with the live sitemap files are harmless.
-function staticSitemapXml(posts, bySlug) {
+function staticSitemapXml(posts, bySlug, groupKey) {
   const day = (p) => String(p.updated_at || p.created_at || "").slice(0, 10);
   const xl = (l, h) => `<xhtml:link rel="alternate" hreflang="${l}" href="${h}"/>`;
   const lines = [];
   for (const p of posts) {
     if (!STATIC_LANGS.includes(p.lang)) continue;
-    const set = bySlug[p.slug] || { [p.lang]: p }, href = (l) => `${SITE}/blog/${l}/${encodeURIComponent(p.slug)}.html`;
+    const set = bySlug[groupKey(p)] || { [p.lang]: p }, href = (l) => `${SITE}/blog/${l}/${encodeURIComponent((set[l] && set[l].slug) || p.slug)}.html`;
     lines.push(`<url><loc>${href(p.lang)}</loc><lastmod>${new Date(day(p)).toISOString().slice(0, 10)}</lastmod>${Object.keys(set).map(l => xl(LG[l].html, href(l))).join("")}${xl("x-default", href(set.en ? "en" : p.lang))}</url>`);
   }
   for (const lang of STATIC_LANGS) {
@@ -402,20 +403,23 @@ else if (liveOnly.length) console.log(`build-blog-pages: ${liveOnly.length} live
 setIndexLangs(GATED_LANGS.filter(l => posts.some(p => p.lang === l)));
 if (fetched) fs.rmSync(OUT, { recursive: true, force: true });
 else console.log("build-blog-pages: fetch failed, leaving the existing blog pages in place");
+const slugSet = new Set(posts.map(p => p.slug));
+const groupKey = (p) => { const b = baseSlug(p.slug, p.lang); return b !== p.slug && slugSet.has(b) ? b : p.slug; };
 const urls = [], bySlug = {}, emitted = new Set(), emittedIndex = new Set();
-for (const p of posts) { (bySlug[p.slug] = bySlug[p.slug] || {})[p.lang] = p; }
+// <slug>-<lang> is the translation of <slug> (th keeps the English slug); the group key is the English slug, but only when that base exists as an article, so no URL changes and no false cluster appears
+for (const p of posts) { const k = groupKey(p); (bySlug[k] = bySlug[k] || {})[p.lang] = p; }
 if (!fetched) {
   // Offline, the th / en / zh page of the same article is on disk but not in `posts`; it still counts as a language of the article, or the x-default and the alternates of a source-file page (ja / ko / ru / hi / es / fr / ar) would be wrong; the kept th / en / zh page itself is given the alternates it lacks (addAlternates).
-  for (const p of posts) for (const l of Object.keys(LG)) if (!STATIC_LANGS.includes(l) && !bySlug[p.slug][l] && fs.existsSync(path.join(OUT, l, p.slug + ".html"))) bySlug[p.slug][l] = { lang: l, slug: p.slug, published: true };
+  for (const p of posts) { const k = groupKey(p); for (const l of Object.keys(LG)) { if (STATIC_LANGS.includes(l) || bySlug[k][l]) continue; const sl = l === "en" || l === "th" ? k : k + "-" + l; for (const cand of [k, sl]) if (fs.existsSync(path.join(OUT, l, cand + ".html"))) { bySlug[k][l] = { lang: l, slug: cand, published: true }; break; } } }
 }
 for (const p of posts) {
   if (!LG[p.lang] || !p.slug) continue;
-  const canon = `${SITE}/blog/${p.lang}/${encodeURIComponent(p.slug)}.html`, set = bySlug[p.slug];
+  const canon = `${SITE}/blog/${p.lang}/${encodeURIComponent(p.slug)}.html`, set = bySlug[groupKey(p)];
   const d = new Date(p.created_at).toISOString().slice(0, 10);
   fs.mkdirSync(path.join(OUT, p.lang), { recursive: true });
   fs.writeFileSync(path.join(OUT, p.lang, p.slug + ".html"), articleHtml(p, set, relatedPosts(posts, p)));
   emitted.add(p.lang + "/" + p.slug);
-  urls.push([canon, Object.keys(set).map(l => [LG[l].html, `${SITE}/blog/${l}/${encodeURIComponent(p.slug)}.html`]), d]);
+  urls.push([canon, Object.keys(set).map(l => [LG[l].html, `${SITE}/blog/${l}/${encodeURIComponent(set[l].slug || p.slug)}.html`]), d]);
 }
 for (const lang of Object.keys(LG)) {
   const list = posts.filter(p => p.lang === lang && p.slug);
@@ -445,7 +449,7 @@ if (!fetched) {
         const pa = patchArticle(h1, { lang, base: gateBase(lang, f.slice(0, -5)) });   // the preview cut, in place (idempotent: an earlier cut is removed first)
         h1 = setLdGate(pa.html, pa.state === "gated"); kept[pa.state] = (kept[pa.state] || 0) + 1;
         if (pa.state === "skipped") console.log("build-blog-pages: could not cut " + lang + "/" + f + " (" + pa.why + ")");
-        h1 = addAlternates(h1, f.slice(0, -5), bySlug[f.slice(0, -5)]);   // a translation added after this page was rendered: link to it (and it links back, see the pages written from blog-src)
+        h1 = addAlternates(h1, f.slice(0, -5), bySlug[baseSlug(f.slice(0, -5), lang)] || bySlug[f.slice(0, -5)]);   // a translation added after this page was rendered: link to it (and it links back, see the pages written from blog-src)
         if (h1 !== h0) fs.writeFileSync(fp, h1);
       }
     }
@@ -456,7 +460,7 @@ if (!fetched) {
 }
 if (!fetched) console.log("build-blog-pages: kept pages " + JSON.stringify(kept));
 const staticPosts = posts.filter(p => STATIC_LANGS.includes(p.lang));
-if (staticPosts.length) { fs.mkdirSync(OUT, { recursive: true }); fs.writeFileSync(path.join(OUT, "sitemap-static.xml"), staticSitemapXml(posts, bySlug)); }
+if (staticPosts.length) { fs.mkdirSync(OUT, { recursive: true }); fs.writeFileSync(path.join(OUT, "sitemap-static.xml"), staticSitemapXml(posts, bySlug, groupKey)); }
 const sm = path.join(ROOT, "sitemap.xml");
 if (urls.length && fs.existsSync(sm) && !process.env.BLOG_OUT && !process.env.BLOG_OFFLINE && !fs.readFileSync(sm, "utf8").includes("<sitemapindex")) {   // an offline patch run only knows the pages on disk (no dates, no alternates): it must not rewrite the sitemap. A sitemap index points at the ten sitemap-blog-<lang>.xml instead of copying each post.
   const add = urls.map(([u, alts, d]) => `<url><loc>${u}</loc>${d ? `<lastmod>${d}</lastmod>` : ""}${alts.map(([l, h]) => `<xhtml:link rel="alternate" hreflang="${l}" href="${h}"/>`).join("")}</url>`).join("\n");

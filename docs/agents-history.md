@@ -1241,3 +1241,6 @@ The first v3 dropped every `page:*` row and then needed it for the language, so 
 
 ## 2026-11-27 (afternoon) — old host fixed in 10 English articles; translation insert path
 See data/blog-translation/progress.md. The 10 stale English bodies were fixed (backup table blog_posts_backup_old_domain_2); supabase-blog-host-guard.sql waits for approval (the writer is outside the repo). Same-slug plan recorded, not executed. The Thai pilot got the stored promo block (cta.json + scripts/blog-translation-finalize.mjs), the checker verifies it, and the insert path is a GitHub Action that needs the secret SUPABASE_SERVICE_ROLE_KEY (nothing inserted yet).
+
+### 2026-11-28 - blog hreflang across `<slug>-<lang>` translations
+`<slug>-<lang>` is treated as the translation of `<slug>` (scripts/blog-paths.mjs `baseSlug`, `groupSlugs`, `sameGroup`), in the static builder and in `api/blog-page` (one `slug=in.(...)` query). Each hreflang points at its own slug; x-default is the English page; no live URL changed. A slug is stripped only when its suffix is its own language and the base exists. Insert script: non-th rows are stored as `<slug>-<lang>`. Limit: checked with a fixture and the blog smokes, not against the live DB; the language sitemaps (sitemap-blog-<lang>.xml) were not changed.

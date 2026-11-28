@@ -1,6 +1,6 @@
 # Blog translation progress (EN -> other languages)
 
-Updated 2026-11-27 (owner order 14:32).
+Updated 2026-11-28 (owner order 16:37 of 27 Nov, done).
 
 ## 1. Old host in English articles - DONE
 - 10 English articles written after the old-domain SQL held `https://tigaalpha.github.io/landing-en/`. Backed up in `public.blog_posts_backup_old_domain_2` (10 rows), updated in ONE transaction to `https://www.tigaalpha.com/landing-en/?utm_source=blog&utm_medium=seo&utm_campaign=<slug>`, read back: 10 fixed, none of the 10 still has the old host.
@@ -18,3 +18,11 @@ Updated 2026-11-27 (owner order 14:32).
 - INSERT IS BLOCKED: anon cannot write `blog_posts`, the sandbox cannot reach Supabase, the Supabase MCP takes SQL text only (a 20-article batch is ~400 KB of Thai: not practical in a chat call) and neither the `http` nor the `pg_net` extension exists. Built instead: `.github/workflows/blog-translation-insert.yml` + `scripts/blog-translation-insert.mjs` (<= 25 rows per run, only checked files, ON CONFLICT DO NOTHING). It needs the GitHub secret `SUPABASE_SERVICE_ROLE_KEY`.
 - Inserted so far: 0. Remaining Thai: 755 + the 20 pilot files waiting for insert.
 - Pipeline per wave: 4 agents x 5 articles -> `blog-translation-finalize.mjs th` -> `blog-translation-check.mjs th` -> commit.
+
+
+## Update 2026-11-28 (owner order 16:37)
+- Host guard APPLIED (owner-approved): `trg_blog_host_guard` + `blog_host_guard()`; probe-tested (old links rewritten, rolled back, 0 probe rows left).
+- The 90 old-host rows (10 each in ar es fr hi ja ko ru th zh) fixed in 4 transactions (25+25+25+15), originals in `public.blog_posts_backup_old_domain_3`; remaining old-host rows: 0.
+- hreflang: `<slug>-<lang>` is now the translation of `<slug>` (`baseSlug` / `groupSlugs` / `sameGroup` in `scripts/blog-paths.mjs`; used by `build-blog-pages.mjs` and the live renderer `blog-live.mjs`). Every alternate points at its own slug, x-default is the English page, no URL changed. The live page still costs one slug query (it now asks for the whole group with `slug=in.(...)`). Checked with a 5-language fixture (fr / th / de pages all list en th fr de zh-Hans + x-default, reciprocal) and the existing blog smokes.
+- Insert workflow: ran once (commit 130cce16): the 20 Thai pilot articles are inserted (`inserted-th.json`). Fixed in this round: non-th languages are stored as `<slug>-<lang>` (the queue rule), a missing English snapshot row is a clear error, the inputs go through env (no shell injection), lang / limit are validated.
+- Remaining Thai: 755. Next: waves of 4 agents x 5 articles, finalize, check, commit, then the Action (lang=th, limit=25).
