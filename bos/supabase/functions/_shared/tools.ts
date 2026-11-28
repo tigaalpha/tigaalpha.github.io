@@ -12,7 +12,7 @@ import { createLessonSummary } from "./lesson-summary.ts";
 import { push as linePush } from "./line.ts";
 import { attributeReferral } from "./referrals.ts";
 import { executeMarketingTool } from "./marketing-tools.ts";
-import { CHIEF_OF_STAFF_SLUG, departmentBySlug, DEPARTMENTS } from "./departments.ts";
+import { CHIEF_OF_STAFF_SLUG } from "./departments.ts";
 
 // ISO (UTC) → Bangkok local time for display in messages, e.g. "17:00".
 function formatLessonTime(iso: string): string {
@@ -586,6 +586,10 @@ export function translateDbError(error: unknown): string {
 // still letting the Chief of Staff command a target department's agent.
 export interface ExecuteToolDeps {
   delegate?: (targetSlug: string, directive: string) => Promise<Record<string, unknown>>;
+  // Chief of Staff only: create a new subordinate agent.
+  createAgent?: (args: { label: string; slug?: string; role: string; instructions?: string }) => Promise<Record<string, unknown>>;
+  // Departments only: talk upward to the Chief of Staff.
+  messageChief?: (message: string) => Promise<Record<string, unknown>>;
 }
 
 export async function executeTool(
@@ -1558,12 +1562,28 @@ export async function executeTool(
       const directive = String(args.directive ?? "").trim();
       if (!directive) return { error: "คำสั่งว่างเปล่า — ระบุ directive ที่ชัดเจน" };
       if (targetSlug === CHIEF_OF_STAFF_SLUG) return { error: "Chief of Staff ไม่สั่งงานตัวเองได้" };
-      const targetDept = departmentBySlug(targetSlug);
-      if (!targetDept) {
-        return { error: `ไม่พบแผนก "${targetSlug}" — แผนกที่มี: ${DEPARTMENTS.map((d) => d.slug).join(", ")}` };
-      }
       if (!deps.delegate) return { error: "ระบบส่งงานยังไม่พร้อม ลองใหม่อีกครั้ง" };
       return await deps.delegate(targetSlug, directive);
+    }
+
+    case "create_agent": {
+      const label = String(args.label ?? "").trim();
+      const role = String(args.role ?? "").trim();
+      if (!label || !role) return { error: "ต้องระบุชื่อเอเจนต์ (label) และหน้าที่ (role)" };
+      if (!deps.createAgent) return { error: "ตอนนี้สร้างเอเจนต์ไม่ได้ในแชทนี้" };
+      return await deps.createAgent({
+        label,
+        role,
+        slug: args.slug ? String(args.slug) : undefined,
+        instructions: args.instructions ? String(args.instructions) : undefined,
+      });
+    }
+
+    case "message_chief_of_staff": {
+      const message = String(args.message ?? "").trim();
+      if (!message) return { error: "ข้อความว่างเปล่า" };
+      if (!deps.messageChief) return { error: "ตอนนี้ส่งข้อความถึง Chief of Staff ไม่ได้ในแชทนี้" };
+      return await deps.messageChief(message);
     }
 
     default: {

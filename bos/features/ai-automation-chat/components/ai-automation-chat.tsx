@@ -17,6 +17,7 @@ import {
   Target,
   Loader2,
   Cpu,
+  Bot,
 } from "lucide-react";
 import { createClient } from "@/services/supabase/client";
 import { createRepositories } from "@/services/repositories";
@@ -34,6 +35,7 @@ interface Department {
   color: string;
   bg: string;
   systemPrompt: string;
+  custom?: boolean;
 }
 
 const DEPARTMENTS: Department[] = [
@@ -129,6 +131,41 @@ const DEPARTMENTS: Department[] = [
   },
 ];
 
+/* ── Agents created by the Chief of Staff ─────────────────────────────────
+   Stored by the ai-chat edge function in integration_settings under
+   custom_departments (JSON array of {slug,label,systemPrompt}). They are shown
+   after the built-in departments with a generic robot avatar. */
+const CUSTOM_DEPARTMENTS_KEY = "custom_departments";
+const CUSTOM_LOOKS: { color: string; bg: string }[] = [
+  { color: "text-cyan-500", bg: "bg-cyan-500" },
+  { color: "text-indigo-500", bg: "bg-indigo-500" },
+  { color: "text-rose-500", bg: "bg-rose-500" },
+  { color: "text-lime-600", bg: "bg-lime-600" },
+  { color: "text-fuchsia-500", bg: "bg-fuchsia-500" },
+  { color: "text-sky-500", bg: "bg-sky-500" },
+];
+
+function parseCustomDepartments(raw: string | null): Department[] {
+  if (!raw) return [];
+  try {
+    const list = JSON.parse(raw);
+    if (!Array.isArray(list)) return [];
+    const builtIn = new Set(DEPARTMENTS.map((d) => d.slug));
+    return list
+      .filter((d) => d && typeof d.slug === "string" && typeof d.label === "string" && !builtIn.has(d.slug))
+      .map((d, i) => ({
+        slug: d.slug as string,
+        label: d.label as string,
+        icon: Bot,
+        ...CUSTOM_LOOKS[i % CUSTOM_LOOKS.length]!,
+        systemPrompt: "",
+        custom: true,
+      }));
+  } catch {
+    return [];
+  }
+}
+
 /* ── Conversation helpers (Supabase) ─────────────────────────────────── */
 const DEPT_PREFIX = "dept:";
 
@@ -175,6 +212,26 @@ async function loadMessages(conversationId: string): Promise<Tables<"messages">[
   return data ?? [];
 }
 
+// functions.invoke wraps a non-2xx answer in an error whose message is only
+// "Edge Function returned a non-2xx status code" — read the real reason from
+// the response body so the owner sees what actually went wrong.
+async function describeInvokeError(error: unknown): Promise<string> {
+  const ctx = (error as { context?: unknown } | null)?.context;
+  if (ctx && typeof (ctx as Response).json === "function") {
+    const res = ctx as Response;
+    try {
+      const body = await res.clone().json();
+      const msg = typeof body?.error === "string" ? body.error : typeof body?.message === "string" ? body.message : "";
+      if (msg) return `${msg} (รหัส ${res.status})`;
+    } catch {
+      // fall through to the status line
+    }
+    if (res.status === 503 || res.status === 502) return `เซิร์ฟเวอร์ AI ยังไม่พร้อม (รหัส ${res.status}) — ลองใหม่อีกครั้งในอีกสักครู่`;
+    return `เซิร์ฟเวอร์ตอบกลับผิดพลาด (รหัส ${res.status})`;
+  }
+  return error instanceof Error ? error.message : "ส่งข้อความไม่สำเร็จ";
+}
+
 async function sendAiMessage(
   conversationId: string,
   message: string,
@@ -183,7 +240,7 @@ async function sendAiMessage(
   const { data, error } = await supabase().functions.invoke("ai-chat", {
     body: { conversationId, message, mode: "owner" },
   });
-  if (error) throw error;
+  if (error) throw new Error(await describeInvokeError(error));
   return data?.reply ?? "ขออภัย เกิดข้อผิดพลาดในการตอบกลับ";
 }
 
@@ -253,6 +310,9 @@ function ThreadView({
   onModelChange,
   savingModel,
   canDelegate,
+  error,
+  onDismissError,
+  deptLabels,
 }: {
   dept: Department;
   messages: Tables<"messages">[];
@@ -263,6 +323,9 @@ function ThreadView({
   onModelChange: (value: string) => void;
   savingModel: boolean;
   canDelegate: boolean;
+  error: string | null;
+  onDismissError: () => void;
+  deptLabels: Record<string, string>;
 }) {
   const [draft, setDraft] = useState("");
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -313,7 +376,7 @@ function ThreadView({
       {canDelegate && (
         <div className="shrink-0 border-b border-amber-200 bg-amber-50 px-4 py-2 text-center">
           <p className="text-[11px] leading-snug text-amber-800">
-            👑 <span className="font-semibold">Chief of Staff = CEO ของทุกแผนก</span> — พิมพ์คำสั่งที่นี่ เช่น “ให้การตลาดวางแผนแคมเปญเปิดเทอม” หรือ “สั่งกลยุทธ์วิเคราะห์คู่แข่ง” แล้วคำสั่งจะถูกส่งเข้าแชทของแผนกนั้นโดยอัตโนมัติ พร้อมสรุปผลกลับมาในแชทนี้
+            👑 <span className="font-semibold">Chief of Staff = CEO ของทุกแผนก</span> — พิมพ์คำสั่งที่นี่ เช่น “ให้การตลาดวางแผนแคมเปญเปิดเทอม” หรือ “สร้างเอเจนต์ดูแลรีวิวลูกค้า” แล้วคำสั่งจะถูกส่งเข้าแชทของแผนกนั้นโดยอัตโนมัติ ลูกน้องรายงานกลับมาในแชทนี้ได้เอง และสรุปผลให้คุณ
           </p>
         </div>
       )}
@@ -334,7 +397,14 @@ function ThreadView({
           // "ai". "owner" stays covered for staff replies sent from the
           // Inbox. Without this every bubble rendered left/white and the
           // owner couldn't tell their order from the department's reply.
-          const isOwner = msg.sender === "owner" || msg.sender === "customer";
+          //
+          // A message another agent wrote (metadata.fromDept — a command from
+          // the Chief of Staff, or a report from a subordinate) is shown on
+          // the left with a "from" tag instead, so the owner can follow the
+          // conversation between the agents.
+          const meta = (msg.metadata ?? null) as { fromDept?: string; fromLabel?: string } | null;
+          const fromAgent = typeof meta?.fromDept === "string" ? (meta.fromLabel ?? deptLabels[meta.fromDept] ?? meta.fromDept) : null;
+          const isOwner = !fromAgent && (msg.sender === "owner" || msg.sender === "customer");
           return (
             <div
               key={msg.id}
@@ -342,12 +412,17 @@ function ThreadView({
             >
               <div
                 className={cn(
-                  "max-w-[80%] rounded-2xl px-4 py-2.5 text-sm",
+                  "max-w-[80%] rounded-2xl px-4 py-2.5 text-sm whitespace-pre-wrap",
                   isOwner
                     ? "bg-blue-600 text-white rounded-br-md"
-                    : "bg-white text-gray-800 border border-gray-200 shadow-sm rounded-bl-md"
+                    : fromAgent
+                      ? "bg-amber-50 text-gray-800 border border-amber-200 shadow-sm rounded-bl-md"
+                      : "bg-white text-gray-800 border border-gray-200 shadow-sm rounded-bl-md"
                 )}
               >
+                {fromAgent && (
+                  <div className="mb-1 text-[10px] font-semibold text-amber-700">จาก {fromAgent}</div>
+                )}
                 {msg.content}
                 <div
                   className={cn(
@@ -375,6 +450,15 @@ function ThreadView({
         <div ref={bottomRef} />
       </div>
 
+      {error && (
+        <div className="shrink-0 border-t border-red-200 bg-red-50 px-4 py-2 flex items-start justify-between gap-3">
+          <p className="text-xs text-red-700">⚠️ ส่งข้อความไม่สำเร็จ: {error}</p>
+          <button onClick={onDismissError} className="shrink-0 text-xs text-red-500 hover:text-red-700">
+            ปิด
+          </button>
+        </div>
+      )}
+
       {/* Input */}
       <form onSubmit={handleSubmit} className="border-t border-gray-200 px-4 py-3 shrink-0 bg-white">
         <div className="flex gap-2">
@@ -384,7 +468,7 @@ function ThreadView({
             placeholder={
               canDelegate
                 ? `สั่งงาน ${dept.label} หรือสั่งให้ไปสั่งแผนกอื่น...`
-                : `พิมพ์ข้อความถึง ${dept.label}...`
+                : `สั่งงาน/พิมพ์ข้อความถึง ${dept.label}...`
             }
             className="min-h-[40px] max-h-[120px] resize-none bg-gray-50 border-gray-200 text-gray-900 placeholder:text-gray-400"
             onKeyDown={(e) => {
@@ -421,7 +505,42 @@ export function AiAutomationChat() {
   const [mobileShowThread, setMobileShowThread] = useState(false);
   const [chatModel, setChatModel] = useState(DEFAULT_CHAT_MODEL_ID);
   const [savingModel, setSavingModel] = useState(false);
-  const selectedDept = DEPARTMENTS.find((d) => d.slug === selectedSlug) ?? null;
+  const [sendError, setSendError] = useState<string | null>(null);
+  const [customDepts, setCustomDepts] = useState<Department[]>([]);
+  const departments = [...DEPARTMENTS, ...customDepts];
+  const deptLabels: Record<string, string> = Object.fromEntries(departments.map((d) => [d.slug, d.label]));
+  const selectedDept = departments.find((d) => d.slug === selectedSlug) ?? null;
+
+  // Agents the Chief of Staff created. Returns the fresh list so a caller that
+  // just sent a message can refresh the sidebar in the same step.
+  async function loadCustomDepartments(): Promise<Department[]> {
+    try {
+      const repos = createRepositories(createClient());
+      const list = parseCustomDepartments(await repos.integrations.get(CUSTOM_DEPARTMENTS_KEY));
+      setCustomDepts(list);
+      return list;
+    } catch {
+      return customDepts;
+    }
+  }
+
+  async function loadPreviews(list: Department[]) {
+    const results: Record<string, { text: string; time: string }> = {};
+    for (const dept of list) {
+      const conv = await findDeptConversation(dept.slug);
+      if (conv) {
+        const msgs = await loadMessages(conv.id);
+        const lastMsg = msgs[msgs.length - 1];
+        if (lastMsg) {
+          results[dept.slug] = {
+            text: lastMsg.content.slice(0, 80),
+            time: formatTime(lastMsg.created_at),
+          };
+        }
+      }
+    }
+    setLastMessages(results);
+  }
 
   // Load the model the whole AI Automation system currently runs on
   // (same `ai_chat_model` setting the ai-chat edge function reads).
@@ -447,24 +566,10 @@ export function AiAutomationChat() {
 
   useEffect(() => {
     (async () => {
-      const results: Record<string, { text: string; time: string }> = {};
-      for (const dept of DEPARTMENTS) {
-        const conv = await findDeptConversation(dept.slug);
-        if (conv) {
-          const msgs = await loadMessages(conv.id);
-          if (msgs.length > 0) {
-            const lastMsg = msgs[msgs.length - 1];
-            if (lastMsg) {
-              results[dept.slug] = {
-                text: lastMsg.content.slice(0, 80),
-                time: formatTime(lastMsg.created_at),
-              };
-            }
-          }
-        }
-      }
-      setLastMessages(results);
+      const customs = await loadCustomDepartments();
+      await loadPreviews([...DEPARTMENTS, ...customs]);
     })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Chief of Staff can command every other department — show a hint so the
@@ -474,6 +579,7 @@ export function AiAutomationChat() {
 
   async function selectDept(slug: string) {
     setSelectedSlug(slug);
+    setSendError(null);
     setMobileShowThread(true);
     const conv = await getDeptConversation(slug);
     setConvId(conv.id);
@@ -484,47 +590,44 @@ export function AiAutomationChat() {
   async function handleSend(text: string) {
     if (!convId || !selectedDept) return;
     setSending(true);
+    setSendError(null);
+    // Show the owner's own message straight away (the edge function only saves
+    // it once it starts answering, so a failed call used to leave nothing on
+    // screen at all).
+    const pendingId = `pending-${Date.now()}`;
+    setMessages((prev) => [
+      ...prev,
+      {
+        id: pendingId,
+        conversation_id: convId,
+        sender: "customer",
+        content: text,
+        created_at: new Date().toISOString(),
+        metadata: null,
+      } as Tables<"messages">,
+    ]);
     try {
       await sendAiMessage(convId, text, selectedDept);
-      const updatedMsgs = await loadMessages(convId);
-      setMessages(updatedMsgs);
-      setLastMessages((prev) => ({
-        ...prev,
-        [selectedDept.slug]: {
-          text: text.slice(0, 80),
-          time: "เมื่อสักครู่",
-        },
-      }));
+    } catch (error) {
+      setSendError(error instanceof Error ? error.message : "ส่งข้อความไม่สำเร็จ");
+    }
+    try {
+      setMessages(await loadMessages(convId));
     } catch {
-      // Silently handle errors
+      // keep what is on screen
     }
     setSending(false);
-    // Refresh the sidebar preview so a delegated reply that landed in another
-    // department's chat shows up there too.
+    // Refresh the sidebar: a delegated reply may have landed in another
+    // department's chat, and the Chief of Staff may have created a new agent.
     try {
-      const results: Record<string, { text: string; time: string }> = {};
-      for (const dept of DEPARTMENTS) {
-        const conv = await findDeptConversation(dept.slug);
-        if (conv) {
-          const msgs = await loadMessages(conv.id);
-          if (msgs.length > 0) {
-            const lastMsg = msgs[msgs.length - 1];
-            if (lastMsg) {
-              results[dept.slug] = {
-                text: lastMsg.content.slice(0, 80),
-                time: formatTime(lastMsg.created_at),
-              };
-            }
-          }
-        }
-      }
-      setLastMessages(results);
+      const customs = await loadCustomDepartments();
+      await loadPreviews([...DEPARTMENTS, ...customs]);
     } catch {
       // previews are best-effort
     }
   }
 
-  const filteredDepts = DEPARTMENTS.filter((d) =>
+  const filteredDepts = departments.filter((d) =>
     !query.trim()
       ? true
       : d.label.toLowerCase().includes(query.toLowerCase()) ||
@@ -624,6 +727,9 @@ export function AiAutomationChat() {
             onModelChange={(v) => void changeChatModel(v)}
             savingModel={savingModel}
             canDelegate={isChiefOfStaff}
+            error={sendError}
+            onDismissError={() => setSendError(null)}
+            deptLabels={deptLabels}
           />
         ) : (
           <div className="flex flex-col items-center justify-center h-full text-center bg-gray-50">

@@ -17,7 +17,7 @@
 
 import type { SupabaseClient } from "jsr:@supabase/supabase-js@2";
 import { createPayment, confirmPayment } from "./payments.ts";
-import { recordRevenue } from "./revenue.ts";
+import { recordRevenue as recordRevenueEntry } from "./revenue.ts";
 import { approveKbDraft } from "./kb-drafts.ts";
 
 const HELP_TEXT = [
@@ -182,7 +182,7 @@ async function recordRevenue(admin: SupabaseClient, name: string, amount: number
   if (customers.length > 1) return `พบลูกค้าหลายคนชื่อ "${name}" — พิมพ์ชื่อให้ละเอียดขึ้น`;
 
   const customer = customers[0] as { id: string; name: string; line_user_id?: string | null; sales_status: string };
-  const result = await recordRevenue(admin, { customerId: customer.id, amount, date: dateStr, source: "LINE Command Center" });
+  const result = await recordRevenueEntry(admin, { customerId: customer.id, amount, date: dateStr, source: "LINE Command Center" });
   return `บันทึกแล้ว: ${customer.name} ${fmtMoney(amount)} (${dateStr ?? "วันนี้"}) อ้างอิง ${result.reference} — ตัดเป็นรายได้และอัปเดต pipeline เรียบร้อย`;
 }
 

@@ -2,7 +2,7 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createAdminClient } from "../_shared/supabase-admin.ts";
 import { requireStaff } from "../_shared/auth.ts";
 import { respond } from "../_shared/chat-core.ts";
-import { departmentBySlug } from "../_shared/departments.ts";
+import { findDepartment } from "../_shared/departments.ts";
 import { jsonResponse, handleOptions } from "../_shared/cors.ts";
 import { enforceRateLimit, RateLimitError } from "../_shared/rate-limit.ts";
 import { ModelUnavailableError } from "../_shared/openai-compatible.ts";
@@ -53,7 +53,7 @@ Deno.serve(async (req: Request) => {
         .maybeSingle();
       const tag = convRow?.line_user_id;
       if (typeof tag === "string" && tag.startsWith("dept:")) {
-        department = departmentBySlug(tag.slice("dept:".length)) ?? undefined;
+        department = (await findDepartment(admin, tag.slice("dept:".length))) ?? undefined;
       }
     }
 

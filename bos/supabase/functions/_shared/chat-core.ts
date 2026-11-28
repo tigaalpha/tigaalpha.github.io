@@ -2,7 +2,21 @@ import type { SupabaseClient } from "npm:@supabase/supabase-js@2";
 import { generate } from "./ai-provider.ts";
 import type { ChatMessage, ToolDefinition } from "./ai-types.ts";
 import { buildSystemPrompt, type PromptName } from "./prompts.ts";
-import { CHIEF_OF_STAFF_SLUG, DELEGATE_TO_DEPARTMENT_TOOL, departmentBySlug, type DepartmentDef } from "./departments.ts";
+import {
+  CHIEF_OF_STAFF_SLUG,
+  CREATE_AGENT_TOOL,
+  CUSTOM_DEPARTMENTS_KEY,
+  MAX_CUSTOM_DEPARTMENTS,
+  MESSAGE_CHIEF_TOOL,
+  allDepartments,
+  buildDelegateTool,
+  departmentBySlug,
+  loadCustomDepartments,
+  normalizeSlug,
+  personaForCustomAgent,
+  rosterPrompt,
+  type DepartmentDef,
+} from "./departments.ts";
 import { detectLanguage, LANG_INSTRUCTION } from "./chat-features.ts";
 import { AI_TOOLS, OWNER_TOOLS, ALL_OWNER_TOOLS, executeTool, translateDbError } from "./tools.ts";
 import { getLatestCompetitorContext } from "./competitor-context.ts";
@@ -15,28 +29,24 @@ import { refreshLeadScore } from "./lead-score-db.ts";
 const MAX_TOOL_ITERATIONS = 4;
 const RECENT_MESSAGE_LIMIT = 12;
 
-// Chief of Staff → department delegation. Delivers the CoS directive into
-// the target department's own conversation (creating it on first use, same
-// "dept:<slug>" tagging the AI Automation Chat page uses), runs that
-// department's agent on it synchronously, and leaves a visible trail in BOTH
-// threads: the directive appears in the department chat, and the department's
-// reply is appended there too. Returns a compact result the CoS model reads
-// as its tool output. Depth guard stops a department from chaining
-// delegation onward (only the CoS even has the tool, but this protects
-// against prompt-injected tool definitions).
-async function delegateDirective(
-  db: SupabaseClient,
-  targetSlug: string,
-  directive: string,
-  depth: number = 0
-): Promise<Record<string, unknown>> {
-  if (depth > 0) return { error: "ไม่อนุญาตให้แผนกส่งงานต่อไปยังแผนกอื่น" };
-  const dept = departmentBySlug(targetSlug);
-  if (!dept || targetSlug === CHIEF_OF_STAFF_SLUG) {
-    return { error: `สั่งงานแผนก "${targetSlug}" ไม่ได้` };
-  }
-
-  const tag = `dept:${targetSlug}`;
+// ── AI Automation: Chief of Staff ⇄ departments ─────────────────────────────
+//
+// Downward: the Chief of Staff commands a department (delegateDirective) — the
+// directive is delivered into that department's own conversation (created on
+// first use, "dept:<slug>" tagging, same as the AI Automation Chat page), the
+// department's agent answers it synchronously, and both threads keep the trail.
+//
+// Upward: a department talks to the Chief of Staff (messageChiefOfStaff) — the
+// message lands in the Chief of Staff's conversation, the Chief of Staff's agent
+// answers it, and that answer is returned to the department as its tool result.
+//
+// Cycle guard: `depth` counts nested agent runs. The Chief of Staff only has
+// delegate_to_department / create_agent at depth 0, and a department only has
+// message_chief_of_staff at depth <= 1, so a delegated department can report
+// back once and the nested Chief of Staff answers without commanding anyone —
+// no run can chain into itself.
+async function deptConversationId(db: SupabaseClient, slug: string): Promise<string | null> {
+  const tag = `dept:${slug}`;
   const { data: existing } = await db
     .from("conversations")
     .select("id")
@@ -45,26 +55,44 @@ async function delegateDirective(
     .order("updated_at", { ascending: false })
     .limit(1)
     .maybeSingle();
-  let convId = existing?.id as string | undefined;
-  if (!convId) {
-    const { data: created, error: createErr } = await db
-      .from("conversations")
-      .insert({ channel: "internal", line_user_id: tag })
-      .select("id")
-      .single();
-    if (createErr) return { error: "สร้างแชทของแผนกไม่สำเร็จ" };
-    convId = created.id;
+  if (existing?.id) return existing.id as string;
+  const { data: created, error } = await db
+    .from("conversations")
+    .insert({ channel: "internal", line_user_id: tag })
+    .select("id")
+    .single();
+  if (error || !created) return null;
+  return created.id as string;
+}
+
+const OWNER_CONTEXT: PromptName[] = ["owner", "sales", "booking", "knowledge"];
+
+async function delegateDirective(
+  db: SupabaseClient,
+  targetSlug: string,
+  directive: string,
+  depth: number = 0
+): Promise<Record<string, unknown>> {
+  if (depth > 0) return { error: "ไม่อนุญาตให้แผนกส่งงานต่อไปยังแผนกอื่น" };
+  const all = await allDepartments(db);
+  const dept = all.find((d) => d.slug === targetSlug);
+  if (!dept || targetSlug === CHIEF_OF_STAFF_SLUG) {
+    return {
+      error: `สั่งงานแผนก "${targetSlug}" ไม่ได้ — แผนกที่สั่งได้: ${all.filter((d) => d.slug !== CHIEF_OF_STAFF_SLUG).map((d) => d.slug).join(", ")}`,
+    };
   }
 
+  const convId = await deptConversationId(db, targetSlug);
+  if (!convId) return { error: "สร้างแชทของแผนกไม่สำเร็จ" };
+
   try {
-    const result = await respond(
-      db,
-      convId,
-      `[คำสั่งจาก Chief of Staff] ${directive}\n\n(ปฏิบัติภารกิจนี้ตามหน้าที่ของแผนก สรุปผล ข้อเสนอ หรือสิ่งที่ต้องตัดสินใจเป็นข้อความเดียว กระชับ ชัดเจน)`,
-      ["owner", "sales", "booking", "knowledge"],
-      null,
-      { department: dept }
-    );
+    const result = await respond(db, convId, `[คำสั่งจาก Chief of Staff] ${directive}`, OWNER_CONTEXT, null, {
+      department: dept,
+      depth: depth + 1,
+      inboundMeta: { fromDept: CHIEF_OF_STAFF_SLUG, fromLabel: "Chief of Staff" },
+      extraInstruction:
+        "ข้อความล่าสุดเป็นคำสั่งจาก Chief of Staff ให้ปฏิบัติภารกิจนี้ตามหน้าที่ของแผนกทันที แล้วสรุปผล ข้อเสนอ หรือสิ่งที่ต้องตัดสินใจเป็นข้อความเดียว กระชับ ชัดเจน",
+    });
     return {
       department: dept.label,
       reply: result.reply,
@@ -74,6 +102,73 @@ async function delegateDirective(
   } catch (error) {
     return { department: dept.label, error: error instanceof Error ? error.message : "ส่งงานไม่สำเร็จ" };
   }
+}
+
+async function messageChiefOfStaff(
+  db: SupabaseClient,
+  from: DepartmentDef,
+  message: string,
+  depth: number
+): Promise<Record<string, unknown>> {
+  const cos = departmentBySlug(CHIEF_OF_STAFF_SLUG);
+  if (!cos || from.slug === CHIEF_OF_STAFF_SLUG) return { error: "ส่งข้อความถึง Chief of Staff ไม่ได้" };
+  const convId = await deptConversationId(db, CHIEF_OF_STAFF_SLUG);
+  if (!convId) return { error: "เปิดแชทของ Chief of Staff ไม่สำเร็จ" };
+  try {
+    const result = await respond(db, convId, `[รายงานจาก ${from.label}] ${message}`, OWNER_CONTEXT, null, {
+      department: cos,
+      depth: depth + 1,
+      inboundMeta: { fromDept: from.slug, fromLabel: from.label },
+      extraInstruction:
+        `ข้อความล่าสุดเป็นรายงานหรือคำถามจากลูกน้องของคุณ (${from.label}) ตอบกลับสั้น ตรงประเด็น ชัดเจนว่าให้ทำอะไรต่อ — ในรอบนี้คุณสั่งงานแผนกอื่นหรือสร้างเอเจนต์ไม่ได้ ถ้าต้องสั่งต่อให้บอกเจ้าของในแชทของคุณ`,
+    });
+    return { from: "Chief of Staff", reply: result.reply, note: "ข้อความถูกบันทึกในแชทของ Chief of Staff แล้ว" };
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : "ส่งข้อความถึง Chief of Staff ไม่สำเร็จ" };
+  }
+}
+
+async function createAgent(
+  db: SupabaseClient,
+  args: { label: string; slug?: string; role: string; instructions?: string }
+): Promise<Record<string, unknown>> {
+  const label = args.label.trim().slice(0, 30);
+  const custom = await loadCustomDepartments(db);
+  if (custom.length >= MAX_CUSTOM_DEPARTMENTS) {
+    return { error: `สร้างเอเจนต์ได้สูงสุด ${MAX_CUSTOM_DEPARTMENTS} ตัวแล้ว` };
+  }
+  const all = await allDepartments(db);
+  const sameLabel = all.find((d) => d.label.trim().toLowerCase() === label.toLowerCase());
+  if (sameLabel) {
+    return { error: `มีแผนก/เอเจนต์ชื่อ "${sameLabel.label}" อยู่แล้ว (slug: ${sameLabel.slug}) สั่งงานได้เลยด้วย delegate_to_department` };
+  }
+  let slug = normalizeSlug(args.slug ?? "");
+  if (!slug) slug = `agent_${Date.now().toString(36)}`;
+  if (all.some((d) => d.slug === slug)) slug = `${slug.slice(0, 24)}_${Date.now().toString(36).slice(-4)}`;
+
+  const dept: DepartmentDef = {
+    slug,
+    label,
+    systemPrompt: personaForCustomAgent(label, args.role.trim(), (args.instructions ?? "").trim()),
+    custom: true,
+  };
+  const stored = [...custom, dept].map((d) => ({
+    slug: d.slug,
+    label: d.label,
+    systemPrompt: d.systemPrompt,
+    createdAt: new Date().toISOString(),
+  }));
+  const { error } = await db
+    .from("integration_settings")
+    .upsert({ key: CUSTOM_DEPARTMENTS_KEY, value: JSON.stringify(stored) }, { onConflict: "key" });
+  if (error) return { error: "บันทึกเอเจนต์ใหม่ไม่สำเร็จ" };
+  await deptConversationId(db, slug);
+  return {
+    created: true,
+    slug,
+    label,
+    note: `สร้างเอเจนต์ "${label}" แล้ว (slug: ${slug}) — มีแชทของตัวเองในหน้า AI Automation Chat สั่งงานต่อได้ทันทีด้วย delegate_to_department`,
+  };
 }
 
 // FAQ answers (pricing, hours) can change, so a cached reply isn't reused forever.
@@ -181,6 +276,14 @@ function hasBannedPhrase(content: string): boolean {
 // — for the Chief of Staff only — gains the delegate_to_department tool.
 export interface RespondOptions {
   department?: DepartmentDef;
+  // Nested agent-run depth (0 = a human started this turn). See the cycle
+  // guard note above delegateDirective.
+  depth?: number;
+  // Metadata stored on the inbound message (who it came from) so the chat page
+  // can label a command from the Chief of Staff or a report from a department.
+  inboundMeta?: Record<string, unknown>;
+  // Extra system instruction for this turn only.
+  extraInstruction?: string;
 }
 
 export async function respond(
@@ -233,7 +336,12 @@ export async function respond(
     }
   }
 
-  await db.from("messages").insert({ conversation_id: conversationId, sender: "customer", content: customerMessage });
+  await db.from("messages").insert({
+    conversation_id: conversationId,
+    sender: "customer",
+    content: customerMessage,
+    ...(options.inboundMeta ? { metadata: options.inboundMeta } : {}),
+  });
 
   const { data: conversation } = await db.from("conversations").select("summary, customer_id, channel").eq("id", conversationId).single();
 
@@ -298,12 +406,20 @@ export async function respond(
   // `boundCustomerId === null` gate would wrongly expose owner tools).
   const tools = conversation?.channel === "internal" ? [...AI_TOOLS, ...ALL_OWNER_TOOLS] : [...AI_TOOLS];
 
-  // Chief of Staff authority: only the chief_of_staff department conversation
-  // can command other departments (see departments.ts for why the reverse is
-  // never allowed — delegation flows downward only, so a department agent can
-  // never loop delegation back to the CoS or recurse into itself).
+  // AI Automation hierarchy (see the note above delegateDirective): only the
+  // Chief of Staff (and only on a turn a human started) can command other
+  // departments and create agents; every other department can talk upward to
+  // the Chief of Staff, once, from a human-started or CoS-started turn.
+  const depth = options.depth ?? 0;
+  let rosterText: string | null = null;
   if (options.department?.slug === CHIEF_OF_STAFF_SLUG) {
-    tools.push(DELEGATE_TO_DEPARTMENT_TOOL as unknown as ToolDefinition);
+    const roster = await allDepartments(db);
+    rosterText = rosterPrompt(roster);
+    if (depth === 0) {
+      tools.push(buildDelegateTool(roster) as unknown as ToolDefinition, CREATE_AGENT_TOOL as unknown as ToolDefinition);
+    }
+  } else if (options.department && depth <= 1) {
+    tools.push(MESSAGE_CHIEF_TOOL as unknown as ToolDefinition);
   }
 
   // Fetch the most recent RECENT_MESSAGE_LIMIT messages (descending so the
@@ -321,6 +437,13 @@ export async function respond(
   // generic owner-assistant prompt; everything layered on top (summary,
   // policies, playbook, language) still applies to them.
   const systemParts = [options.department ? options.department.systemPrompt : buildSystemPrompt(promptContext)];
+  if (rosterText) systemParts.push(rosterText);
+  if (options.department && options.department.slug !== CHIEF_OF_STAFF_SLUG && depth <= 1) {
+    systemParts.push(
+      "หัวหน้าของคุณคือ Chief of Staff — ถ้าต้องการรายงานผลงาน ถามคำถาม ขอข้อมูล หรือให้ช่วยตัดสินใจ ให้ใช้เครื่องมือ message_chief_of_staff แล้วนำคำตอบมาใช้ต่อ"
+    );
+  }
+  if (options.extraInstruction) systemParts.push(options.extraInstruction);
   if (conversation?.summary) {
     systemParts.push(`Summary of earlier messages in this conversation (not repeated below):\n${conversation.summary}`);
   }
@@ -559,7 +682,12 @@ export async function respond(
 
     for (const call of result.message.toolCalls) {
       const toolResult = await executeTool(call, db, activeCustomerId, callerId, {
-        delegate: (targetSlug, directive) => delegateDirective(db, targetSlug, directive, 0),
+        delegate: (targetSlug, directive) => delegateDirective(db, targetSlug, directive, depth),
+        createAgent: depth === 0 && options.department?.slug === CHIEF_OF_STAFF_SLUG ? (args) => createAgent(db, args) : undefined,
+        messageChief:
+          options.department && options.department.slug !== CHIEF_OF_STAFF_SLUG && depth <= 1
+            ? (message) => messageChiefOfStaff(db, options.department as DepartmentDef, message, depth)
+            : undefined,
       }).catch((error: unknown) => ({
         // A raw Postgres error (has a .code) is translated to a plain Thai
         // message before it ever reaches the model -- confirmed in
